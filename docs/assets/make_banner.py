@@ -113,6 +113,16 @@ EDGES = cKDTree(np.vstack([np.vstack([np.linspace(p, q, 8, endpoint=False)
                            for poly in [*MASK_PARTS, *EYES]]))
 
 
+SIDE_LEFT, SIDE_RIGHT = (40, 180), (660, 820)   # where the mask meets the sides of the face
+
+
+def side_weight(x):
+    """1 at the mask's left end and around the knot, easing to 0 between."""
+    left = np.clip((170 - x) / 80, 0, 1)
+    right = np.exp(-((x - 740) / 55) ** 2)
+    return np.clip(left + right, 0, 1)
+
+
 def mask_distance(x, y):
     """Signed distance (px) to the mask's nearest edge: positive on the
     cloth, negative outside it or in an eyehole."""
@@ -189,6 +199,7 @@ def raster(spike_mask):
     extra = np.random.default_rng(8)       # the mask's own spikes, so the head is the same
     edge, patches = field(41, 40), field(42, 70)
     ragged = field(43, 12)                 # wobble of the mask's edge
+    frayed = field(44, 22)                 # coarser, bigger wobble at its ends
     ticks = {c: [] for c in [g[2] for g in GREENS]}
 
     def tick(colour, x, yy, r):
@@ -232,13 +243,19 @@ def raster(spike_mask):
         # wobbles (a smooth random offset), the rate thins out over the last
         # few px of cloth, and spikes spill past it into a fading halo.
         centres = extra.uniform(0, W, extra.poisson(0.62 * W))
+        # Extra bursts where the mask meets the sides of the face.
+        centres = np.concatenate([centres, extra.uniform(*SIDE_LEFT, extra.poisson(0.5 * 140)),
+                                  extra.uniform(*SIDE_RIGHT, extra.poisson(0.5 * 160))])
         sizes = extra.geometric(0.45, len(centres))
         mx = np.concatenate([c + np.cumsum(extra.exponential(1.4, k))
                              for c, k in zip(centres, sizes, strict=True)])
         mx = mx[(mx > 0) & (mx < W)]
         in_eye = inside(EYES, mx, yr)
-        d = mask_distance(mx, yr) + 2.0 * ragged(mx, yr) + extra.normal(0, 0.8, len(mx))
-        halo = np.where(in_eye, 0.12, 0.35) * np.exp(d / 2.5)   # eyes stay clearer
+        side = side_weight(mx)                 # 0 mid-mask, 1 at its left and right ends
+        d = (mask_distance(mx, yr) + 2.0 * ragged(mx, yr) + 7.0 * side * frayed(mx, yr)
+             + extra.normal(0, 0.8 + 2.5 * side, len(mx)))
+        spread = 2.5 + 6.0 * side              # how far spikes spill past the edge
+        halo = np.where(in_eye, 0.12, 0.35 + 0.25 * side) * np.exp(d / spread)   # eyes stay clearer
         rate = np.where(d > 0, (0.85 + 0.15 * patches(mx, yr + 500)) * (1 - 0.45 * np.exp(-d / 2.5)),
                         halo)
         on = extra.random(len(mx)) < np.clip(rate, 0, 1)
