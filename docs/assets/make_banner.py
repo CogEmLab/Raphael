@@ -242,17 +242,26 @@ def traces(spike_mask):
                            'stroke-linejoin="round"/>')
 
     xs = np.linspace(0, W, 600)
-    for yy, seed in [(105, 21), (262, 22)]:
-        draw(xs, yy + 6 * np.exp(-xs / 300) + smooth_noise(len(xs), 18, 260, seed),
-             PHOTOMETRY, 0.3, 2.5)
+    # Fibre photometry: slow fluctuations with a gentle bleaching decay.
+    # (y, seed, smoothness, amplitude, opacity)
+    for yy, seed, width, amp, opacity in [
+            (38, 23, 22, 200, 0.22), (105, 21, 18, 260, 0.3), (178, 24, 14, 180, 0.25),
+            (262, 22, 18, 260, 0.3), (318, 25, 24, 220, 0.24), (392, 26, 16, 200, 0.22)]:
+        draw(xs, yy + 6 * np.exp(-xs / 300) + smooth_noise(len(xs), width, amp, seed),
+             PHOTOMETRY, opacity, 2.5)
+    # dF/F: calcium-like transients, fast rise and slow decay.
+    # (y, seed, transients, opacity)
     xs = np.linspace(0, W, 1200)
-    for yy, seed in [(150, 31), (205, 32), (250, 33)]:
+    for yy, seed, n, opacity in [
+            (68, 34, 5, 0.38), (150, 31, 6, 0.45), (205, 32, 6, 0.45), (250, 33, 6, 0.45),
+            (290, 35, 7, 0.4), (345, 36, 5, 0.38), (372, 37, 6, 0.35), (420, 38, 5, 0.32)]:
         r = np.random.default_rng(seed)
         y = r.normal(0, 0.5, len(xs))
-        for onset in r.uniform(0, W, 6):
+        for onset in r.uniform(0, W, n):
             dt = np.clip(xs - onset, 0, None)
-            y -= r.uniform(22, 40) * (1 - np.exp(-dt / 2.0)) * np.exp(-dt / 45) * (xs > onset)
-        draw(xs, yy + y, DFF, 0.45, 2.4)
+            y -= r.uniform(18, 40) * (1 - np.exp(-dt / 2.0)) * np.exp(-dt / r.uniform(30, 60)) \
+                * (xs > onset)
+        draw(xs, yy + y, DFF, opacity, 2.2)
     return out
 
 
