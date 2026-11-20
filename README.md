@@ -65,8 +65,23 @@ uv add "raphael[gpu] @ git+https://github.com/HDClark94/Raphael" --tag v0.1.0
 uv sync --frozen --extra gpu        # leave out --extra gpu on a laptop that never sorts
 ```
 
-`uv add` writes the pin into the project's `pyproject.toml` and `uv.lock`;
-commit both. Everyone else on the project then needs only:
+The project must require **Python 3.11 exactly**, as Raphael does (Kilosort
+4.0.16 needs it). `uv init` writes `>=3.11`, which uv then refuses to
+resolve, so set this first:
+
+```toml
+requires-python = "==3.11.*"
+```
+
+`uv add` writes the pin into the project's `pyproject.toml` (as below) and
+the exact commit into `uv.lock`; commit both.
+
+```toml
+dependencies = ["raphael[gpu]"]
+
+[tool.uv.sources]
+raphael = { git = "https://github.com/HDClark94/Raphael", tag = "v0.1.0" }
+``` Everyone else on the project then needs only:
 
 ```bash
 git clone <project>
