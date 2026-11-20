@@ -123,6 +123,13 @@ def side_weight(x):
     return np.clip(left + right, 0, 1)
 
 
+def left_cheek(x):
+    """Thinner red between the left eye and the left side of the face:
+    0.55 across it, easing back to 1 at both ends."""
+    u = np.clip((x - 50) / 60, 0, 1) * np.clip((235 - x) / 50, 0, 1)
+    return 1 - 0.45 * u * u * (3 - 2 * u)
+
+
 def mask_distance(x, y):
     """Signed distance (px) to the mask's nearest edge: positive on the
     cloth, negative outside it or in an eyehole."""
@@ -258,6 +265,7 @@ def raster(spike_mask):
         halo = np.where(in_eye, 0.12, 0.35 + 0.25 * side) * np.exp(d / spread)   # eyes stay clearer
         rate = np.where(d > 0, (0.85 + 0.15 * patches(mx, yr + 500)) * (1 - 0.45 * np.exp(-d / 2.5)),
                         halo)
+        rate = np.where(d > 0, rate * left_cheek(mx), rate)
         on = extra.random(len(mx)) < np.clip(rate, 0, 1)
         shade = red_at((yr - top) / (bottom - top))
         for x in mx[on]:
