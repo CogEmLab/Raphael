@@ -809,3 +809,52 @@ def lfp_stage(ctx):
     _write_json(ctx.outputs / 'lfp_summary.json', {'n_jobs': n_jobs, 'lfp': lfp,
                                                    'sessions': rows})
 
+
+
+def _photometry_check(params, inputs=()):
+    n = len(inputs)
+    if n == 0:
+        raise JobError('photometry needs at least one .doric file: make --input ...')
+    if any(not str(i).endswith('.doric') for i in inputs):
+        raise JobError('photometry inputs must be .doric files, one per session')
+    types = params.get('session_type', 'test' if n == 1 else None)
+    types = types if isinstance(types, list) else [types] * (1 if n == 1 else 0)
+    if len(types) != n or len(set(map(str, types))) != n:
+        raise JobError(f'session_type needs one distinct value per input ({n}), in input order: '
+                       "make --param 'session_type=[..., ...]'")
+    starts = params.get('session_start')
+    if starts is not None and (not isinstance(starts, list) or len(starts) != n) and n > 1:
+        raise JobError('session_start, if given, needs one value per input')
+    return list(map(str, types))
+
+
+@stage('photometry', check=_photometry_check)
+def photometry_stage(ctx):
+    """Fibre photometry (Doric) -> per session: _photometry.nwb, .npz, .csv
+    and QC, in ctx.outputs (processed tree). A CPU job: make --cpu.
+
+    inputs: one .doric file per session. params: session_type (one per
+    input), mouse, day (default test/0), subject (dict), session_start
+    (optional; else read from the file), channels and processing (dicts
+    overriding photometry.yaml's)."""
+    from raphael.imaging.suite2p import _deep_update
+    from raphael.photometry.layout import (
+        DEFAULT_CONFIG,
+        Session,
+        load_settings,
+    )
+    from raphael.photometry.run import process_file
+
+    p = ctx.params
+    config = ctx.config / 'photometry.yaml'
+    settings = load_settings(config if config.exists() else DEFAULT_CONFIG)
+    settings = _deep_update(settings, {k: p[k] for k in ('channels', 'processing') if k in p})
+    types = _photometry_check(p, ctx.inputs)
+    starts = p.get('session_start')
+    starts = starts if isinstance(starts, list) else [starts] * len(ctx.inputs)
+    rows = []
+    for path, session_type, start in zip(ctx.inputs, types, starts, strict=True):
+        session = Session(str(p.get('mouse', 'test')), str(p.get('day', '0')), session_type)
+        rows.append(process_file(path, ctx.outputs, session, settings, subject=p.get('subject'),
+                                 start_time=start, notes={'job': ctx.job_dir.name}))
+    _write_json(ctx.outputs / 'photometry_summary.json', {'sessions': rows})

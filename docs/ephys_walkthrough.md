@@ -101,7 +101,7 @@ files, and the job refuses to be made without the first two:
 | subject | `subject={age: P90D, sex: F, genotype: ...}` | for DANDI |
 
 Times without a UTC offset are read as Vienna time (`nwb.timezone` in
-[configs/ephys.yaml](../configs/ephys.yaml)).
+[configs/ephys.yaml](../src/raphael/configs/ephys.yaml)).
 
 ## 1. Make a job bundle (laptop)
 

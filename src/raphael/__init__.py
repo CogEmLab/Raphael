@@ -7,4 +7,4 @@ run the heavy stages on a cluster (`cluster`). Project repositories depend
 on this package and keep their own data conversion, behaviour and figures.
 """
 
-__version__ = '0.1.0'
+__version__ = '0.2.0'

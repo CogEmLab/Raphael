@@ -74,7 +74,7 @@ in the NWB file, and the job refuses to start without the first two:
 | subject | `subject={age: P84D, sex: M, genotype: ...}` | needed for DANDI |
 
 Times without a UTC offset are read as Vienna time (`nwb.timezone` in
-[configs/imaging.yaml](../configs/imaging.yaml)). `age` is an ISO 8601
+[configs/imaging.yaml](../src/raphael/configs/imaging.yaml)). `age` is an ISO 8601
 duration (`P84D` = 84 days); `date_of_birth` can be given instead.
 
 Raw data lives under a **data root**, and jobs refer to files relative to

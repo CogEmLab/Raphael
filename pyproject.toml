@@ -1,6 +1,6 @@
 [project]
 name = "raphael"
-version = "0.1.0"
+version = "0.2.0"
 description = "Shared core for neural data processing and analysis: raw recordings to processed NWB, loaders, tuning scores, cluster jobs."
 readme = "README.md"
 requires-python = "==3.11.*"
@@ -39,6 +39,7 @@ gpu = ["faiss-cpu==1.15.1", "kilosort==4.0.16", "setuptools<81", "six", "suite2p
 [project.scripts]
 raphael-imaging = "raphael.scripts.imaging:main"
 raphael-jobs = "raphael.scripts.jobs:main"
+raphael-photometry = "raphael.scripts.photometry:main"
 
 [build-system]
 requires = ["setuptools", "wheel"]

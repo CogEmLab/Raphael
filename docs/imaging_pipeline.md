@@ -7,7 +7,7 @@ alongside for fast analysis.
 - Settings and publication metadata: `configs/imaging.yaml`
 - Command line: `raphael-imaging` (analysis env, `sm`)
 - Code: `src/raphael/imaging/`
-- Surgery protocol: [protocols/surgery/hippocampal_window_ca1.md](protocols/surgery/hippocampal_window_ca1.md)
+- Surgery protocol: `docs/protocols/surgery/hippocampal_window_ca1.md` in social-manifolds
 
 **Processing a recording step by step, with the data at each stage:
 [imaging_walkthrough.md](imaging_walkthrough.md).** The Neuropixels

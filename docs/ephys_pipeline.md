@@ -12,7 +12,7 @@ and the lab's sorting code: protocol `kilosort4A` in
 and Harry's scripts in
 [chrishalcrow/nolanlab-ephys](https://github.com/chrishalcrow/nolanlab-ephys/tree/main/scripts/harry).
 
-- Settings and publication metadata: [configs/ephys.yaml](../configs/ephys.yaml)
+- Settings and publication metadata: [configs/ephys.yaml](../src/raphael/configs/ephys.yaml)
 - Job stage: `kilosort4` (runs on a GPU; see [cluster.md](cluster.md))
 - Code: `src/raphael/ephys/`
 - Loading either modality: `raphael.population`
@@ -155,7 +155,7 @@ The defaults reproduce the lab's files (mecpy):
    running 0 to 2π from one peak to the next (NaN outside).
 
 **Size and detail are settings** (`lfp` in
-[configs/ephys.yaml](../configs/ephys.yaml), or per job with
+[configs/ephys.yaml](../src/raphael/configs/ephys.yaml), or per job with
 `--param 'lfp={...}'`):
 
 | setting | default | lighter | richer |
@@ -249,7 +249,7 @@ goes in a separate raw NWB for DANDI.
 
 ## Settings
 
-All in [configs/ephys.yaml](../configs/ephys.yaml), which is snapshotted
+All in [configs/ephys.yaml](../src/raphael/configs/ephys.yaml), which is snapshotted
 into every job. The defaults are the Methods' values; the comments there
 say where each comes from. Per job, `--param` can override
 `kilosort4={...}`, `preprocessing={...}`, `postprocessing={...}` (e.g.

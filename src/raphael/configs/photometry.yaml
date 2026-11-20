@@ -1,0 +1,57 @@
+# Fibre photometry: metadata and processing settings.
+#
+# Raphael's defaults. Each project keeps its own copy in its configs/ (its
+# lab, people, indicators, channel names) and passes it with `--config`.
+# Everything under `nwb` is written into every processed file.
+# Read by `raphael-photometry` and the `photometry` job stage
+# (src/raphael/photometry/).
+
+nwb:
+  lab: TODO                          # set per project
+  institution: TODO
+  # Recording times without a UTC offset are read in this timezone.
+  timezone: Europe/Vienna
+  experimenter: [TODO]               # DANDI form: 'Last, First'
+  keywords: [fiber photometry, mice]
+  related_publications: []
+  experiment_description: TODO
+  surgery: TODO                      # virus and fibre implant; point to the protocol pages
+  virus: TODO                        # construct, titre, volume, coordinates
+  pharmacology: TODO
+  data_collection: TODO              # console, LEDs, fibres, sampling
+
+subject:
+  species: Mus musculus
+  strain: C57BL/6J
+  sex: U
+
+# Channels, by the name given in the Doric console (the channel's Username:
+# iso, green, red, ...). `signal` channels get dF/F; a signal's `reference`
+# (usually the isosbestic channel on the same fibre and detector) is
+# regressed out of it; `reference` channels have no output of their own.
+# Channels not listed are kept as raw data only.
+channels:
+  green:
+    role: signal
+    reference: iso
+    indicator: TODO                  # e.g. GRAB-NE
+    location: TODO                   # e.g. dorsal CA1
+    excitation_nm: 465               # check against your LEDs
+    emission_nm: 525
+  iso:
+    role: reference
+    excitation_nm: 405
+    emission_nm: 525
+  red:
+    role: signal
+    reference: null                  # no isosbestic for red here
+    indicator: TODO
+    location: TODO
+    excitation_nm: 560
+    emission_nm: 600
+
+processing:
+  trim_start_s: 5.0                  # drop the LED-on transient
+  lowpass_hz: 10.0                   # zero-phase Butterworth; keep below rate / 2
+  filter_order: 2
+  bleaching: double_exponential      # double_exponential | linear | none

@@ -12,7 +12,7 @@ another GPU machine, not on a laptop. Three pieces make that reproducible:
    results, logs and provenance.
 
 Everything site-specific lives in
-[configs/cluster.yaml](../configs/cluster.yaml), which is set up for MSC,
+[configs/cluster.yaml](../src/raphael/configs/cluster.yaml), which is set up for MSC,
 the MedUni Wien Scientific Cluster. **Step-by-step guide for MSC:
 [msc_cluster.md](msc_cluster.md).**
 
@@ -127,7 +127,7 @@ Flags:
 ### First steps on a new cluster
 
 1. Fill in `paths`, the scheduler section and `setup` in
-   [configs/cluster.yaml](../configs/cluster.yaml). Comments there list
+   [configs/cluster.yaml](../src/raphael/configs/cluster.yaml). Comments there list
    what each site usually needs.
 2. Install uv (`curl -LsSf https://astral.sh/uv/install.sh | sh`), clone the
    repo, and run `uv sync --frozen --extra gpu`.
