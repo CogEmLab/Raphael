@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/raphael-banner.svg" alt="A red bandana mask whose tails turn into spike traces" width="760">
+  <img src="docs/assets/raphael-banner-spikes.svg" alt="A bandana mask in red spikes on a head drawn in green spikes, its tails turning into spike traces" width="760">
 </p>
 
 # Raphael

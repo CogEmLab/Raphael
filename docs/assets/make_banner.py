@@ -3,7 +3,8 @@
     python docs/assets/make_banner.py          # writes both versions next to this file
 
 raphael-banner.svg         the mask and eyes drawn as shapes
-raphael-banner-spikes.svg  the mask drawn in red spikes too, eyes left blank
+raphael-banner-spikes.svg  the mask drawn in red spikes too, eyes left blank; each
+                           row is one neuron, in one colour
 
 The head is a spike raster: high firing rates inside it, low outside, with
 the mouth and nostrils as silent gaps. Fibre photometry and dF/F traces run
@@ -14,7 +15,6 @@ from pathlib import Path
 
 import numpy as np
 from matplotlib.path import Path as Polygon
-from scipy.spatial import cKDTree
 
 W, H = 1200, 430
 RED, DARK, SHADE = '#d62828', '#7a0f14', '#a61b1f'
@@ -22,6 +22,7 @@ SPIKES, PHOTOMETRY, DFF = '#2d6a4f', '#40916c', '#52b788'
 GREENS = [(0.0, 0.5, '#40916c'), (0.5, 0.85, '#2d6a4f'), (0.85, 1.0, '#1b4332'),
           (1.0, 9.0, '#2d6a4f')]
 REDS = ['#ef3b36', RED, SHADE]          # mask top to bottom
+FACE_GREENS = ['#40916c', '#2d6a4f', '#1b4332']
 ROW = 4.5
 FADE = 120          # px over which everything behind the mask fades out at the sides
 
@@ -104,10 +105,6 @@ def inside(polygons, x, y):
     return hit
 
 
-# Outline points, to draw the mask's edge in darker spikes.
-OUTLINE = cKDTree(np.vstack([np.vstack([np.linspace(p, q, 6) for p, q in zip(poly, np.roll(poly, -1, 0))])
-                             for poly in [*MASK_PARTS, *EYES]]))
-
 # ---------------------------------------------------------------- the head
 
 FACE_C, FACE_R = (410.0, 225.0), (350.0, 215.0)
@@ -160,19 +157,31 @@ def spike_trace(x0, x1, n_spikes, amp, seed, drift):
 
 # ----------------------------------------------------------------- drawing
 
+def red_at(u):
+    """A red between the mask's top (light) and bottom (dark) shades."""
+    u = float(np.clip(u, 0, 1)) * (len(REDS) - 1)
+    i = min(int(u), len(REDS) - 2)
+    a, b = (np.array([int(c[k:k + 2], 16) for k in (1, 3, 5)]) for c in REDS[i:i + 2])
+    rgb = np.round(a + (b - a) * (u - i)).astype(int)
+    return '#' + ''.join(f'{v:02x}' for v in rgb)
+
+
 def raster(spike_mask):
     """{colour: [tick path strings]}: the head, and with `spike_mask` the
     mask in red, its edge darker, and the eyes silent."""
     rng = np.random.default_rng(7)
     extra = np.random.default_rng(8)       # the mask's own spikes, so the head is the same
     edge, patches = field(41, 40), field(42, 70)
-    ticks = {c: [] for c in [g[2] for g in GREENS] + REDS + [DARK]}
+    ticks = {c: [] for c in [g[2] for g in GREENS]}
 
     def tick(colour, x, yy, r):
         h = r.uniform(2.2, 6.0)
-        ticks[colour].append(f'M{x:.0f} {yy - h / 2 + r.normal(0, 1.0):.1f}v{h:.1f}')
+        ticks.setdefault(colour, []).append(f'M{x:.0f} {yy - h / 2 + r.normal(0, 1.0):.1f}v{h:.1f}')
 
     top, bottom = BAND[:, 1].min(), BAND[:, 1].max()
+    every = np.vstack(MASK_PARTS)
+    mask_top, mask_bottom = every[:, 1].min(), every[:, 1].max()
+    palette = np.random.default_rng(9)     # one green per row, in the spike version
     for yy in np.arange(ROW / 2, H, ROW):
         # Bursty spike trains: Poisson burst centres, each with a few spikes.
         centres = rng.uniform(0, W, rng.poisson(0.21 * W))
@@ -186,22 +195,28 @@ def raster(spike_mask):
                         np.maximum(0.5 * np.exp(-(depth - 1) / 0.06), 0.03))
         rate = np.where(features(xs + rng.normal(0, 2, len(xs)), yy), 0.04, rate)
         keep = rng.random(len(xs)) < np.clip(rate * side_fade(xs), 0, 1)
-        if spike_mask:
-            covered = inside(MASK_PARTS, xs, yy) | inside(EYES, xs, yy)
-            keep &= ~covered                  # the mask replaces the head there
-        for lo, hi, colour in GREENS:
-            for x in xs[keep & (depth >= lo) & (depth < hi)]:
-                tick(colour, x, yy, rng)
         if not spike_mask:
+            for lo, hi, colour in GREENS:
+                for x in xs[keep & (depth >= lo) & (depth < hi)]:
+                    tick(colour, x, yy, rng)
             continue
-        # The mask: dense red firing, darker at its edge; the eyes are silent.
+        # Spike version: each row is one neuron with one colour. Green
+        # (face) neurons are silent under the mask ...
+        keep &= ~(inside(MASK_PARTS, xs, yy) | inside(EYES, xs, yy))
+        colour = palette.choice(FACE_GREENS, p=[0.35, 0.4, 0.25])
+        for x in xs[keep]:
+            tick(colour, x, yy, rng)
+        # ... and red (mask) neurons, on rows between them, fire only in the
+        # mask, lighter towards its top; the eyes are silent.
+        yr = yy + ROW / 2
+        if not mask_top - 4 <= yr <= mask_bottom + 4:
+            continue
         mx = extra.uniform(0, W, extra.poisson(1.1 * W))
-        on = inside(MASK_PARTS, mx, yy) & ~inside(EYES, mx, yy)
-        on &= extra.random(len(mx)) < 0.8 + 0.2 * patches(mx, yy + 500)
-        near_edge = OUTLINE.query(np.c_[mx, np.full_like(mx, yy)])[0] < 3
-        shade = REDS[min(2, int(3 * np.clip((yy - top) / (bottom - top), 0, 0.999)))]
-        for x, rim in zip(mx[on], near_edge[on], strict=True):
-            tick(DARK if rim else shade, x, yy, extra)
+        on = inside(MASK_PARTS, mx, yr) & ~inside(EYES, mx, yr)
+        on &= extra.random(len(mx)) < 0.8 + 0.2 * patches(mx, yr + 500)
+        shade = red_at((yr - top) / (bottom - top))
+        for x in mx[on]:
+            tick(shade, x, yr, extra)
     return ticks
 
 
@@ -316,7 +331,8 @@ def banner(spike_mask):
                        'stroke-linecap="butt" fill="none"/>')
     out += traces(spike_mask)
     if spike_mask:
-        for colour in [*REDS, DARK]:
+        greens = {g[2] for g in GREENS}
+        for colour in [c for c in ticks if c not in greens]:
             if ticks[colour]:
                 out.append(f'<path d="{" ".join(ticks[colour])}" stroke="{colour}" '
                            'stroke-opacity="0.95" stroke-width="2" stroke-linecap="butt" '
