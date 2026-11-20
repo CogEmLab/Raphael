@@ -1,7 +1,7 @@
 """Raphael README banner: a red bandana eye mask whose tails become spike traces."""
 import numpy as np
 
-W, H = 1200, 360
+W, H = 1200, 430
 rng = np.random.default_rng(7)
 RED, DARK, SHADE = '#d62828', '#7a0f14', '#a61b1f'
 out = []
@@ -46,16 +46,51 @@ def smooth_noise(n, width, scale, seed):
 
 
 xs_bg = np.linspace(0, W, 600)
-# Spike raster: rows of ticks along the top and bottom edges.
-for row, yy in enumerate([22, 44, 66, 300, 322, 344]):
-    times = np.sort(rng.uniform(10, W - 10, rng.integers(14, 30)))
-    ticks = ' '.join(f'M{t:.1f},{yy - 7} L{t:.1f},{yy + 7}' for t in times)
-    add(f'<path d="{ticks}" stroke="{SPIKES}" stroke-opacity="0.45" stroke-width="2.2" '
-        'stroke-linecap="round" fill="none"/>')
+# The face: a spike raster whose firing rate is high inside a rounded head
+# behind the mask and low outside it, so the head appears from spike
+# density alone. The mouth and nostrils are low-rate gaps; shading comes
+# from rate and colour (darker towards the rim).
+FACE_C, FACE_R = (410.0, 225.0), (350.0, 215.0)
+
+
+def face_depth(x, y):
+    """0 at the centre of the head, 1 at its edge, >1 outside."""
+    u = np.abs((x - FACE_C[0]) / FACE_R[0])
+    v = np.abs((y - FACE_C[1]) / FACE_R[1])
+    return (u ** 2.4 + v ** 2.4) ** (1 / 2.4)
+
+
+def features(x, y):
+    """True on the mouth and nostrils, where the rate drops."""
+    mouth = ((np.abs(y - (342 - 0.0009 * (x - FACE_C[0]) ** 2 + 0.0000032 * (x - FACE_C[0]) ** 4 / 100))
+              < 6.5) & (np.abs(x - FACE_C[0]) < 175))
+    nostrils = ((x - 380) ** 2 + (y - 284) ** 2 < 10 ** 2) | ((x - 440) ** 2 + (y - 284) ** 2 < 10 ** 2)
+    return mouth | nostrils
+
+
+SHADES = [(0.0, 0.5, '#40916c'), (0.5, 0.85, '#2d6a4f'), (0.85, 1.0, '#1b4332'),
+          (1.0, 9.0, '#2d6a4f')]
+ROW = 4.5
+ticks = {colour: [] for _, _, colour in SHADES}
+for yy in np.arange(ROW / 2, H, ROW):
+    # Candidates at the peak rate, thinned to the local rate (a Poisson process).
+    n = rng.poisson(0.42 * W)
+    xs = np.sort(rng.uniform(0, W, n))
+    depth = face_depth(xs, yy)
+    rate = np.where(depth <= 1, 0.75 + 0.25 * (1 - depth ** 3), 0.02)
+    rate = np.where(features(xs, yy), 0.0, rate)
+    keep = rng.random(n) < rate
+    for lo, hi, colour in SHADES:
+        sel = keep & (depth >= lo) & (depth < hi)
+        ticks[colour] += [f'M{x:.0f} {yy - 1.9:.1f}v3.8' for x in xs[sel]]
+for (lo, _, colour) in SHADES:
+    opacity = 0.35 if lo >= 1.0 else 0.9
+    add(f'<path d="{" ".join(ticks[colour])}" stroke="{colour}" stroke-opacity="{opacity}" '
+        'stroke-width="2" stroke-linecap="butt" fill="none"/>')
 # Fibre photometry: slow, smooth fluctuations with a gentle bleaching decay.
 for yy, seed in [(105, 21), (262, 22)]:
     y = yy + 6 * np.exp(-xs_bg / 300) + smooth_noise(len(xs_bg), 18, 260, seed)
-    add(f'<path d="{path(list(zip(xs_bg, y)))}" stroke="{PHOTOMETRY}" stroke-opacity="0.45" '
+    add(f'<path d="{path(list(zip(xs_bg, y)))}" stroke="{PHOTOMETRY}" stroke-opacity="0.3" '
         'stroke-width="2.5" fill="none" stroke-linejoin="round"/>')
 # dF/F: calcium-like transients, fast rise and slow decay, on a quiet baseline.
 xs_ca = np.linspace(0, W, 1200)
@@ -65,7 +100,7 @@ for yy, seed in [(150, 31), (205, 32), (250, 33)]:
     for onset in r.uniform(0, W, 6):
         dt = np.clip(xs_ca - onset, 0, None)
         y -= r.uniform(22, 40) * (1 - np.exp(-dt / 2.0)) * np.exp(-dt / 45) * (xs_ca > onset)
-    add(f'<path d="{path(list(zip(xs_ca, yy + y)))}" stroke="{DFF}" stroke-opacity="0.75" '
+    add(f'<path d="{path(list(zip(xs_ca, yy + y)))}" stroke="{DFF}" stroke-opacity="0.45" '
         'stroke-width="2.4" fill="none" stroke-linejoin="round"/>')
 
 # The mask: a band across, slightly curved like it wraps a head, with eyeholes.
