@@ -15,6 +15,7 @@ from pathlib import Path
 
 import numpy as np
 from matplotlib.path import Path as Polygon
+from scipy.spatial import cKDTree
 
 W, H = 1200, 430
 RED, DARK, SHADE = '#d62828', '#7a0f14', '#a61b1f'
@@ -105,6 +106,21 @@ def inside(polygons, x, y):
     return hit
 
 
+# Every edge of the mask (outline and eyeholes), densely sampled, for the
+# distance from a spike to the nearest edge.
+EDGES = cKDTree(np.vstack([np.vstack([np.linspace(p, q, 8, endpoint=False)
+                                      for p, q in zip(poly, np.roll(poly, -1, 0), strict=True)])
+                           for poly in [*MASK_PARTS, *EYES]]))
+
+
+def mask_distance(x, y):
+    """Signed distance (px) to the mask's nearest edge: positive on the
+    cloth, negative outside it or in an eyehole."""
+    d = EDGES.query(np.c_[x, np.full_like(x, y)])[0]
+    on = inside(MASK_PARTS, x, y) & ~inside(EYES, x, y)
+    return np.where(on, d, -d)
+
+
 # ---------------------------------------------------------------- the head
 
 FACE_C, FACE_R = (410.0, 225.0), (350.0, 215.0)
@@ -120,7 +136,7 @@ def face_depth(x, y):
 def features(x, y):
     """True on the mouth and nostrils, where the rate drops."""
     dx = x - FACE_C[0]
-    mouth = (np.abs(y - (342 - 0.0009 * dx ** 2 + 0.000000032 * dx ** 4)) < 6.5) & (np.abs(dx) < 175)
+    mouth = (np.abs(y - (348 - 0.0011 * dx ** 2)) < 7) & (np.abs(dx) < 165)   # a gentle smile
     nostrils = ((x - 380) ** 2 + (y - 284) ** 2 < 10 ** 2) | ((x - 440) ** 2 + (y - 284) ** 2 < 10 ** 2)
     return mouth | nostrils
 
@@ -172,6 +188,7 @@ def raster(spike_mask):
     rng = np.random.default_rng(7)
     extra = np.random.default_rng(8)       # the mask's own spikes, so the head is the same
     edge, patches = field(41, 40), field(42, 70)
+    ragged = field(43, 12)                 # wobble of the mask's edge
     ticks = {c: [] for c in [g[2] for g in GREENS]}
 
     def tick(colour, x, yy, r):
@@ -193,7 +210,7 @@ def raster(spike_mask):
         rate = np.where(depth <= 1,
                         0.6 + 0.25 * (1 - np.clip(depth, 0, 1) ** 3) + 0.2 * patches(xs, yy),
                         np.maximum(0.5 * np.exp(-(depth - 1) / 0.06), 0.03))
-        rate = np.where(features(xs + rng.normal(0, 2, len(xs)), yy), 0.04, rate)
+        rate = np.where(features(xs + rng.normal(0, 2, len(xs)), yy), 0.0, rate)
         keep = rng.random(len(xs)) < np.clip(rate * side_fade(xs), 0, 1)
         if not spike_mask:
             for lo, hi, colour in GREENS:
@@ -209,11 +226,22 @@ def raster(spike_mask):
         # ... and red (mask) neurons, on rows between them, fire only in the
         # mask, lighter towards its top; the eyes are silent.
         yr = yy + ROW / 2
-        if not mask_top - 4 <= yr <= mask_bottom + 4:
+        if not mask_top - 12 <= yr <= mask_bottom + 12:
             continue
-        mx = extra.uniform(0, W, extra.poisson(1.1 * W))
-        on = inside(MASK_PARTS, mx, yr) & ~inside(EYES, mx, yr)
-        on &= extra.random(len(mx)) < 0.8 + 0.2 * patches(mx, yr + 500)
+        # Bursty, like the face neurons, and messy at the edges: the edge
+        # wobbles (a smooth random offset), the rate thins out over the last
+        # few px of cloth, and spikes spill past it into a fading halo.
+        centres = extra.uniform(0, W, extra.poisson(0.62 * W))
+        sizes = extra.geometric(0.45, len(centres))
+        mx = np.concatenate([c + np.cumsum(extra.exponential(1.4, k))
+                             for c, k in zip(centres, sizes, strict=True)])
+        mx = mx[(mx > 0) & (mx < W)]
+        in_eye = inside(EYES, mx, yr)
+        d = mask_distance(mx, yr) + 2.0 * ragged(mx, yr) + extra.normal(0, 0.8, len(mx))
+        halo = np.where(in_eye, 0.12, 0.35) * np.exp(d / 2.5)   # eyes stay clearer
+        rate = np.where(d > 0, (0.85 + 0.15 * patches(mx, yr + 500)) * (1 - 0.45 * np.exp(-d / 2.5)),
+                        halo)
+        on = extra.random(len(mx)) < np.clip(rate, 0, 1)
         shade = red_at((yr - top) / (bottom - top))
         for x in mx[on]:
             tick(shade, x, yr, extra)
