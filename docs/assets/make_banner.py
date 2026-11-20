@@ -26,7 +26,8 @@ def spike_trace(x0, x1, y0, n_spikes, amp, seed, drift=None):
     return list(zip(x, base + y * (0.35 + 0.65 * taper)))
 
 add(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
-    'role="img" aria-label="A red bandana mask whose tails turn into spike trains">')
+    'role="img" aria-label="A red bandana mask whose tails turn into spike traces, '
+    'over spikes, fibre photometry and dF/F traces in greens">')
 add('<defs>'
     f'<linearGradient id="band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ef3b36"/>'
     f'<stop offset="0.55" stop-color="{RED}"/><stop offset="1" stop-color="{SHADE}"/></linearGradient>'
@@ -34,13 +35,38 @@ add('<defs>'
     '<stop offset="1" stop-color="#d62828" stop-opacity="0.15"/></linearGradient>'
     '</defs>')
 
-# Faint raster in the background: spike trains of a small population.
-for row in range(9):
-    yy = 40 + row * 32
-    times = np.sort(rng.uniform(40, 1160, rng.integers(10, 26)))
-    ticks = ' '.join(f'M{t:.1f},{yy - 6} L{t:.1f},{yy + 6}' for t in times)
-    add(f'<path d="{ticks}" stroke="#d62828" stroke-opacity="0.13" stroke-width="2" '
+# Background, in greens: a spike raster, fibre photometry and dF/F traces.
+SPIKES, PHOTOMETRY, DFF = '#2d6a4f', '#40916c', '#52b788'
+
+
+def smooth_noise(n, width, scale, seed):
+    r = np.random.default_rng(seed)
+    k = np.exp(-0.5 * (np.arange(-3 * width, 3 * width + 1) / width) ** 2)
+    return np.convolve(r.normal(0, 1, n + len(k)), k / k.sum(), mode='same')[:n] * scale
+
+
+xs_bg = np.linspace(0, W, 600)
+# Spike raster: rows of ticks along the top and bottom edges.
+for row, yy in enumerate([22, 44, 66, 300, 322, 344]):
+    times = np.sort(rng.uniform(10, W - 10, rng.integers(14, 30)))
+    ticks = ' '.join(f'M{t:.1f},{yy - 7} L{t:.1f},{yy + 7}' for t in times)
+    add(f'<path d="{ticks}" stroke="{SPIKES}" stroke-opacity="0.45" stroke-width="2.2" '
         'stroke-linecap="round" fill="none"/>')
+# Fibre photometry: slow, smooth fluctuations with a gentle bleaching decay.
+for yy, seed in [(105, 21), (262, 22)]:
+    y = yy + 6 * np.exp(-xs_bg / 300) + smooth_noise(len(xs_bg), 18, 260, seed)
+    add(f'<path d="{path(list(zip(xs_bg, y)))}" stroke="{PHOTOMETRY}" stroke-opacity="0.45" '
+        'stroke-width="2.5" fill="none" stroke-linejoin="round"/>')
+# dF/F: calcium-like transients, fast rise and slow decay, on a quiet baseline.
+xs_ca = np.linspace(0, W, 1200)
+for yy, seed in [(150, 31), (205, 32), (250, 33)]:
+    r = np.random.default_rng(seed)
+    y = r.normal(0, 0.5, len(xs_ca))
+    for onset in r.uniform(0, W, 6):
+        dt = np.clip(xs_ca - onset, 0, None)
+        y -= r.uniform(22, 40) * (1 - np.exp(-dt / 2.0)) * np.exp(-dt / 45) * (xs_ca > onset)
+    add(f'<path d="{path(list(zip(xs_ca, yy + y)))}" stroke="{DFF}" stroke-opacity="0.75" '
+        'stroke-width="2.4" fill="none" stroke-linejoin="round"/>')
 
 # The mask: a band across, slightly curved like it wraps a head, with eyeholes.
 cx, cy = 400, 180
