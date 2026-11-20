@@ -71,18 +71,40 @@ def features(x, y):
 SHADES = [(0.0, 0.5, '#40916c'), (0.5, 0.85, '#2d6a4f'), (0.85, 1.0, '#1b4332'),
           (1.0, 9.0, '#2d6a4f')]
 ROW = 4.5
+
+
+def field(seed, scale):
+    """A smooth random 2D field (sum of a few random plane waves), ~[-1, 1]."""
+    r = np.random.default_rng(seed)
+    waves = [(r.uniform(0.5, 1.5) / scale, r.uniform(0, 2 * np.pi), r.uniform(0, 2 * np.pi))
+             for _ in range(6)]
+
+    def f(x, y):
+        return sum(np.sin(k * (x * np.cos(a) + y * np.sin(a)) + ph) for k, a, ph in waves) / 2.5
+    return f
+
+
+edge = field(41, 40)        # ragged head outline
+patches = field(42, 70)     # patchy firing across the face
 ticks = {colour: [] for _, _, colour in SHADES}
 for yy in np.arange(ROW / 2, H, ROW):
-    # Candidates at the peak rate, thinned to the local rate (a Poisson process).
-    n = rng.poisson(0.42 * W)
-    xs = np.sort(rng.uniform(0, W, n))
-    depth = face_depth(xs, yy)
-    rate = np.where(depth <= 1, 0.75 + 0.25 * (1 - depth ** 3), 0.02)
-    rate = np.where(features(xs, yy), 0.0, rate)
-    keep = rng.random(n) < rate
+    # Bursty spike trains: Poisson burst centres, each with a few spikes.
+    centres = rng.uniform(0, W, rng.poisson(0.21 * W))
+    sizes = rng.geometric(0.45, len(centres))
+    xs = np.concatenate([c + np.cumsum(rng.exponential(1.6, k)) for c, k in zip(centres, sizes)])
+    xs = xs[(xs > 0) & (xs < W)]
+    depth = face_depth(xs, yy) + 0.07 * edge(xs, yy)
+    inside = 0.6 + 0.25 * (1 - np.clip(depth, 0, 1) ** 3) + 0.2 * patches(xs, yy)
+    halo = 0.5 * np.exp(-(depth - 1) / 0.06)               # spikes bleeding past the edge
+    rate = np.where(depth <= 1, inside, np.maximum(halo, 0.03))
+    rate = np.where(features(xs + rng.normal(0, 2, len(xs)), yy), 0.04, rate)
+    keep = rng.random(len(xs)) < np.clip(rate, 0, 1)
     for lo, hi, colour in SHADES:
         sel = keep & (depth >= lo) & (depth < hi)
-        ticks[colour] += [f'M{x:.0f} {yy - 1.9:.1f}v3.8' for x in xs[sel]]
+        for x in xs[sel]:
+            h = rng.uniform(2.2, 6.0)
+            y0 = yy - h / 2 + rng.normal(0, 1.0)
+            ticks[colour].append(f'M{x:.0f} {y0:.1f}v{h:.1f}')
 for (lo, _, colour) in SHADES:
     opacity = 0.35 if lo >= 1.0 else 0.9
     add(f'<path d="{" ".join(ticks[colour])}" stroke="{colour}" stroke-opacity="{opacity}" '
