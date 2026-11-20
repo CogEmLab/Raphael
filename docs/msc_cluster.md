@@ -1,0 +1,393 @@
+# Using the MSC GPU cluster
+
+How to run this repo's GPU jobs on **MSC**, the MedUni Wien Scientific
+Cluster, starting from nothing. Every step here has been run end to end
+(November 2026: a smoke job, then suite2p on a 2000-frame two-photon
+movie, both on an NVIDIA A16). Anything untested is marked as such.
+
+The general job system (bundles, GPU checks, the lockfile) is described in
+[cluster.md](cluster.md). This page covers the MSC-specific parts.
+
+## At a glance
+
+| | |
+|---|---|
+| Login nodes | `s0-l02.hpc.meduniwien.ac.at`, `s0-l03.hpc.meduniwien.ac.at` |
+| Login | MUW ID and password, over SSH, **VPN required** |
+| Scheduler | SLURM, partitions `gpu` and `cpu` |
+| Our account | `neurop` |
+| GPU type | chosen with **both** `--qos=TYPE` and `--gres=gpu:TYPE:1` |
+| Limits | 6 running GPU jobs, 12 running CPU jobs per user; no GPU-hour budget |
+| Priority | fair share: the more you have used recently, the further back you queue |
+| Software | no modules, no system conda or uv; Apptainer is installed |
+| Wiki | https://msc.hpc.meduniwien.ac.at (MUW login, VPN) |
+| Support | hpc@meduniwien.ac.at |
+
+## 1. Get access (once)
+
+1. **MSC user.** Access is granted per department account; ours is
+   `neurop`. Submit the intranet form "MedUni Wien Scientific Cluster (MSC)
+   - User für Mitarbeiter:innen", or "- User für Externe" if you are an
+   external researcher affiliated with the unit.
+2. You then get an email saying your MSC user exists, plus an **invitation
+   to the NVIDIA private registry** (NGC). Accept it at ngc.nvidia.com; the
+   registry holds containers for the cluster. You do not need it for the
+   steps below.
+3. **VPN.** A separate email says when your VPN access is active. Install
+   the client by following https://intranet.meduniwien.ac.at/vpn-zugang (on
+   macOS this is Cisco Secure Client / AnyConnect, connection "Med Uni
+   Wien").
+
+## 2. Log in
+
+Connect the VPN, then:
+
+```bash
+ssh <MUW-ID>@s0-l02.hpc.meduniwien.ac.at
+```
+
+On first connection SSH asks you to confirm the server's key. For
+`s0-l02` the fingerprint is:
+
+```
+ED25519 SHA256:xiry285KoTAkt0fU+kFB/KrNVJUkuyw7bcnrq0/V4AY
+```
+
+Type `yes` if it matches. If SSH ever warns that this key has *changed*,
+stop and contact hpc@meduniwien.ac.at. Your first login creates your home
+directory, `/msc/home/<MUW-ID>`.
+
+Useful commands on the login node:
+
+| command | shows |
+|---|---|
+| `msc_info` | quick help for the cluster |
+| `noru` | each node's CPU, memory and GPU use (used/total) and GPU types |
+| `nods` | node states |
+| `squeue --me` | your jobs |
+| `squeue --me --start` | SLURM's estimate of when pending jobs start |
+| `scancel JOBID` | cancel a job |
+
+`msc_job` is an interactive menu that builds a job command; press Ctrl-C to
+leave it.
+
+## 3. Choosing a GPU
+
+| QOS / GPU type | GPUs | nodes | time limit |
+|---|---|---|---|
+| `a100` | A100 | s0-n00, n01, n11 | 3 days |
+| `a100_long` | A100 | as above | 5 days |
+| `a100-sxm4-80gb` | A100 80 GB | s0-n02 | 3 days |
+| `h100` | H100 | s0-n15 | 3 days |
+| `b200` | B200 | s0-n03 | 3 days (see below) |
+| `a30` | A30 | s0-n12 | 3 days |
+| `a16` | A16 (16 GB) | s0-n12 | 3 days |
+| `3g.20gb` | slice of an A100, 20 GB | s0-n12 | 3 days |
+| `1g.5gb` | slice of an A100, 5 GB | s0-n12 | 8 hours |
+
+**Both the QOS and the GRES must name the type**, e.g.:
+
+```bash
+#SBATCH --partition=gpu
+#SBATCH --account=neurop
+#SBATCH --qos=a16
+#SBATCH --gres=gpu:a16:1
+```
+
+A plain `--gres=gpu:1` is rejected with `QOSMaxGRESPerJob`. Each QOS allows
+zero of every GPU type except its own.
+
+The big cards (A100, H100, B200) are often fully booked, so check `noru`.
+`a16` and the A100 slices are usually free, and **they are enough for
+suite2p**. On a 2000 x 248 x 440 movie it peaked at 0.9 GB of GPU memory
+and took 48 s on an A16. Queue for an A100 or H100 only for jobs that need
+their memory or speed, such as training denoising models.
+
+To move a queued job to another GPU type without remaking it:
+
+```bash
+scancel JOBID
+sbatch --qos=TYPE --gres=gpu:TYPE:1 submit.slurm   # command line overrides the script
+```
+
+**B200 is not usable with the current lockfile.** B200s need CUDA 12.8 or
+newer; `uv.lock` installs torch built for CUDA 12.6. The node drivers
+(580) are new enough for a CUDA 13 build, so moving the lock to CUDA 13 should
+fix it. That is untested.
+
+## 4. Storage
+
+- **Home** (`/msc/home/<MUW-ID>`) holds the code, its environment and job
+  bundles. It sits on the shared filesystem, which is about **95% full**.
+  Do not leave large intermediate files there.
+- **Scratch:** new users have no scratch directory. Ask
+  hpc@meduniwien.ac.at for one before copying raw data (a recording is
+  60-70 GB).
+
+## 5. Rules, limits and priority
+
+Checked November 2026 with `sacctmgr`, `sshare` and `scontrol show config`
+on the login node. Limits can change; the commands at the end of this
+section show the current values.
+
+### Who pays
+
+MSC is paid for per **department account**, not per user or per job. Units
+join by agreeing "financial conditions" with ITSC operations. Users within
+an account use the cluster under **fair use**, with no limit on the number
+of users. SLURM records no per-job charge and no GPU-hour budget for
+`neurop` or its users.
+
+The fee arrangement for our account (flat or usage-based) is not visible
+from the cluster. Before running anything unusually large (e.g. weeks of
+A100 time), check with the unit's MSC project coordinator
+("MSC Projekt Koordinator").
+
+### Limits
+
+| limit | value |
+|---|---|
+| running GPU jobs per user | **6** (more can be submitted; they wait) |
+| running CPU jobs per user | **12** |
+| run time per job | set by the QOS: 3 days for most GPU types, 5 days for `a100_long`, 8 hours for `1g.5gb` (section 3) |
+| GPU type | one per job, fixed by the QOS |
+| GPU or CPU hours | no budget, for the account or the user |
+
+Jobs beyond the running-job limit stay pending until one of yours
+finishes. Cancel jobs you no longer need: a forgotten pending job takes a
+slot as soon as it starts.
+
+### Priority: fair share
+
+Pending jobs are ordered by SLURM's multifactor priority, and on MSC
+**fair share dominates**. Every `neurop` user has an equal share. The more
+compute you have used recently, compared with that share, the lower your
+priority against colleagues. Usage counts for less over time, with a
+**half-life of 14 days**: a heavy week stops costing you priority within a
+few weeks.
+
+So nothing stops you from using a lot, but the queue makes you wait longer
+for it. A job pending with reason `(Priority)` is normal: other jobs are
+ahead of it, or no GPU of its type is free.
+
+### Good practice
+
+- **Use the smallest GPU that does the job.** suite2p needs under 2 GB of
+  GPU memory, so an `a16` or `3g.20gb` slice is enough and usually free.
+  Keep the A100, H100 and B200 for work that needs them, such as training
+  models.
+- **Ask for realistic time and memory** (`raphael-jobs make --hours
+  --mem-gb --cpus`). Over-asking takes resources others could use and makes
+  a job harder to fit.
+- **Do not compute on the login nodes.** Installing (`uv sync`), copying
+  data and submitting are fine there. For short tests, take a small GPU
+  slice interactively instead:
+  ```bash
+  srun --partition=gpu --account=neurop --qos=1g.5gb --gres=gpu:1g.5gb:1 \
+      -t 10 --mem=4G --pty bash
+  ```
+- **Clean up.** The shared filesystem is about 95% full. The suite2p stage
+  deletes its registered movie by default; delete raw movies and finished
+  `work/` folders once results are safely back.
+
+### Checking your own usage and priority
+
+```bash
+sacctmgr show assoc user=$USER format=account,partition,qos%60,grpjobs  # limits and allowed QOS
+sshare -U -l                  # your usage and fair-share factor (1 = best, 0 = worst)
+sprio -j JOBID                # why a pending job has the priority it has
+squeue --me --start           # estimated start times of your pending jobs
+sacctmgr show qos format=name%20,maxwall,maxtres%60   # time and GPU limits per QOS
+```
+
+## 6. Install the code and environment (once)
+
+On your laptop, copy the repo to the cluster (skip the local environment
+and caches):
+
+```bash
+rsync -a --exclude .venv --exclude __pycache__ --exclude .ruff_cache \
+    path/to/social-manifolds/ <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:social-manifolds/
+```
+
+On the cluster, install uv and the locked environment:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+export UV_CACHE_DIR=$HOME/.cache/uv
+cd ~/social-manifolds && uv sync --frozen --extra gpu
+mkdir -p ~/data ~/jobs
+```
+
+This takes about a minute. The login node has internet access. uv
+downloads Python 3.11 and the exact package versions in `uv.lock`, including
+`torch 2.14.1+cu126` (about 3 GB). Repeat `uv sync --frozen --extra gpu`
+whenever `uv.lock` changes.
+
+## 7. Tell Raphael your login
+
+The shared [cluster config](../src/raphael/configs/cluster.yaml) names no one:
+its paths are `/msc/home/{user}/...`, and `{user}` is filled in from your
+own setting when the submit scripts are written. Set it once, **on your
+laptop**:
+
+```bash
+uv run raphael-jobs cluster-user <MUW-ID>     # saved in ~/.config/raphael/cluster.yaml
+uv run raphael-jobs cluster-user              # shows what is set
+```
+
+With that, the paths become:
+
+```yaml
+paths:
+  repo: /msc/home/<MUW-ID>/{project}     # the checkout you run from, e.g. social-manifolds
+  data: /msc/home/<MUW-ID>/data
+  jobs: /msc/home/<MUW-ID>/jobs
+env:
+  UV_CACHE_DIR: /msc/home/<MUW-ID>/.cache/uv
+```
+
+So clone the project into your MSC home under the same folder name as on
+your laptop. If something is different for you alone (data on scratch,
+another account), add it to `~/.config/raphael/cluster.yaml` under the same
+keys as the shared file; it is merged over it:
+
+```yaml
+user: <MUW-ID>
+paths:
+  data: /msc/home/{user}/scratch/data
+```
+
+`RAPHAEL_CLUSTER_USER=<MUW-ID>` in the environment overrides the saved
+login, e.g. to render a bundle for a colleague. Partition, account and GPU
+request are already set for MSC and shared by everyone.
+
+## 8. Run a job
+
+**On your laptop**, make a job bundle. Start with the `smoke` job, which
+tests the whole path on a GPU in under a minute:
+
+```bash
+uv run raphael-jobs make ~/jobs/smoke-001 --stage smoke --data-root ~/jobs \
+    --gpu-type a16 --hours 1 --mem-gb 8 --cpus 2
+rsync -a ~/jobs/smoke-001 <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:jobs/
+```
+
+`--gpu-type` is the QOS from the table above. It fills in both `--qos` and
+`--gres` in the generated `submit.slurm`. For real data, add one
+`--input PATH` per file, each relative to `paths.data`, and copy those files
+to the same relative paths under the cluster's data folder first.
+
+**On the cluster**, submit the job and watch it:
+
+```bash
+cd ~/jobs/smoke-001 && sbatch submit.slurm
+squeue --me
+```
+
+`PD (Priority)` means the job is waiting behind others. It starts when a
+GPU of that type is free.
+
+**When it is gone from `squeue`**, check the result:
+
+```bash
+cat ~/jobs/smoke-001/status.json             # DONE or FAILED, with the error
+cat ~/jobs/smoke-001/logs/scheduler-*.out    # GPU check report, any errors
+cat ~/jobs/smoke-001/outputs/smoke.json      # results
+```
+
+A successful smoke job reports `"device": "cuda"` and a matrix multiply
+with a relative error around 1e-6. Copy finished jobs back with
+`rsync -a <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:jobs/smoke-001 ~/jobs/`.
+
+## 9. Process a movie with suite2p
+
+Copy the movie to the cluster's data folder, keeping its path relative to
+your local data root. The `./` marks where the relative part starts:
+
+```bash
+rsync -a --relative /local/data/root/./test2000/movie/movie.h5 \
+    <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:data/
+```
+
+Make the job on your laptop, copy it across and submit it as in step 8:
+
+```bash
+uv run raphael-jobs make ~/jobs/s2p-001 --stage suite2p \
+    --data-root /local/data/root --input test2000/movie/movie.h5 \
+    --config configs/imaging.yaml --gpu-type a16 --cpus 8 --mem-gb 32 --hours 2 \
+    --param fs=6.3 --param session_start=2019-10-30T10:45 \
+    --param mouse=17797 --param day=7 --param session_type=scan4 \
+    --param 'suite2p={diameter: [6, 6]}'
+```
+
+`fs` (frame rate) and `session_start` (recording start, local time or with
+a UTC offset) are required. Add `um_per_pixel`, `depth_um` and
+`subject={age: P84D, sex: M, ...}` for publishable files. `suite2p={...}`
+overrides suite2p settings, merged into its defaults. The full processing
+walkthrough, with the data at each step, is in
+[imaging_walkthrough.md](imaging_walkthrough.md). The job writes to `outputs/`:
+
+- `M{mouse}/D{day}/{type}/..._src-suite2p_ophys.nwb`, `_traces.npz`,
+  `_rois.csv` and `qc/plane1_rois.png`: the processed session, clark2025
+  layout
+- `suite2p/plane0/`: suite2p's own files, which open in its GUI for curation
+- `suite2p_summary.json`: ROI counts, run time, peak GPU memory
+
+The job's `work/` folder, which holds the registered movie (about the
+size of the raw one), is deleted after the run to save space; pass
+`--param keep_binary=true` to keep it.
+
+## 10. Spike-sort Neuropixels recordings with Kilosort 4
+
+Kilosort 4.0.16 (the version in the Methods) is part of the environment
+installed in section 6 (`uv sync --frozen --extra gpu`).
+
+Copy each recording folder (SpikeGLX `*_g0` run folder or Open Ephys
+record node) to the cluster's data folder, keeping its relative path. A
+Neuropixels 2.0 recording is about 80 GB per hour, so ask for scratch
+space first (section 4):
+
+```bash
+rsync -a --relative /local/data/root/./raw/M25/D18/OF1 \
+    <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:data/
+```
+
+Make one job per day, with one `--input` per recording, in the order they
+were recorded. They are sorted together, so a unit keeps its id across the
+day:
+
+```bash
+uv run raphael-jobs make ~/jobs/ks4-M25-D18 --stage kilosort4 \
+    --data-root /local/data/root \
+    --input raw/M25/D18/OF1 --input raw/M25/D18/VR --input raw/M25/D18/OF2 \
+    --config configs/ephys.yaml --gpu-type 1g.5gb --cpus 8 --mem-gb 64 --hours 8 \
+    --param 'session_start=[2026-11-03T10:00, 2026-11-03T10:40, 2026-11-03T11:30]' \
+    --param 'session_type=[OF1, VR, OF2]' --param mouse=25 --param day=18 \
+    --param 'subject={age: P90D, sex: F}' --param location=CA1
+```
+
+`session_start` and `session_type` take one value per recording and are
+required. The processing follows the Methods (see
+[ephys_pipeline.md](ephys_pipeline.md)); every setting is in
+`configs/ephys.yaml`. The full walkthrough, with the data at each step, is
+in [ephys_walkthrough.md](ephys_walkthrough.md).
+
+Kilosort sorts one shank at a time, so a small GPU is enough (see the
+walkthrough for measured memory). `1g.5gb` slices allow 8 hours per job;
+use `a16` or `3g.20gb` for longer days.
+
+## Troubleshooting
+
+| symptom | cause and fix |
+|---|---|
+| `QOSMaxGRESPerJob` at submission | untyped GPU request; remake the job with `--gpu-type`, or submit with `sbatch --gres=gpu:TYPE:1 submit.slurm` |
+| job stays `PD (Priority)` | all GPUs of that type are busy; check `noru`, try another type, or wait |
+| `uv not on PATH` in the log | uv is not installed in `~/.local/bin`; redo step 6 |
+| `no .venv in ...` | `uv sync --frozen --extra gpu` was not run in the repo on the cluster |
+| `uv.lock here differs ...` | the job was made with a different lockfile from the one on the cluster; rsync the repo and re-sync, or remake the job |
+| `NO USABLE GPU` / `GpuUnavailable` | see the diagnosis in the log; the table in [cluster.md](cluster.md#checking-the-gpu) lists causes |
+| "no kernel image is available" on `b200` | CUDA 12.6 build on a B200; use another GPU type (see section 3) |
+| `UserWarning: Sparse invariant checks ...` in a suite2p log | harmless notice from suite2p's internals |
+| warning about uncommitted changes | the job cannot be traced to a git commit; fine for tests, commit first for results you keep |

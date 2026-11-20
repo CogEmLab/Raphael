@@ -1,0 +1,31 @@
+# A project that uses Raphael as its backend. Copy this folder to start a
+# new project repository; see "Calling Raphael from another repo" in
+# Raphael's README.
+[project]
+name = "example_project"
+version = "0.1.0"
+requires-python = "==3.11.*"
+dependencies = [
+    # Pin a tagged release so the project's results trace to a fixed
+    # Raphael. Use "raphael[gpu] @ ..." where Kilosort or suite2p will run.
+    "raphael @ git+https://github.com/HDClark94/Raphael@v0.1.0",
+    "matplotlib>=3.8",
+]
+
+# This project's own job stages, run by `raphael-jobs` like the core ones.
+[project.entry-points."raphael.stages"]
+example = "example_project.stages"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# While changing Raphael and this project together, replace the pin above
+# with a local checkout:  uv add --editable ../Raphael
+#
+# With the gpu extra, also copy [tool.uv] environments, [tool.uv.sources]
+# and [[tool.uv.index]] from Raphael's pyproject.toml: uv ignores those
+# blocks in dependencies.

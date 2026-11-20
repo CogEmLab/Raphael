@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Data never belongs in the repo. Anchored to the root so it cannot swallow
+# the src/raphael/data package.
+/data/
+*.nwb
+*.npz
+*.npy
+*.hdf5
+*.mp4
+*.boris
+
+.DS_Store
+._*
+.ipynb_checkpoints/

@@ -1,0 +1,73 @@
+# Where and how GPU jobs run: MSC, the MedUni Wien Scientific Cluster.
+#
+# Raphael's default site, shared by everyone: it names no one. Two tokens
+# are filled in when the submit scripts are rendered:
+#   {user}     your cluster login (MUW ID). Set it once per laptop with
+#              `raphael-jobs cluster-user YOUR_MUW_ID`, which saves it in
+#              ~/.config/raphael/cluster.yaml (or set RAPHAEL_CLUSTER_USER).
+#   {project}  the folder name of the project checkout you run from, e.g.
+#              social-manifolds.
+# Anything else that is yours alone (a different data folder, account) goes
+# in that same personal file, under the same keys as here, e.g.
+#   user: <MUW-ID>
+#   paths: {data: /msc/home/{user}/scratch/data}
+# A project that runs on another cluster puts its own copy of this file at
+# {project}/configs/cluster.yaml, which `raphael-jobs` then uses instead.
+# `paths.repo` is the PROJECT checkout on the cluster (the one whose uv.lock
+# installs Raphael), not Raphael's.
+#
+# Paths are as seen FROM THE CLUSTER. After changing this file,
+# `raphael-jobs render JOB` rewrites the submit scripts of existing bundles.
+# Read by raphael/cluster/jobs.py; see docs/cluster.md.
+#
+# MSC facts (2026-11-10, from msc_info, sinfo, noru and sacctmgr):
+#   login      s0-l02 / s0-l03.hpc.meduniwien.ac.at, MUW ID, VPN required
+#   scheduler  SLURM, partitions `gpu` and `cpu`; the GPU type is chosen
+#              with --qos AND a typed --gres (gpu:a16:1)
+#   GPU types  a100, a100-sxm4-80gb, a100_long (5 days), b200, h100, a16,
+#              a30, 3g.20gb, 1g.5gb (8 h); the others allow 3 days
+#   software   no modules, conda or uv by default; Apptainer installed;
+#              msc_build pushes containers to the NGC registry (team neurop)
+#   storage    home is /msc/home/{user}; the shared filesystem is ~95% full
+#   b200       needs CUDA >= 12.8; uv.lock's torch is cu126, so avoid
+#              --gpu-type b200 until the lock moves to a newer CUDA
+
+scheduler: slurm                    # slurm | sge | none (run directly)
+
+paths:
+  repo: /msc/home/{user}/{project}
+  data: /msc/home/{user}/data       # TODO move to scratch once allocated
+  jobs: /msc/home/{user}/jobs
+  # Node-local scratch for work files (suite2p binaries are ~2x the movie).
+  # Leave null to use {job}/work on the shared filesystem.
+  scratch: null
+
+slurm:
+  queue: --partition=gpu
+  account: --account=neurop
+  # {gpu_type} comes from `raphael-jobs make --gpu-type`; on MSC it is the QOS.
+  # Each QOS allows 0 of every GPU type but its own, so the GRES must be
+  # typed: a plain --gres=gpu:1 is rejected with QOSMaxGRESPerJob.
+  gpu_request: ['--gres=gpu:{gres_type}:1', '--qos={gpu_type}']
+  gres_types:                       # QOS -> GRES type, where they differ
+    a100_long: a100                 # assumed; confirm with sacctmgr
+                                    # show qos a100_long format=maxtres%200
+  default_gpu_type: a16             # free most often; fine for tests
+  # Jobs made with --cpu (e.g. the lfp stage) go here instead of `queue`.
+  cpu_request: ['--partition=cpu', '--qos=cpu']
+  extra: []
+
+sge:                                # not used on MSC
+  queue: null
+  account: null
+  gpu_request: -l gpu=1
+  parallel_environment: sharedmem
+  extra: []
+
+# Shell lines run at the start of every job, before uv. uv's installer puts
+# it in ~/.local/bin, which batch jobs do not always have on PATH.
+setup:
+  - export PATH="$HOME/.local/bin:$PATH"
+
+env:
+  UV_CACHE_DIR: /msc/home/{user}/.cache/uv

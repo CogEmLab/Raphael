@@ -1,0 +1,80 @@
+[project]
+name = "raphael"
+version = "0.1.0"
+description = "Shared core for neural data processing and analysis: raw recordings to processed NWB, loaders, tuning scores, cluster jobs."
+readme = "README.md"
+requires-python = "==3.11.*"
+dependencies = [
+    "h5py>=3.11.0",
+    "numpy>=1.26",
+    "nwbinspector>=0.7",
+    "pandas>=2.2",
+    "pynapple==0.8.5",
+    "pynwb>=3.0.0",
+    "pyarrow>=14,<26",          # 26 needs numpy 2 at import (numpy is < 2 here)
+    "pyyaml>=6.0",
+    "scipy>=1.13",
+    "scikit-learn>=1.6.1",
+    "matplotlib>=3.8",
+    # Spike sorting as in the Methods: Kilosort 4.0.16 (gpu extra) needs
+    # numpy < 2, and spikeinterface 0.104 is the newest that runs it, so the
+    # whole environment is pinned to both. One environment for everything.
+    "spikeinterface[full]==0.104.9",
+    "numpy<2",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.9.9"]
+# GPU stages (motion correction, segmentation, spike sorting). DeepLabCut is
+# not here: pose estimation is project code (social-manifolds adds it).
+# kilosort 4.0.16 imports pkg_resources (setuptools < 81), and spikeinterface
+# 0.104 reads its output with six. faiss-cpu (kilosort's) 1.16 has no macOS 14
+# wheels. torch is pinned
+# so every machine runs the same version: on Linux it comes from the CUDA 12.6
+# wheel index (see [tool.uv.sources]; needs NVIDIA driver >= 525), on macOS
+# from PyPI, which supports Apple-silicon GPUs (MPS).
+gpu = ["faiss-cpu==1.15.1", "kilosort==4.0.16", "setuptools<81", "six", "suite2p==1.1.0", "torch==2.14.1", "torchvision==0.29.1"]
+
+[project.scripts]
+raphael-imaging = "raphael.scripts.imaging:main"
+raphael-jobs = "raphael.scripts.jobs:main"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Default settings and scheduler templates ship inside the package, so they
+# are there however Raphael is installed (editable, wheel or git URL).
+[tool.setuptools.package-data]
+raphael = ["configs/*.yaml", "cluster/templates/*.sh"]
+
+# One lockfile for every machine the code runs on: `uv sync --frozen` on a
+# laptop, a cluster node or Colab installs exactly what uv.lock lists. See
+# docs/cluster.md. This lock is for developing and testing Raphael itself;
+# a project that depends on Raphael has its own uv.lock, and uv ignores
+# [tool.uv] and [tool.uv.sources] of dependencies, so a project copies the
+# `environments`, `sources` and `index` blocks below into its pyproject.
+[tool.uv]
+environments = [
+    "sys_platform == 'darwin'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[tool.uv.sources]
+# torchvision (needed by suite2p -> cellpose) is listed in the gpu extra
+# because sources only apply to direct dependencies; it must come from the
+# same index, or its compiled ops target a different CUDA from torch's.
+torch = [{ index = "pytorch-cu126", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cu126", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.ruff]
+line-length = 79
