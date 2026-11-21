@@ -168,7 +168,9 @@ def test_folder_inputs_are_checked_file_by_file(tmp_path, day):
 
 def test_stage_end_to_end(tmp_path, day, monkeypatch):
     """The kilosort4 stage, with the sorting step run here and Kilosort
-    replaced by the ground truth."""
+    replaced by the ground truth. Needs the gpu extra (Kilosort's version
+    is recorded)."""
+    pytest.importorskip('kilosort')
     folders, truth, half = day
     data_root = folders[0].parent
     seen = {}

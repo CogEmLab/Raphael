@@ -1,0 +1,102 @@
+# Raphael's continuous integration.
+#
+#   lint        ruff over src/ and tests/
+#   test        the test suite, without and with the gpu extra (Kilosort,
+#               suite2p, torch), on GitHub's CPU runners
+#   downstream  each project that depends on Raphael, installed as its own
+#               uv.lock pins it, with this Raphael swapped in, running the
+#               project's own tests: a change that breaks a project fails
+#               here, before it is released
+#
+# Free: Raphael is public, so GitHub Actions minutes are unlimited.
+# To link another project, add it to the `downstream` matrix below; see
+# docs/ci.md (private projects need a read-only token).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'        # Mondays 06:00 UTC: catches projects that changed
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --extra dev
+      - run: uv run --frozen ruff check src tests
+
+  test:
+    name: test (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: core
+            extras: --extra dev
+          - name: gpu extra, on CPU
+            extras: --extra dev --extra gpu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Free disk space for torch and CUDA wheels
+        if: contains(matrix.extras, 'gpu')
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - run: uv sync --frozen ${{ matrix.extras }}
+      - run: uv run --frozen pytest -q -rs
+
+  downstream:
+    name: downstream (${{ matrix.repo }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One entry per project that uses Raphael. `extras`: what its tests need.
+          - repo: HDClark94/starter_project
+            extras: --extra dev
+    steps:
+      - name: Check out this Raphael
+        uses: actions/checkout@v4
+        with:
+          path: raphael
+      - name: Check out ${{ matrix.repo }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repo }}
+          path: project
+          # Public projects need nothing; private ones read through this secret.
+          token: ${{ secrets.DOWNSTREAM_TOKEN || github.token }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install the project as its uv.lock pins it
+        working-directory: project
+        run: uv sync --frozen ${{ matrix.extras }}
+      - name: Swap in this Raphael
+        working-directory: project
+        # --python .venv: always the project's environment, whatever else is active.
+        # The check fails the job unless raphael now imports from this checkout.
+        run: |
+          uv pip install --python .venv -e ../raphael
+          uv run --no-sync python -c "import raphael, pathlib; p = pathlib.Path(raphael.__file__).resolve(); print('raphael', raphael.__version__, 'from', p); assert pathlib.Path('../raphael').resolve() in p.parents, 'Raphael was not swapped in'"
+      - name: Run the project's tests
+        working-directory: project
+        run: uv run --no-sync pytest -q -rs

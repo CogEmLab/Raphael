@@ -70,7 +70,7 @@ def written(tmp_path):
 
 
 def test_ophys_roundtrip(written):
-    session, planes, ophys, _, _, _ = written
+    _, planes, ophys, _, _, _ = written
     with pynwb.NWBHDF5IO(str(ophys), 'r') as io:
         f = io.read()
         mod = f.processing['ophys']
@@ -90,7 +90,7 @@ def test_ophys_roundtrip(written):
 
 
 def test_behaviour_and_tables(written):
-    session, planes, _, beh, rois, tmp = written
+    session, _, _, beh, rois, tmp = written
     with pynwb.NWBHDF5IO(str(beh), 'r') as io:
         f = io.read()
         assert f.acquisition['S'].unit == 'cm/s'

@@ -44,7 +44,7 @@ def plane_names(f):
 
 def metadata(f):
     general = f['general']
-    text = lambda p: _text(f[p][()])  # noqa: E731
+    text = lambda p: _text(f[p][()])
     plane = general['optophysiology/ImagingPlane1']
     return {
         'session_description': text('session_description'),

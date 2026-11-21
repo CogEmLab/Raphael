@@ -17,12 +17,12 @@ def baseline(F, rate, percentile=8, window_s=60):
     """
     F = np.asarray(F, dtype=np.float32)
     n = len(F)
-    bin_frames = max(1, int(round(rate)))
+    bin_frames = max(1, int(round(rate)))  # noqa: RUF046 (rate may be a numpy float)
     n_bins = n // bin_frames
     if n_bins < 2:
         return np.repeat(np.percentile(F, percentile, axis=0, keepdims=True), n, axis=0)
     binned = F[: n_bins * bin_frames].reshape(n_bins, bin_frames, -1).mean(axis=1)
-    window = max(1, int(round(window_s * rate / bin_frames)))
+    window = max(1, int(round(window_s * rate / bin_frames)))  # noqa: RUF046
     smooth = percentile_filter(binned, percentile, size=(window, 1), mode='nearest')
     centres = (np.arange(n_bins) + 0.5) * bin_frames
     frames = np.arange(n)

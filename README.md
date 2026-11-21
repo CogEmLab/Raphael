@@ -4,6 +4,8 @@
 
 # Raphael
 
+[![CI](https://github.com/HDClark94/Raphael/actions/workflows/ci.yml/badge.svg)](https://github.com/HDClark94/Raphael/actions/workflows/ci.yml)
+
 The shared computational core for neural data analysis in the Mikulovic and
 Hangya labs. Raphael turns raw recordings into processed, publishable
 per-session files, and provides the analysis tools every project uses on them.
@@ -56,6 +58,7 @@ project. To move something into Raphael, open a pull request with its tests.
 | [Imaging pipeline](docs/imaging_pipeline.md) · [walkthrough](docs/imaging_walkthrough.md) | suite2p, file formats |
 | [Photometry pipeline](docs/photometry_pipeline.md) | Doric files, dF/F, syncing to video |
 | [Running jobs](docs/cluster.md) · [MSC cluster](docs/msc_cluster.md) | job bundles, the MedUni Wien cluster |
+| [Continuous integration](docs/ci.md) | what CI checks, linking a project |
 
 ## Developing Raphael
 
@@ -67,6 +70,8 @@ uv run ruff check src tests
 ```
 
 The tests simulate recordings with known spikes and ROIs, so they need no lab data.
+CI runs them, and every linked project's tests against this Raphael, on each
+push and pull request ([docs/ci.md](docs/ci.md)).
 
 Several projects depend on Raphael, so change it carefully. A change that
 alters outputs (a default threshold, a filter) needs a test and a new version.

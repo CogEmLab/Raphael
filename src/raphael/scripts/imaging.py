@@ -73,7 +73,8 @@ def from_dandi(path, out, settings, planes=None, max_frames=None):
         'max_frames': max_frames,
         'dff': 'not computed: source F is background-subtracted',
     }
-    common = dict(session_start_time=meta['session_start_time'], subject=subject, notes=notes)
+    common = {'session_start_time': meta['session_start_time'], 'subject': subject,
+              'notes': notes}
 
     beh_file = nwb.new_nwbfile(source_settings, session,
                                f'Behaviour for {session.stem}. ' + meta['session_description'],
