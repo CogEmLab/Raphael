@@ -139,3 +139,21 @@ jobs:
       - name: Who to tell
         if: failure() && matrix.contact != ''
         run: echo "::error::${{ matrix.repo }} broke against this Raphael; tell @${{ matrix.contact }}"
+
+  # The one check branch protection requires: passes only if every job above
+  # passed (or was skipped because no downstream project is enabled), so
+  # adding or removing downstream projects never changes the required checks.
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [lint, test, discover, downstream]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in success|skipped) ;; *) echo "::error::a CI job did not pass ($r)"; exit 1 ;; esac
+          done

@@ -22,14 +22,20 @@ and move on purpose, after reading the changelog.
 
 As you work, add a line under `## [Unreleased]` in
 [CHANGELOG.md](../CHANGELOG.md) for each change that matters to a project.
-Then, on an up-to-date `main`:
+`main` is protected (changes arrive by pull request, once CI passes), so a
+release is a small pull request, then a tag on `main`:
 
 ```bash
+git switch main && git pull
+git switch -c release-0.3.0
 uv run python .github/scripts/release_tools.py prepare 0.3.0
 git diff                                  # versions bumped, changelog dated, uv.lock updated
 git commit -am "Release 0.3.0"
+git push -u origin release-0.3.0
+gh pr create --fill                       # merge it once CI passes
+git switch main && git pull               # after the merge
 git tag -a v0.3.0 -m "v0.3.0"
-git push origin main v0.3.0
+git push origin v0.3.0
 ```
 
 `prepare` writes the version into `pyproject.toml`, `src/raphael/__init__.py`
@@ -43,7 +49,7 @@ re-locks. Pushing the tag starts the **Release** workflow
    changelog section as its notes and the wheel and sdist attached.
 
 Nothing is published unless all three pass. If one fails, fix the problem
-on `main`, then move the tag:
+(by pull request), then move the tag to the fixed `main`:
 
 ```bash
 git push --delete origin v0.3.0 && git tag -d v0.3.0

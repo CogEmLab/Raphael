@@ -78,6 +78,10 @@ uv run pytest
 uv run ruff check src tests
 ```
 
+`main` is protected: every change arrives as a pull request, and merges once
+CI ("CI passed") is green. Work on a branch, push it, and open a pull request
+(`gh pr create --fill`).
+
 The tests simulate recordings with known spikes and ROIs, so they need no lab data.
 CI runs them, and every linked project's tests against this Raphael, on each
 push and pull request ([docs/ci.md](docs/ci.md)).
@@ -88,9 +92,11 @@ and every change that matters to a project gets a line in
 [CHANGELOG.md](CHANGELOG.md). To release:
 
 ```bash
+git switch -c release-0.3.0
 uv run python .github/scripts/release_tools.py prepare 0.3.0
-git commit -am "Release 0.3.0" && git tag -a v0.3.0 -m "v0.3.0"
-git push origin main v0.3.0      # checks, full CI, then a GitHub Release (and a DOI)
+git commit -am "Release 0.3.0" && git push -u origin release-0.3.0
+gh pr create --fill              # merge once CI passes, then tag main:
+git switch main && git pull && git tag -a v0.3.0 -m "v0.3.0" && git push origin v0.3.0
 ```
 
 See [docs/releases.md](docs/releases.md), including how to cite Raphael and
