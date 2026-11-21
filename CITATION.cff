@@ -1,0 +1,28 @@
+# How to cite Raphael. GitHub shows this as "Cite this repository", and
+# Zenodo uses it for the DOI record of each release. Add yourself under
+# `authors` when you contribute. `version` and `date-released` are updated
+# by `release_tools.py prepare`.
+cff-version: 1.2.0
+message: >-
+  If you use Raphael, please cite the version you used (each release has its
+  own DOI on Zenodo).
+type: software
+title: "Raphael: shared core for neural data processing and analysis"
+abstract: >-
+  Raphael turns raw neural recordings (Neuropixels, two-photon imaging, fibre
+  photometry) into processed, publishable per-session files, and provides
+  the analysis tools that the Mikulovic and Hangya labs' projects share.
+authors:
+  - given-names: Harry
+    family-names: Clark
+license: MIT
+repository-code: "https://github.com/HDClark94/Raphael"
+keywords:
+  - neuroscience
+  - electrophysiology
+  - spike sorting
+  - calcium imaging
+  - fiber photometry
+  - NWB
+version: 0.2.0
+date-released: "2026-11-20"

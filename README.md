@@ -67,6 +67,7 @@ project. To move something into Raphael, open a pull request with its tests.
 | [Photometry pipeline](docs/photometry_pipeline.md) | Doric files, dF/F, syncing to video |
 | [Running jobs](docs/cluster.md) · [MSC cluster](docs/msc_cluster.md) | job bundles, the MedUni Wien cluster |
 | [Continuous integration](docs/ci.md) | what CI checks, linking a project |
+| [Releases, DOIs and publications](docs/releases.md) | versions, releasing, Zenodo DOIs, citing in papers |
 
 ## Developing Raphael
 
@@ -82,13 +83,18 @@ CI runs them, and every linked project's tests against this Raphael, on each
 push and pull request ([docs/ci.md](docs/ci.md)).
 
 Several projects depend on Raphael, so change it carefully. A change that
-alters outputs (a default threshold, a filter) needs a test and a new version.
-To release:
+alters outputs (a default threshold, a filter) needs a test and a new version,
+and every change that matters to a project gets a line in
+[CHANGELOG.md](CHANGELOG.md). To release:
 
-1. Bump `version` in `pyproject.toml` and `src/raphael/__init__.py`, then commit.
-2. Tag and push: `git tag v0.2.0 && git push origin main v0.2.0`.
-3. Projects move to it with
-   `uv add "raphael @ git+https://github.com/HDClark94/Raphael" --tag v0.2.0`.
+```bash
+uv run python .github/scripts/release_tools.py prepare 0.3.0
+git commit -am "Release 0.3.0" && git tag -a v0.3.0 -m "v0.3.0"
+git push origin main v0.3.0      # checks, full CI, then a GitHub Release (and a DOI)
+```
+
+See [docs/releases.md](docs/releases.md), including how to cite Raphael and
+a project in a paper.
 
 Python 3.11 exactly: Kilosort 4.0.16, the version in the Methods, needs
 numpy < 2 and spikeinterface 0.104.

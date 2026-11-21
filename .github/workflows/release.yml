@@ -1,0 +1,56 @@
+# Publish a GitHub Release when a version tag is pushed (git push origin v0.3.0).
+#
+#   check    the tag matches pyproject.toml, __version__, CITATION.cff and a
+#            dated CHANGELOG.md section, and is on main
+#   ci       the full CI, including every downstream project
+#   publish  builds the wheel and sdist and creates the release, with that
+#            version's changelog as its notes
+#
+# With Zenodo connected to this repository, each published release is
+# archived and gets a DOI (docs/releases.md). Prepare a release with
+# `python .github/scripts/release_tools.py prepare X.Y.Z`.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.3.3
+      - name: Versions, changelog and citation agree with the tag
+        run: uv run --no-project python .github/scripts/release_tools.py check "$GITHUB_REF_NAME"
+      - name: The tag is on main
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "::error::$GITHUB_REF_NAME is not on main: release from main only"; exit 1; }
+
+  ci:
+    needs: check
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  publish:
+    needs: [check, ci]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv build
+      - name: Release notes from CHANGELOG.md
+        run: uv run --no-project python .github/scripts/release_tools.py notes "${GITHUB_REF_NAME#v}" > notes.md
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "Raphael $GITHUB_REF_NAME" --notes-file notes.md
