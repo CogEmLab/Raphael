@@ -1,0 +1,8 @@
+# starter_project: the template every new project is forked from.
+repo: HDClark94/starter_project
+branch: main
+private: false
+enabled: true
+extras: [dev]                    # what its tests need (no gpu: CI has no GPU)
+test: uv run pytest -q -rs
+contact: HDClark94               # GitHub user to tell when this breaks

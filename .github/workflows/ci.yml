@@ -9,8 +9,8 @@
 #               here, before it is released
 #
 # Free: Raphael is public, so GitHub Actions minutes are unlimited.
-# To link another project, add it to the `downstream` matrix below; see
-# docs/ci.md (private projects need a read-only token).
+# The projects are listed in .github/downstream/, one file each: add a file
+# to link a project (docs/ci.md; private projects need a read-only token).
 
 name: CI
 
@@ -38,7 +38,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen --extra dev
-      - run: uv run --frozen ruff check src tests
+      - run: uv run --frozen ruff check src tests .github/scripts
 
   test:
     name: test (${{ matrix.name }})
@@ -62,35 +62,69 @@ jobs:
       - run: uv sync --frozen ${{ matrix.extras }}
       - run: uv run --frozen pytest -q -rs
 
+  discover:
+    name: find downstream projects
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+      count: ${{ steps.read.outputs.count }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3
+      - id: read
+        run: uv run --no-project --with pyyaml python .github/scripts/downstream_matrix.py --github
+
   downstream:
-    name: downstream (${{ matrix.repo }})
+    name: downstream (${{ matrix.name }})
+    needs: discover
+    if: needs.discover.outputs.count != '0'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # One entry per project that uses Raphael. `extras`: what its tests need.
-          - repo: HDClark94/starter_project
-            extras: --extra dev
+        include: ${{ fromJSON(needs.discover.outputs.matrix) }}
     steps:
+      - name: Access to ${{ matrix.repo }}
+        id: access
+        if: matrix.private
+        env:
+          TOKEN: ${{ secrets.DOWNSTREAM_TOKEN }}
+          FORK: ${{ github.event.pull_request.head.repo.fork }}
+        run: |
+          if [ "$FORK" = "true" ]; then
+            echo "::warning::${{ matrix.repo }} is private and pull requests from forks get no secrets: not tested here"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ -z "$TOKEN" ]; then
+            echo "::error::${{ matrix.repo }} is private: add a read-only token as the DOWNSTREAM_TOKEN secret (docs/ci.md)"
+            exit 1
+          fi
       - name: Check out this Raphael
+        if: steps.access.outputs.skip != 'true'
         uses: actions/checkout@v7.0.1
         with:
           path: raphael
       - name: Check out ${{ matrix.repo }}
+        if: steps.access.outputs.skip != 'true'
         uses: actions/checkout@v7.0.1
         with:
           repository: ${{ matrix.repo }}
+          ref: ${{ matrix.branch }}
           path: project
-          # Public projects need nothing; private ones read through this secret.
-          token: ${{ secrets.DOWNSTREAM_TOKEN || github.token }}
+          token: ${{ matrix.private && secrets.DOWNSTREAM_TOKEN || github.token }}
       - uses: astral-sh/setup-uv@v10.3.3
+        if: steps.access.outputs.skip != 'true'
         with:
           enable-cache: true
       - name: Install the project as its uv.lock pins it
+        if: steps.access.outputs.skip != 'true'
         working-directory: project
-        run: uv sync --frozen ${{ matrix.extras }}
+        run: |
+          uv sync --frozen ${{ matrix.extras_flags }}
+          uv pip show --python .venv raphael > /dev/null 2>&1 || {
+            echo "::error::${{ matrix.repo }} does not install raphael: add it to its dependencies, or set enabled: false in .github/downstream/${{ matrix.name }}.yml"
+            exit 1; }
       - name: Swap in this Raphael
+        if: steps.access.outputs.skip != 'true'
         working-directory: project
         # --python .venv: always the project's environment, whatever else is active.
         # The check fails the job unless raphael now imports from this checkout.
@@ -98,5 +132,9 @@ jobs:
           uv pip install --python .venv -e ../raphael
           uv run --no-sync python -c "import raphael, pathlib; p = pathlib.Path(raphael.__file__).resolve(); print('raphael', raphael.__version__, 'from', p); assert pathlib.Path('../raphael').resolve() in p.parents, 'Raphael was not swapped in'"
       - name: Run the project's tests
+        if: steps.access.outputs.skip != 'true'
         working-directory: project
-        run: uv run --no-sync pytest -q -rs
+        run: ${{ matrix.test }}
+      - name: Who to tell
+        if: failure() && matrix.contact != ''
+        run: echo "::error::${{ matrix.repo }} broke against this Raphael; tell @${{ matrix.contact }}"

@@ -1,0 +1,11 @@
+# social-manifolds: hippocampal population coding during helping behaviour.
+repo: HDClark94/social-manifolds
+branch: main
+private: true                    # needs the DOWNSTREAM_TOKEN secret (docs/ci.md)
+# Off until social-manifolds depends on Raphael: today it still carries its
+# own copy of the core code, so its tests would not exercise Raphael. Turn
+# on when it imports Raphael (raphael in its pyproject.toml and uv.lock).
+enabled: false
+extras: [dev]
+test: uv run pytest -q -rs
+contact: HDClark94
