@@ -168,6 +168,12 @@ git commit -m "Start my-project from starter_project"
 git push
 ```
 
+Then **tell the Raphael owner** (currently Harry Clark,
+[@HDClark94](https://github.com/HDClark94)) about your project: send its
+repository URL and say whether it's private. Harry adds it to Raphael's CI
+([ci.md](ci.md)), so every change to Raphael is tested against your
+project's tests before it's released.
+
 ## Later
 
 **Run on the cluster.** Set your MSC login once, then follow

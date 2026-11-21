@@ -57,11 +57,14 @@ file (an unknown field, a malformed repo) fails CI, and Raphael's own tests
 
 ### Linking a project
 
-1. Add `.github/downstream/<project>.yml` in a pull request to Raphael.
-2. Make sure the project has tests that run with its `test` command on
+Project owners: tell the Raphael owner (currently Harry Clark, @HDClark94) the
+repository URL and whether it's private. The Raphael owner then:
+
+1. Adds `.github/downstream/<project>.yml` in a pull request to Raphael.
+2. Checks the project has tests that run with its `test` command on
    generated or simulated data (CI has no lab data and no GPU), and a
    committed `uv.lock` that includes Raphael.
-3. If it is private, set up the token (below).
+3. If it's private, gives the token read access to it (below).
 
 To pause a project (for example while it moves to a new Raphael), set
 `enabled: false` and say why in a comment, as `social_manifolds.yml` does.

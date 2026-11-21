@@ -20,6 +20,14 @@ Set up VS Code and Claude Code, fork
 [starter_project](https://github.com/HDClark94/starter_project), and run
 example processing and analysis, step by step.
 
+> **Started a project that uses Raphael? Tell the Raphael owner**, currently
+> Harry Clark ([@HDClark94](https://github.com/HDClark94)), so it can be added to
+> Raphael's CI. Every change to Raphael is then tested against your project's
+> tests before it's released, so you find out about breaking changes before
+> they reach you. Send the repository's URL and say whether it's private
+> (private repositories need read access for CI). How it works:
+> [docs/ci.md](docs/ci.md).
+
 ## What Raphael does
 
 ```
