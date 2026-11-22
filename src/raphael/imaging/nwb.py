@@ -107,7 +107,11 @@ def subject_fields(subject, timezone='UTC'):
 
 def new_nwbfile(settings, session, session_description, session_start_time=None,
                 subject=None, notes=None):
-    """NWBFile carrying the publication metadata from configs/imaging.yaml."""
+    """NWBFile carrying the publication metadata from configs/imaging.yaml,
+    and the Raphael version and commit that wrote it (`source_script`)."""
+    from raphael.cluster.provenance import source_script
+
+    script, script_name = source_script()
     meta = settings['nwb']
     subject_defaults = dict(settings['subject'])
     subject_defaults.update(subject or {})
@@ -130,6 +134,8 @@ def new_nwbfile(settings, session, session_description, session_start_time=None,
         data_collection=meta.get('data_collection'),
         notes=json.dumps(notes) if isinstance(notes, dict) else notes,
         subject=Subject(**subject_defaults),
+        source_script=script,
+        source_script_file_name=script_name,
     )
 
 

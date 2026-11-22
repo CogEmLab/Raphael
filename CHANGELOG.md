@@ -9,6 +9,13 @@ additions that leave existing results unchanged. Each release is a GitHub
 Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
+### Added
+- Provenance with the results: every job writes `provenance/{job_id}.json`
+  into each processed session folder it writes (Raphael version, tag and
+  commit, project commit and `uv.lock`, settings and config text, inputs'
+  and outputs' sha256, package versions, machine, timings), and every NWB
+  file names the Raphael that wrote it (`source_script`). Session folders
+  now contain a `provenance/` folder. See docs/cluster.md.
 ### Changed
 - Raphael moved to the CogEmLab organisation (https://github.com/CogEmLab/Raphael);
   old addresses redirect. New projects start from starter_project with

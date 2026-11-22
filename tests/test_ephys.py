@@ -213,7 +213,7 @@ def test_stage_end_to_end(tmp_path, day, monkeypatch):
     # keep_analyzer, those sit in outputs/kilosort4/analyzers/. _ecephys.nwb
     # is there only because this job asks for it (write_ecephys_nwb).
     assert sorted(p.name.removeprefix('sub-M1_ses-D2_typ-OF2_srt-kilosort4')
-                  for p in folder.iterdir()) == ['_clusters.npz', '_ecephys.nwb', 'qc']
+                  for p in folder.iterdir()) == ['_clusters.npz', '_ecephys.nwb', 'provenance', 'qc']
     kept = out / 'kilosort4' / 'analyzers' / 'M1' / 'D2' / 'OF2'
     analyzer_path = kept / 'sub-M1_ses-D2_typ-OF2_srt-kilosort4_analyzer.zarr'
     curation_path = kept / 'sub-M1_ses-D2_typ-OF2_srt-kilosort4_bombcell_curation.json'
@@ -412,7 +412,8 @@ def test_lfp_stage_writes_the_lab_layout(tmp_path, day):
     summary = json.loads((out / 'lfp_summary.json').read_text())
     assert [s['lfp_channels'] for s in summary['sessions']] == [4, 4]
     path = out / 'M1' / 'D2' / 'OF2' / 'sub-M1_ses-D2_typ-OF2_lfp.nwb'
-    assert sorted(p.name for p in path.parent.iterdir()) == [path.name]
+    assert sorted(p.name for p in path.parent.iterdir()) == sorted([path.name, 'provenance'])
+    assert (path.parent / 'provenance' / 'lfp-default.json').exists()
     with pynwb.NWBHDF5IO(str(path), 'r') as io:
         f = io.read()
         lfp = f.processing['ecephys']['LFP']['lfp']

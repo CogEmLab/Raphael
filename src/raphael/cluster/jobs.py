@@ -388,13 +388,49 @@ def run(job_dir, data_root, work=None, hash_inputs=True, allow_env_mismatch=Fals
         ctx = Context(job_dir=job_dir, inputs=inputs, work=work,
                       outputs=job_dir / 'outputs', config=job_dir / 'config',
                       params=spec['params'], device=device)
+        started = _now()
         STAGES[spec['stage']](ctx)
+        record_provenance(job_dir, spec, env, gpu_info, device, started)
     except BaseException as e:
         (logs / 'traceback.txt').write_text(traceback.format_exc())
         set_status(job_dir, 'FAILED', host=socket.gethostname(),
                    error=f'{type(e).__name__}: {e}')
         raise
     set_status(job_dir, 'DONE', host=socket.gethostname(), device=device)
+
+
+def record_provenance(job_dir, spec, env, gpu_info, device, started):
+    """After a stage succeeds: write provenance/{job_id}.json into every
+    session folder it wrote (so the record travels with the processed
+    files), and the same record without per-folder outputs to
+    logs/provenance.json."""
+    job_dir = Path(job_dir)
+    configs = {p.name: {'sha256': provenance.sha256(p), 'text': p.read_text()}
+               for p in sorted((job_dir / 'config').glob('*')) if p.is_file()}
+    record = {
+        'job_id': spec['job_id'],
+        'stage': spec['stage'],
+        'started': started,
+        'finished': _now(),
+        'host': socket.gethostname(),
+        'device': device,
+        'raphael': env['raphael'],
+        'project': {'root': env['project_root'], 'git': env['git'],
+                    'uv_lock_sha256': env['uv_lock_sha256']},
+        'job_made': {k: spec.get(k) for k in ('created', 'created_on', 'git',
+                                              'uv_lock_sha256')},
+        'params': spec['params'],
+        'resources': spec['resources'],
+        'configs': configs,
+        'inputs': spec['inputs'],
+        'environment': {k: env[k] for k in ('python', 'platform', 'scheduler', 'packages')},
+        'gpu': gpu_info,
+    }
+    written = provenance.write_records(job_dir / 'outputs', record, spec['job_id'])
+    _write_json(job_dir / 'logs' / 'provenance.json',
+                {'format': provenance.RECORD_FORMAT, **record,
+                 'session_records': [str(p.relative_to(job_dir)) for p in written.values()]})
+    return written
 
 
 def summary(root):
