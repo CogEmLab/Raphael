@@ -90,7 +90,7 @@ processed/M{mouse}/D{day}/{type}/
 ├── sub-…_src-suite2p_traces.npz, _rois.csv               the same, pynapple / table
 ├── sub-…_photometry.nwb                                  raw channels, dF/F, z-score
 ├── sub-…_photometry.npz, _photometry.csv                 the same, pynapple / table
-├── qc/                                                   QC figures; sync.json, sync.png
+├── qc/                                                   QC figures; _sync.json, _sync.png
 └── provenance/{job_id}.json                              what each run did (below)
 ```
 
@@ -224,8 +224,8 @@ Streams recorded on different devices (Neuropixels, two-photon, photometry,
 cameras, the behaviour rig) are aligned with shared TTL pulses. A wrong
 alignment doesn't crash anything; it quietly shifts every result. So
 **every processed session gets sync checks before anything is aligned**.
-They are written to `qc/sync.json` (numbers and pass or fail) and
-`qc/sync.png` (the figures below), and recorded in the provenance:
+They are written to `qc/…_sync.json` (numbers and pass or fail) and
+`qc/…_sync.png` (the figure), and recorded in the provenance:
 
 | Check | Catches | Pass when (default, per rig in config) |
 |---|---|---|
@@ -248,9 +248,12 @@ They are written to `qc/sync.json` (numbers and pass or fail) and
   faster than that alias.
   Pulses the console generated are rebuilt from its settings
   (`Recording.ttl_times`) and checked against what was recorded.
-- **Status:** Raphael reads TTLs from photometry files today. The sync
-  stage that checks and aligns all streams, writing `_beh.nwb`, is
-  planned. These checks are its specification.
+- **Status:** a preliminary version exists ([sync.md](sync.md)): one TTL
+  column in a behaviour CSV against one TTL line in an Open Ephys
+  Neuropixels recording. It runs these checks, writes the QC report and
+  figure, and writes the behaviour on the recording's clock (`_beh.csv`)
+  only if they pass. Other devices and `_beh.nwb` come next; these checks
+  are their specification.
 
 ## Re-processing
 
