@@ -115,6 +115,42 @@ def test_photometry_stage(simulated, tmp_path):
     assert (job / 'outputs' / 'M1' / 'D2' / 'OF1' / 'sub-M1_ses-D2_typ-OF1_photometry.nwb').exists()
 
 
+def test_processed_files_carry_their_provenance(simulated, tmp_path):
+    """A job leaves provenance/{job}.json in each session folder it writes,
+    naming Raphael's version, the settings, the inputs' and outputs'
+    checksums; every NWB file names the Raphael that wrote it."""
+    import json
+
+    import raphael
+    from raphael.cluster import provenance
+
+    path, _, _ = simulated
+    data_root = path.parents[1]
+    job = jobs.make(tmp_path / 'jobs' / 'fp-prov', 'photometry', ['raw/M1_D2_OF1.doric'],
+                    data_root, resources={'gpu': False}, configs=[DEFAULT_CONFIG],
+                    params={'mouse': 1, 'day': 2, 'session_type': 'OF1'})
+    jobs.run(job, data_root)
+    folder = job / 'outputs' / 'M1' / 'D2' / 'OF1'
+    record = json.loads((folder / 'provenance' / 'fp-prov.json').read_text())
+
+    assert record['format'] == provenance.RECORD_FORMAT
+    assert record['stage'] == 'photometry' and record['job_id'] == 'fp-prov'
+    assert record['raphael']['version'] == raphael.__version__
+    assert record['params']['session_type'] == 'OF1'
+    assert 'photometry.yaml' in record['configs']
+    assert record['inputs'][0]['sha256'] == provenance.sha256(data_root / 'raw/M1_D2_OF1.doric')
+    assert record['environment']['packages']['pynwb']
+    outputs = {f['path']: f['sha256'] for f in record['outputs']}
+    nwb_file = 'sub-M1_ses-D2_typ-OF1_photometry.nwb'
+    assert outputs[nwb_file] == provenance.sha256(folder / nwb_file)
+    assert any(p.startswith('qc/') for p in outputs)
+    assert not any(p.startswith('provenance/') for p in outputs)
+    assert (job / 'logs' / 'provenance.json').exists()
+
+    with pynwb.NWBHDF5IO(folder / nwb_file, 'r') as io:
+        assert io.read().source_script.startswith(f'raphael {raphael.__version__}')
+
+
 EXAMPLE = Path(os.environ.get('RAPHAEL_FP_EXAMPLE', '~/Desktop/example FP data')).expanduser()
 
 

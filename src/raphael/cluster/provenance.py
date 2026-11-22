@@ -10,6 +10,15 @@ The project root is `$RAPHAEL_PROJECT_ROOT` if set, otherwise the nearest
 folder at or above the working directory that holds a `uv.lock`. Jobs run
 from the project checkout (the rendered submit scripts `cd` there first),
 so the default finds it.
+
+What a run did travels with its results in two ways:
+
+- every NWB file names the Raphael that wrote it (`source_script`), and
+- every processed session folder a job writes gets
+  `provenance/{job_id}.json`: the stage, its settings and configs, the
+  inputs with their checksums, the Raphael version, tag and commit, the
+  project's commit and uv.lock, every package version, the machine and GPU,
+  the timings, and the checksum of each file the job wrote there.
 """
 
 import hashlib
@@ -82,7 +91,7 @@ def raphael_state():
         vcs = info.get('vcs_info')
         if vcs:
             state['git'] = {'commit': vcs.get('commit_id'), 'url': info.get('url'),
-                            'dirty': False}
+                            'tag': vcs.get('requested_revision'), 'dirty': False}
         elif info.get('dir_info', {}).get('editable'):
             state['git'] = git_state(PACKAGE_ROOT)
     return state
@@ -102,3 +111,54 @@ def environment():
         'packages': dict(sorted((d.metadata['Name'].lower(), d.version)
                                 for d in importlib.metadata.distributions())),
     }
+
+
+# ------------------------------------------------- provenance beside results
+
+RECORD_FORMAT = 'raphael-provenance/1'
+RECORD_DIR = 'provenance'
+
+
+def source_script():
+    """(source_script, source_script_file_name) for NWBFile: the Raphael
+    that wrote the file, e.g. 'raphael 0.3.0 (v0.3.0, commit 27595f7...)
+    https://github.com/CogEmLab/Raphael'."""
+    state = raphael_state()
+    git = state.get('git') or {}
+    detail = ', '.join(x for x in (git.get('tag'),
+                                   git.get('commit') and f"commit {git['commit']}",
+                                   git.get('dirty') and 'uncommitted changes') if x)
+    text = f"raphael {state.get('version') or 'unknown'}" + (f' ({detail})' if detail else '')
+    url = git.get('url') or 'https://github.com/CogEmLab/Raphael'
+    return f'{text} {url}', 'raphael'
+
+
+def session_folders(outputs):
+    """Folders under `outputs` that directly hold processed files (named
+    `sub-...`), i.e. the session folders of the processed tree."""
+    outputs = Path(outputs)
+    return sorted({p.parent for p in outputs.rglob('sub-*')
+                   if p.is_file() and RECORD_DIR not in p.relative_to(outputs).parts})
+
+
+def _files(folder):
+    return sorted(p for p in Path(folder).rglob('*') if p.is_file()
+                  and p.relative_to(folder).parts[0] != RECORD_DIR
+                  and not any(part.startswith('.') for part in p.relative_to(folder).parts))
+
+
+def write_records(outputs, record, name):
+    """Write `record` (a dict) plus the checksum of every file in each
+    session folder under `outputs` to `{folder}/provenance/{name}.json`.
+    Returns {session folder: record path}."""
+    written = {}
+    for folder in session_folders(outputs):
+        files = [{'path': str(f.relative_to(folder)), 'bytes': f.stat().st_size,
+                  'sha256': sha256(f)} for f in _files(folder)]
+        target = folder / RECORD_DIR / f'{name}.json'
+        target.parent.mkdir(exist_ok=True)
+        target.write_text(json.dumps({'format': RECORD_FORMAT, **record,
+                                      'session_folder': str(folder.relative_to(outputs)),
+                                      'outputs': files}, indent=2, default=str) + '\n')
+        written[folder] = target
+    return written
