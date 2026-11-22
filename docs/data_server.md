@@ -39,23 +39,42 @@ One tree per lab, so mouse numbers can't collide between labs:
 
 ### raw/
 
+The same folders and the same BIDS-style names as `processed/`, so a raw
+recording and the files made from it share a name stem
+(`sub-M{mouse}_ses-D{day}_typ-{type}`) and sit at the same path in both
+trees:
+
 ```
 raw/M{mouse}/D{day}/{type}/
-├── ephys/          Open Ephys (Record Node …/) or SpikeGLX (*_g0/), untouched
-├── imaging/        ScanImage TIFF / Bruker, untouched
-├── photometry/     Doric .doric files
-├── video/          camera files (.mp4/.avi) and their timestamps
-├── behaviour/      rig logs, task files, TTL/sync files
-└── MANIFEST.sha256 checksum of every file, written at ingest
+├── sub-M{m}_ses-D{d}_typ-{t}_ephys/                Open Ephys (Record Node …/) or
+│                                                   SpikeGLX (*_g0/), inside untouched
+├── sub-M{m}_ses-D{d}_typ-{t}_ophys/                ScanImage TIFF / Bruker, inside untouched
+├── sub-M{m}_ses-D{d}_typ-{t}_photometry.doric
+├── sub-M{m}_ses-D{d}_typ-{t}_video-{camera}.mp4    one per camera, e.g. video-top
+├── sub-M{m}_ses-D{d}_typ-{t}_video-{camera}_timestamps.csv
+├── sub-M{m}_ses-D{d}_typ-{t}_beh-{source}.{ext}    rig logs, task files, e.g. beh-unity.csv
+├── sub-M{m}_ses-D{d}_typ-{t}_sync-{device}.{ext}   TTL/sync files not inside another recording
+└── sub-M{m}_ses-D{d}_typ-{t}_manifest.tsv          checksum and original name of every file
 ```
 
 - `{day}` is the day of the experiment for that mouse, as in Raphael's
   tree, and `{type}` is the session type (`OF1`, `VR`, `HBT4T2`, …). The
   calendar date and time live in `metadata/sessions.csv`.
-- A session has only the modality folders it recorded.
-- Each modality folder holds **one continuous recording**, as Raphael's
-  readers expect. Two recordings of the same session type on one day become
-  two session types (`OF1`, `OF2`).
+- **Single files are renamed** at ingest. **Folders written by acquisition
+  software are wrapped, not changed**: Open Ephys and SpikeGLX expect their
+  internal names, so ingest renames only the outer folder
+  (`…_ephys/Record Node 109/…` stays as recorded).
+- The manifest records each file's sha256 and **its original name**, so
+  nothing about the recording is lost by renaming.
+- The suffixes (`_ephys`, `_ophys`, `_photometry`, `_beh`, `_video`) match
+  the processed files', and `-{label}` marks which camera, rig program or
+  device. A session has only the modalities it recorded.
+- Each `_ephys`/`_ophys` folder and each `.doric` file holds **one
+  continuous recording**, as Raphael's readers expect. Two recordings of
+  the same session type on one day become two session types (`OF1`, `OF2`).
+- This is BIDS's split between `sourcedata/` (data as recorded) and
+  derivatives, with our tree's folder levels. DANDI renames to its own
+  scheme on upload either way.
 
 ### processed/
 
@@ -71,8 +90,8 @@ processed/M{mouse}/D{day}/{type}/
 ├── sub-…_src-suite2p_traces.npz, _rois.csv               the same, pynapple / table
 ├── sub-…_photometry.nwb                                  raw channels, dF/F, z-score
 ├── sub-…_photometry.npz, _photometry.csv                 the same, pynapple / table
-├── qc/                                                   QC figures
-└── provenance/                                           one record per run (below)
+├── qc/                                                   QC figures; sync.json, sync.png
+└── provenance/{job_id}.json                              what each run did (below)
 ```
 
 - **NWB is the record; `.npz` and `.csv` are fast copies** of the same
@@ -104,8 +123,20 @@ One folder per pipeline run, copied back from the cluster after the run
 finishes. It holds the job's manifest (stage, settings, inputs and their
 sha256), logs and provenance (the Raphael version and commit, and
 `uv.lock`), but **not** the bulk outputs, which go to `processed/`.
-Each session's `provenance/` folder points to the runs that wrote its
-files.
+
+Each processed session folder carries its own `provenance/{job_id}.json`,
+which Raphael writes with every run. It records:
+- the Raphael version, release tag and exact commit;
+- the project's commit and `uv.lock`;
+- the settings, and the full text of every config;
+- the sha256 of each raw input and of each file written;
+- every package version;
+- the machine and GPU, and the timings.
+
+Every NWB file also names the Raphael that wrote it (NWB's
+`source_script`). So anyone holding a processed file can tell which raw
+files, code and settings made it, and check it hasn't changed since. See
+[cluster.md](cluster.md#provenance-that-travels-with-the-results).
 
 ### projects/
 
@@ -133,10 +164,10 @@ private **(open)**.
 **Ingest** turns a recording in `incoming/` into locked raw data, in one
 step run by a data-manager account (a small script, to be written):
 
-1. Check the session is in `metadata/sessions.csv` and the folder is named
-   correctly.
-2. Write `MANIFEST.sha256` for every file.
-3. Move the folder into `raw/M…/D…/{type}/`, and make it owned by the data
+1. Check the session is in `metadata/sessions.csv`.
+2. Rename single files, and wrap acquisition folders, to the BIDS-style
+   names above. Write the manifest (sha256 and original name of every file).
+3. Move the session into `raw/M…/D…/{type}/`, and make it owned by the data
    account and read-only to everyone else.
 4. Remove it from `incoming/`.
 
@@ -187,6 +218,40 @@ Options include the cluster mounting Leonardo directly, or copying with
 - **Cluster scratch is a working copy.** It can be wiped after a run;
   Leonardo is the only lasting copy.
 
+## Sync checks (TTL pulses)
+
+Streams recorded on different devices (Neuropixels, two-photon, photometry,
+cameras, the behaviour rig) are aligned with shared TTL pulses. A wrong
+alignment doesn't crash anything; it quietly shifts every result. So
+**every processed session gets sync checks before anything is aligned**.
+They are written to `qc/sync.json` (numbers and pass or fail) and
+`qc/sync.png` (the figures below), and recorded in the provenance:
+
+| Check | Catches | Pass when (default, per rig in config) |
+|---|---|---|
+| Pulse count on each device, against the protocol's expected count | missing or extra pulses, a disconnected cable | equal |
+| Pulse counts agree across devices | a device that started late or stopped early | equal, or the difference explained (e.g. recording started after the first pulse) |
+| Inter-pulse intervals | dropped pulses (gaps), doubled pulses (bounces), wrong pulse rate | all within ±5% of the expected interval |
+| Pulse widths | noise read as pulses | within the expected range |
+| Linear clock fit between each pair of devices | clock drift, an offset | drift under 50 ppm |
+| Residuals of that fit | jitter, a pulse matched to the wrong one | max under 1 ms (ephys, photometry), under one frame (video) |
+| Camera frames against frame TTLs and the video file | dropped frames | counts equal |
+| Recording durations from the aligned clocks | truncated files | agree within one pulse interval |
+
+- **A failed check stops alignment for that session.** `_beh.nwb` and
+  anything else that depends on the alignment is not written, and the
+  session is listed as failed with the reason, until someone looks at it.
+  A check can be waived only by a note in `metadata/sessions.csv` saying
+  why, and the waiver is recorded in the provenance.
+- **Photometry:** Doric stores digital lines at its decimated rate (about
+  60 Hz with the lab's settings: 12,166 Hz / 200), so pulses shorter or
+  faster than that alias.
+  Pulses the console generated are rebuilt from its settings
+  (`Recording.ttl_times`) and checked against what was recorded.
+- **Status:** Raphael reads TTLs from photometry files today. The sync
+  stage that checks and aligns all streams, writing `_beh.nwb`, is
+  planned. These checks are its specification.
+
 ## Re-processing
 
 When a Raphael release changes outputs (a new middle version number, see
@@ -225,4 +290,7 @@ on the server would double the largest files (Neuropixels runs at about
   table's exact columns. NWB needs subject age or date of birth, sex,
   species and strain.
 - **Video:** how long raw video is kept once pose estimation has run.
-- **Ingest:** writing the ingest script, perhaps as a `raphael-data` command.
+- **Ingest:** writing the ingest script (renaming, manifest, locking),
+  perhaps as a `raphael-data` command.
+- **Sync:** each rig's TTL scheme (which device sends pulses, their rate
+  and width, expected counts per protocol) and the thresholds above.
