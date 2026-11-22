@@ -100,6 +100,8 @@ What to import for what:
 | `raphael.population` | `load(prefix)` spikes (`_clusters.npz`) or dF/F (`_traces.npz` + `_rois.csv`) as one `Population`; `.accepted()`, `.select(ids)`, `.binned(dt)` → time × neuron |
 | `raphael.ephys.layout.Session` / `raphael.imaging.layout.Session` | every file name in the processed tree: `.folder(root)`, `.clusters(root, sorter)`, `.lfp(root)`, `.traces(root, pipeline)`, `.rois(...)`, `.beh(root)` |
 | `raphael.tuning_scores` | spatial information, HD mean vector length, speed correlation, each with a shuffled null; you pass `bin_config` |
+| `raphael.plots` | standard plots from processed data: `rate_map`, `tuning_curve`, `head_direction`, `phase_histogram`, `peth`, `raster`, `traces`, `autocorrelogram`, `isi_histogram`, `score_histogram` ([plots.md](plots.md)) |
+| `raphael.style` | the figure style (`use()`), sizes, colours, panel letters, `save()` ([style.md](style.md)) |
 | `raphael.util` | `gaussian_filter_nan`, `interpolate_nans`, `wrap` |
 | `raphael.ephys.nwb` | `read_waveforms`, and writing `_clusters.npz` / NWB from your own sorting |
 | `raphael.ephys.lfp` | `extract`, `theta_phase` on a spikeinterface recording |
