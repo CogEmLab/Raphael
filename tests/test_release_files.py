@@ -46,7 +46,7 @@ def test_prepare_then_check(repo):
     sections = rt.changelog_sections(repo)
     assert sections[0][:2] == ('Unreleased', None) and not sections[0][2]   # emptied
     assert sections[1][:2] == (new, '2027-01-02')
-    assert f'[{new}]: https://github.com/HDClark94/Raphael/compare/v{current}...v{new}' in \
+    assert f'[{new}]: https://github.com/CogEmLab/Raphael/compare/v{current}...v{new}' in \
         (repo / 'CHANGELOG.md').read_text()
     with pytest.raises(rt.ReleaseError, match='not after'):
         rt.prepare(current, repo, lock=False)
@@ -62,8 +62,8 @@ def test_check_catches_mismatches(repo):
 
 
 @pytest.mark.parametrize(('source', 'ok'), [
-    ('{ git = "https://github.com/HDClark94/Raphael?tag=v0.2.0#abc" }', True),
-    ('{ git = "https://github.com/HDClark94/Raphael?branch=main#abc" }', False),
+    ('{ git = "https://github.com/CogEmLab/Raphael?tag=v0.2.0#abc" }', True),
+    ('{ git = "https://github.com/CogEmLab/Raphael?branch=main#abc" }', False),
     ('{ editable = "../Raphael" }', False),
     ('{ directory = "../Raphael" }', False),
 ])

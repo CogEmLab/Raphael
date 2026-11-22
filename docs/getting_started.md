@@ -186,7 +186,7 @@ uv run raphael-jobs cluster-user <MUW-ID>
 **Move to a newer Raphael**, when one is released:
 
 ```bash
-uv add "raphael @ git+https://github.com/HDClark94/Raphael" --tag v0.2.0
+uv add "raphael @ git+https://github.com/CogEmLab/Raphael" --tag v0.3.0
 git commit -am "Raphael 0.2.0"
 ```
 
@@ -201,7 +201,7 @@ git merge upstream/main
 the project and point the project at your checkout:
 
 ```bash
-git clone https://github.com/HDClark94/Raphael.git ~/Documents/Raphael
+git clone https://github.com/CogEmLab/Raphael.git ~/Documents/Raphael
 cd ~/Documents/my-project
 uv add --editable ../Raphael
 ```

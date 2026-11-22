@@ -4,7 +4,7 @@
 
 # Raphael
 
-[![CI](https://github.com/HDClark94/Raphael/actions/workflows/ci.yml/badge.svg)](https://github.com/HDClark94/Raphael/actions/workflows/ci.yml)
+[![CI](https://github.com/CogEmLab/Raphael/actions/workflows/ci.yml/badge.svg)](https://github.com/CogEmLab/Raphael/actions/workflows/ci.yml)
 
 The shared computational core for neural data analysis in the Mikulovic and
 Hangya labs. Raphael turns raw recordings into processed, publishable
@@ -75,7 +75,7 @@ project. To move something into Raphael, open a pull request with its tests.
 ## Developing Raphael
 
 ```bash
-git clone https://github.com/HDClark94/Raphael.git && cd Raphael
+git clone https://github.com/CogEmLab/Raphael.git && cd Raphael
 uv sync --extra dev                # add --extra gpu to run the Kilosort and suite2p tests
 uv run pytest
 uv run ruff check src tests

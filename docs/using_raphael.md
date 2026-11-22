@@ -43,7 +43,7 @@ my-project/
 [project]
 name = "my_project"
 requires-python = "==3.11.*"
-dependencies = ["raphael @ git+https://github.com/HDClark94/Raphael@v0.1.0"]
+dependencies = ["raphael @ git+https://github.com/CogEmLab/Raphael@v0.1.0"]
 
 [project.entry-points."raphael.stages"]
 my_project = "my_project.stages"
@@ -242,7 +242,7 @@ Each person sets their cluster login once with
 | Command | What it does |
 |---|---|
 | `uv sync --frozen [--extra gpu]` | install exactly what `uv.lock` lists |
-| `uv add "raphael[gpu] @ git+https://github.com/HDClark94/Raphael" --tag vX.Y.Z` | pin, or move to, a Raphael release |
+| `uv add "raphael[gpu] @ git+https://github.com/CogEmLab/Raphael" --tag vX.Y.Z` | pin, or move to, a Raphael release |
 | `uv add --editable ../Raphael` | use a local Raphael checkout while developing |
 | `uv run raphael-jobs cluster-user [LOGIN]` | save or show your cluster login |
 | `uv run raphael-jobs gpu-check` | prove a GPU computes on this machine |

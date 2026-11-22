@@ -16,7 +16,7 @@ authors:
   - given-names: Harry
     family-names: Clark
 license: MIT
-repository-code: "https://github.com/HDClark94/Raphael"
+repository-code: "https://github.com/CogEmLab/Raphael"
 keywords:
   - neuroscience
   - electrophysiology

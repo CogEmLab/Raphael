@@ -15,7 +15,7 @@ the exact analysis code and the exact Raphael it ran on.
 | alters outputs (a threshold, a filter, a default) or breaks imports | middle | 0.2.0 → 0.3.0 |
 | fixes and additions that leave existing results unchanged | last | 0.2.0 → 0.2.1 |
 
-Projects pin a release (`uv add "raphael @ git+https://github.com/HDClark94/Raphael" --tag vX.Y.Z`)
+Projects pin a release (`uv add "raphael @ git+https://github.com/CogEmLab/Raphael" --tag vX.Y.Z`)
 and move on purpose, after reading the changelog.
 
 ## Releasing Raphael
@@ -66,7 +66,7 @@ Release of a connected repository and mints a DOI for it.
 
 1. Log in at <https://zenodo.org> with your GitHub account.
 2. Open **GitHub** in your Zenodo account menu, and switch **on**
-   `HDClark94/Raphael`.
+   `CogEmLab/Raphael`.
 3. Make the next release. Zenodo archives only releases published after
    the switch, so earlier releases have no DOI.
 
