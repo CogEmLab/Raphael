@@ -72,7 +72,7 @@ failure it prints the full report and a diagnosis, e.g.:
     submit.slurm    scheduler scripts, rendered from configs/cluster.yaml
     submit.sge
     status.json     PENDING -> RUNNING -> DONE | FAILED (with the error)
-    logs/           env.json, gpu.json, scheduler output, traceback.txt
+    logs/           env.json, gpu.json, provenance.json, scheduler output, traceback.txt
     outputs/        results
 ```
 
@@ -137,6 +137,47 @@ Flags:
    and GPU timing. That tests the whole path from bundle to results.
 5. Re-render existing bundles with `raphael-jobs render JOB` if the site
    config changed.
+
+## Provenance that travels with the results
+
+When a stage finishes, the job writes a record **into every processed
+session folder it wrote**, so the record stays with the files wherever they
+are copied (to Leonardo, to a laptop, to DANDI's staging area):
+
+```
+M1/D2/OF1/
+    sub-M1_ses-D2_typ-OF1_photometry.nwb
+    ...
+    provenance/{job_id}.json
+```
+
+Each record (`format: raphael-provenance/1`, plain JSON) holds:
+
+| field | what |
+|---|---|
+| `raphael` | version, release tag and exact commit (and whether the checkout had uncommitted changes) |
+| `project` | the project checkout's commit and `uv.lock` checksum |
+| `stage`, `params`, `resources` | what ran, with which settings |
+| `configs` | each config file's checksum **and full text** |
+| `inputs` | every raw file used, with size and sha256 |
+| `outputs` | every file in the folder the job wrote, with size and sha256 |
+| `environment` | Python, platform, scheduler job ID, every package version |
+| `gpu`, `device`, `host` | where it ran |
+| `started`, `finished`, `job_made` | when, and when and where the job was made |
+
+So for any processed file, you can check it hasn't changed since the
+pipeline wrote it (its sha256 is in `outputs`), and see exactly which raw
+files, settings and code produced it. A folder processed several times
+(e.g. re-run with a newer Raphael) keeps one record per run.
+
+Every NWB file Raphael writes also names the Raphael that wrote it in NWB's
+`source_script` field (e.g. `raphael 0.3.0 (v0.3.0, commit 27595f7…)`), so
+the version is visible from any NWB tool even if the file is separated
+from its folder. The job's `logs/provenance.json` has the same record
+for the whole job.
+
+Files written by scripts outside a job (e.g. `raphael-photometry` on a
+laptop) get the NWB stamp but no record: run a job for anything you keep.
 
 ## Stages
 
