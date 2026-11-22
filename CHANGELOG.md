@@ -10,6 +10,7 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-22
 ### Added
 - `raphael.style`: the labs' figure style (Arial, 6.5-8 pt text, open axes,
   shaded areas without outlines, frameless legends, editable fonts in PDFs),
@@ -58,6 +59,7 @@ To move from 0.1.0: no changes needed; photometry is new.
   writing, the population loader, tuning scores and cluster job bundles
   (`raphael-jobs`), with project stages as plug-ins (`raphael.stages`).
 
-[Unreleased]: https://github.com/HDClark94/Raphael/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/HDClark94/Raphael/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/HDClark94/Raphael/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/HDClark94/Raphael/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/HDClark94/Raphael/releases/tag/v0.1.0
