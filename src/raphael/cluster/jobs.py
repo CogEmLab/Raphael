@@ -894,3 +894,40 @@ def photometry_stage(ctx):
         rows.append(process_file(path, ctx.outputs, session, settings, subject=p.get('subject'),
                                  start_time=start, notes={'job': ctx.job_dir.name}))
     _write_json(ctx.outputs / 'photometry_summary.json', {'sessions': rows})
+
+
+def _sync_check(params, inputs=()):
+    csvs = [i for i in inputs if str(i).endswith('.csv')]
+    if len(inputs) != 2 or len(csvs) != 1:
+        raise JobError('sync needs two inputs: the behaviour .csv and the recording folder '
+                       '(make --input beh.csv --input raw/.../ephys)')
+    missing = [k for k in ('mouse', 'day', 'session_type') if k not in params]
+    if missing:
+        raise JobError(f'sync needs --param for {missing}')
+
+
+@stage('sync', check=_sync_check)
+def sync_stage(ctx):
+    """Behaviour CSV + Open Ephys recording -> behaviour on the recording's
+    clock (_beh.csv) and sync QC (qc/_sync.json, .png) in ctx.outputs. A CPU
+    job: make --cpu. Fails (after writing the QC) if a sync check fails,
+    unless params.waive gives a reason.
+
+    inputs: the behaviour .csv and the recording folder. params: mouse, day,
+    session_type; time_column, ttl_column, ttl_line, stream; sync (dict of
+    raphael.sync.DEFAULTS overrides); waive."""
+    from raphael.ephys.layout import Session
+    from raphael.sync.run import describe, sync_session
+
+    p = ctx.params
+    csv = next(i for i in ctx.inputs if str(i).endswith('.csv'))
+    recording = next(i for i in ctx.inputs if not str(i).endswith('.csv'))
+    session = Session(str(p['mouse']), str(p['day']), str(p['session_type']))
+    result, written = sync_session(csv, recording, ctx.outputs, session, p.get('sync'),
+                                   p.get('time_column', 'time'), p.get('ttl_column', 'ttl'),
+                                   int(p.get('ttl_line', 1)), p.get('stream'), p.get('waive'))
+    print(describe(result, written))
+    if not result.usable:
+        failed = [k for k, c in result.checks.items() if c['passed'] is False]
+        raise JobError(f'sync checks failed: {", ".join(failed)} (see the QC report); fix the '
+                       'cause, or remake the job with --param waive="reason"')
