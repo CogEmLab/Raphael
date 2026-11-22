@@ -16,7 +16,7 @@ code: data conversion, behaviour, analysis and figures.
 
 ### → [Getting started](docs/getting_started.md)
 
-Set up VS Code and Claude Code, fork
+Set up VS Code and Claude Code, create your project from
 [starter_project](https://github.com/HDClark94/starter_project), and run
 example processing and analysis, step by step.
 
