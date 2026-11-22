@@ -68,6 +68,7 @@ project. To move something into Raphael, open a pull request with its tests.
 | [Imaging pipeline](docs/imaging_pipeline.md) · [walkthrough](docs/imaging_walkthrough.md) | suite2p, file formats |
 | [Photometry pipeline](docs/photometry_pipeline.md) | Doric files, dF/F, syncing to video |
 | [Figure style](docs/style.md) · [Plots](docs/plots.md) | the default look for figures; standard plots and a gallery |
+| [Data on Leonardo](docs/data_server.md) | the labs' data server: raw and processed layout, NWB, who can change what (proposal) |
 | [Running jobs](docs/cluster.md) · [MSC cluster](docs/msc_cluster.md) | job bundles, the MedUni Wien cluster |
 | [Continuous integration](docs/ci.md) | what CI checks, linking a project |
 | [Releases, DOIs and publications](docs/releases.md) | versions, releasing, Zenodo DOIs, citing in papers |

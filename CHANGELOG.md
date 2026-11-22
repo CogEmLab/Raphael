@@ -13,6 +13,8 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 - Raphael moved to the CogEmLab organisation (https://github.com/CogEmLab/Raphael);
   old addresses redirect. New projects start from starter_project with
   **Use this template** (which allows private projects) instead of forking.
+- docs/data_server.md: proposed layout and access rights for the labs' data
+  on the Leonardo server.
 
 ## [0.3.0] - 2026-11-22
 ### Added
