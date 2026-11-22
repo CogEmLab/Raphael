@@ -59,7 +59,7 @@ To move from 0.1.0: no changes needed; photometry is new.
   writing, the population loader, tuning scores and cluster job bundles
   (`raphael-jobs`), with project stages as plug-ins (`raphael.stages`).
 
-[Unreleased]: https://github.com/HDClark94/Raphael/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/HDClark94/Raphael/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/HDClark94/Raphael/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/HDClark94/Raphael/releases/tag/v0.1.0
+[Unreleased]: https://github.com/CogEmLab/Raphael/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/CogEmLab/Raphael/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/CogEmLab/Raphael/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/CogEmLab/Raphael/releases/tag/v0.1.0
