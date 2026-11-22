@@ -9,6 +9,10 @@ additions that leave existing results unchanged. Each release is a GitHub
 Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
+### Changed
+- Raphael moved to the CogEmLab organisation (https://github.com/CogEmLab/Raphael);
+  old addresses redirect. New projects start from starter_project with
+  **Use this template** (which allows private projects) instead of forking.
 
 ## [0.3.0] - 2026-11-22
 ### Added

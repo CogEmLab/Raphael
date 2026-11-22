@@ -20,7 +20,7 @@ never imports a project**. Raphael and the project share data only through
 the processed tree (below). That is what lets several projects use one core.
 
 [starter_project](https://github.com/HDClark94/starter_project) is a complete,
-working project laid out this way, with tests; fork it to start a new one.
+working project laid out this way, with tests; start a new one from it with **Use this template**.
 
 ### Project layout
 

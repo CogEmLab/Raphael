@@ -63,31 +63,27 @@ when you open it.)
 **Claude Code.** Click the Claude icon at the top right of an open editor, or
 press `Cmd+Esc`, and sign in with your Claude account when it asks.
 
-## 2. Fork starter_project
+## 2. Create your project from starter_project
 
-A fork is your own copy of the repository on GitHub, which you can change
-freely and which still knows where it came from.
+starter_project is a template: GitHub makes you a new repository with its
+files, under your name, with a clean history.
 
 1. Go to <https://github.com/HDClark94/starter_project>.
-2. Click **Fork** (top right).
-3. Set **Repository name** to your project's name, e.g. `my-project`, and
-   click **Create fork**.
-
-> **Private projects.** A fork of a public repository is public. If your
-> project must stay private until publication, instead use GitHub's
-> **Import repository** (the `+` menu, top right) with
-> `https://github.com/HDClark94/starter_project` as the source, and choose
-> **Private**. The steps below are the same.
+2. Click **Use this template** (top right) → **Create a new repository**.
+3. Choose the owner (you, or the lab's organisation), set **Repository
+   name** to your project's name, e.g. `my-project`, and choose **Private**
+   if it must stay private until publication (most projects) or **Public**.
+4. Click **Create repository**.
 
 ## 3. Clone it and install
 
-Replace `<you>` with your GitHub username and `my-project` with your repository's name:
+Replace `<you>` with the owner you chose (your GitHub username, or the organisation) and `my-project` with your repository's name:
 
 ```bash
 mkdir -p ~/Documents && cd ~/Documents
 git clone https://github.com/<you>/my-project.git
 cd my-project
-git remote add upstream https://github.com/HDClark94/starter_project.git
+git remote add template https://github.com/HDClark94/starter_project.git
 uv sync
 ```
 
@@ -187,14 +183,17 @@ uv run raphael-jobs cluster-user <MUW-ID>
 
 ```bash
 uv add "raphael @ git+https://github.com/CogEmLab/Raphael" --tag v0.3.0
-git commit -am "Raphael 0.2.0"
+git commit -am "Raphael 0.3.0"
 ```
 
-**Get improvements to the template** (new examples, fixes):
+**Get improvements to the template** (new examples, fixes). Your project
+doesn't share history with starter_project, so take what you want file by
+file. starter_project's CHANGELOG.md says what changed:
 
 ```bash
-git fetch upstream
-git merge upstream/main
+git fetch template
+git diff HEAD template/main -- scripts/          # see what's different
+git checkout template/main -- scripts/analyse_tuning.py   # take one file
 ```
 
 **Work on Raphael itself** at the same time as your project. Clone it beside

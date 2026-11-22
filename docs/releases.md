@@ -3,7 +3,7 @@
 Every Raphael version that projects use is a **GitHub Release**: a fixed,
 tagged snapshot with notes. With Zenodo connected, each release is archived
 and gets its own **DOI**, which papers cite. Projects built on Raphael
-(starter_project and its forks) release the same way, so a paper can cite
+(starter_project and projects made from it) release the same way, so a paper can cite
 the exact analysis code and the exact Raphael it ran on.
 
 ## Versions
@@ -88,7 +88,7 @@ The analysis behind a paper lives in a project repository built on
 Raphael, so a paper should cite two releases: **the project** (the code that
 made the figures) and **Raphael** (the version it ran on).
 
-In the project (starter_project and its forks have the same tooling):
+In the project (starter_project and projects made from it have the same tooling):
 
 1. Pin Raphael to a release, and commit `pyproject.toml` and `uv.lock`.
    An editable or branch install of Raphael is fine while working, never for
