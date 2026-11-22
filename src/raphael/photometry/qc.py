@@ -7,8 +7,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from raphael.photometry import processing
+from raphael.style import styled
 
 
+@styled
 def session_figure(rec, times, out, fits, settings, out_dir, title=''):
     """Per channel: raw signal (after trimming and filtering) with its
     bleaching fit; per signal: the reference fit and dF/F."""

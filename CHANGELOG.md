@@ -11,6 +11,15 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 ## [Unreleased]
 
 ### Added
+- `raphael.style`: the labs' figure style (Arial, 6.5-8 pt text, open axes,
+  shaded areas without outlines, frameless legends, editable fonts in PDFs),
+  journal figure sizes in mm, shared region colours and colormaps, panel
+  letters, significance brackets, mean +/- error bands, scale bars and
+  reproducible `save()`. Raphael's QC figures use it. See docs/style.md.
+- `raphael.plots`: rate maps, tuning curves, head-direction and theta-phase
+  plots, peri-event rasters/heatmaps with mean +/- SEM, rasters, stacked
+  traces, autocorrelograms, ISI and score histograms, for spikes and
+  continuous signals alike; `plots.example_data()`. See docs/plots.md.
 - Continuous integration: lint, the test suite with and without the `gpu`
   extra, and every project that uses Raphael (`.github/downstream/*.yml`,
   one config per project) tested against each change. See docs/ci.md.

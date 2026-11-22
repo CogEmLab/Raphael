@@ -6,7 +6,10 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
+from raphael.style import styled
 
+
+@styled
 def plane_figure(plane, index, out_dir, n_traces=30):
     """Mean image with ROI centroids, and a sample of dF/F traces."""
     out_dir.mkdir(parents=True, exist_ok=True)

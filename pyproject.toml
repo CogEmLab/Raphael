@@ -51,7 +51,7 @@ where = ["src"]
 # Default settings and scheduler templates ship inside the package, so they
 # are there however Raphael is installed (editable, wheel or git URL).
 [tool.setuptools.package-data]
-raphael = ["configs/*.yaml", "cluster/templates/*.sh"]
+raphael = ["configs/*.yaml", "cluster/templates/*.sh", "style/*.mplstyle"]
 
 # One lockfile for every machine the code runs on: `uv sync --frozen` on a
 # laptop, a cluster node or Colab installs exactly what uv.lock lists. See

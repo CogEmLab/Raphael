@@ -7,10 +7,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import NullFormatter
 
+from raphael.style import styled
+
 COLOURS = {'good': 'tab:green', 'mua': 'tab:orange', 'noise': 'tab:grey',
            'non_soma': 'tab:purple'}
 
 
+@styled
 def session_figure(units, channels, analyzer, out_dir, title='', max_spikes=50_000):
     """Units on the probe by label; spike depth over time (drift); firing
     rate against depth."""

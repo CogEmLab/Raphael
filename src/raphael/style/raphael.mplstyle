@@ -1,0 +1,103 @@
+# Raphael's figure style: the labs' defaults for publication figures.
+# Applied with raphael.style.use(); see docs/style.md. Distilled from the
+# AnchorDynamics2026 figures (spatial-manifolds).
+
+# --- Fonts: Arial, with metric-compatible fallbacks where it is missing.
+font.family:        sans-serif
+font.sans-serif:    Arial, Helvetica, Liberation Sans, Arimo, DejaVu Sans
+font.size:          7
+mathtext.fontset:   custom
+mathtext.rm:        sans
+mathtext.it:        sans:italic
+mathtext.bf:        sans:bold
+mathtext.sf:        sans
+mathtext.cal:       sans:italic
+mathtext.tt:        monospace
+mathtext.default:   regular
+axes.unicode_minus: True
+
+# --- Text sizes (pt): small and even, as journals print them.
+axes.titlesize:     7.5
+axes.titleweight:   normal
+axes.titlepad:      3
+axes.titlelocation: center
+axes.labelsize:     7
+axes.labelpad:      2
+xtick.labelsize:    6.5
+ytick.labelsize:    6.5
+legend.fontsize:    6.5
+legend.title_fontsize: 7
+figure.titlesize:   8
+
+# --- Axes: open (no top or right spine), thin lines, no grid.
+axes.spines.top:    False
+axes.spines.right:  False
+axes.linewidth:     0.6
+axes.edgecolor:     0.15
+axes.labelcolor:    0.1
+axes.grid:          False
+axes.axisbelow:     True
+axes.xmargin:       0.02
+axes.ymargin:       0.04
+axes.prop_cycle:    cycler('color', ['3171ae', 'c04744', '3f9b4f', '7b4173', 'd95f02', 'b8860b', '3f9b8f', '888888'])
+
+# --- Ticks: short, outward, close to their labels.
+xtick.direction:    out
+ytick.direction:    out
+xtick.major.size:   2
+ytick.major.size:   2
+xtick.minor.size:   1.2
+ytick.minor.size:   1.2
+xtick.major.width:  0.6
+ytick.major.width:  0.6
+xtick.minor.width:  0.5
+ytick.minor.width:  0.5
+xtick.major.pad:    1.5
+ytick.major.pad:    1.5
+xtick.color:        0.15
+ytick.color:        0.15
+xtick.labelcolor:   0.1
+ytick.labelcolor:   0.1
+
+# --- Marks: thin lines; filled shapes and markers without outlines, so a
+# shaded band (fill_between) or a bar has one colour, not a darker rim.
+lines.linewidth:        0.8
+lines.markersize:       3
+lines.markeredgewidth:  0
+lines.solid_capstyle:   round
+patch.linewidth:        0
+patch.edgecolor:        none
+patch.force_edgecolor:  False
+scatter.edgecolors:     none
+scatter.marker:         o
+errorbar.capsize:       2
+hatch.linewidth:        0.5
+boxplot.flierprops.markersize: 2
+boxplot.boxprops.linewidth:    0.6
+boxplot.whiskerprops.linewidth: 0.6
+boxplot.capprops.linewidth:    0.6
+boxplot.medianprops.linewidth: 0.8
+boxplot.medianprops.color:     0.1
+
+# --- Legends: no frame, compact handles.
+legend.frameon:      False
+legend.handlelength: 1.2
+legend.handletextpad: 0.4
+legend.borderaxespad: 0.3
+legend.labelspacing: 0.3
+legend.columnspacing: 1.0
+
+# --- Images: viridis for rates and other sequential values.
+image.cmap:          viridis
+image.interpolation: nearest
+
+# --- Figures and saving: editable text in vector files, tight bounds.
+figure.dpi:          150
+figure.facecolor:    white
+savefig.dpi:         300
+savefig.bbox:        tight
+savefig.pad_inches:  0.02
+savefig.facecolor:   white
+pdf.fonttype:        42
+ps.fonttype:         42
+svg.fonttype:        none

@@ -50,6 +50,8 @@ example processing and analysis, step by step.
 | `raphael.photometry` | Doric fibre photometry → dF/F per channel (bleaching and isosbestic correction) |
 | `raphael.population` | loading spikes or dF/F the same way |
 | `raphael.tuning_scores` | spatial information, head direction, speed, with shuffled nulls |
+| `raphael.plots` | rate maps, tuning curves, head direction, theta phase, peri-event, rasters, traces, histograms |
+| `raphael.style` | the labs' figure style: Arial, open axes, journal sizes, colours, saving |
 | `raphael.cluster` | job bundles that run anywhere, GPU checks, provenance (`raphael-jobs`) |
 
 **What belongs here:** code that more than one project needs and that doesn't
@@ -65,6 +67,7 @@ project. To move something into Raphael, open a pull request with its tests.
 | [Neuropixels pipeline](docs/ephys_pipeline.md) · [walkthrough](docs/ephys_walkthrough.md) | spike sorting and LFP, file formats |
 | [Imaging pipeline](docs/imaging_pipeline.md) · [walkthrough](docs/imaging_walkthrough.md) | suite2p, file formats |
 | [Photometry pipeline](docs/photometry_pipeline.md) | Doric files, dF/F, syncing to video |
+| [Figure style](docs/style.md) · [Plots](docs/plots.md) | the default look for figures; standard plots and a gallery |
 | [Running jobs](docs/cluster.md) · [MSC cluster](docs/msc_cluster.md) | job bundles, the MedUni Wien cluster |
 | [Continuous integration](docs/ci.md) | what CI checks, linking a project |
 | [Releases, DOIs and publications](docs/releases.md) | versions, releasing, Zenodo DOIs, citing in papers |
