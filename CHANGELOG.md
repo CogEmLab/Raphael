@@ -39,6 +39,11 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   Ephys recording sharing the TTL pulses, Doric file, manifest), optionally
   with a ground-truth Neuropixels recording. See docs/toy.md.
 ### Changed
+- Windows is supported natively (no WSL): uv.lock covers Windows (CUDA 12.6
+  torch, as on Linux), CI runs the tests on Windows, and
+  docs/getting_started.md gives Windows steps (winget, PowerShell) beside
+  the macOS ones. Projects add the Windows line to `environments` and the
+  torch sources in their pyproject.
 - Raphael moved to the CogEmLab organisation (https://github.com/CogEmLab/Raphael);
   old addresses redirect. New projects start from starter_project with
   **Use this template** (which allows private projects) instead of forking.

@@ -13,42 +13,63 @@ You will set up:
 - **uv**, which installs the exact Python environment a project needs,
   Raphael included.
 
-The commands are for macOS (and Linux). On Windows, use
-[WSL](https://learn.microsoft.com/windows/wsl/install) and follow the Linux
-lines.
+Everything works on **macOS, Windows and Linux**. Where a step differs,
+it's given for each. On Windows, type commands in **PowerShell** (Start
+menu → PowerShell) or in VS Code's terminal, which is PowerShell by
+default. Windows 10 and 11 come with `winget`, which installs the tools in
+one line each.
 
 ## 1. Install the tools (once per laptop)
 
-**git.** On a Mac, this installs it along with Apple's command-line tools:
+**git.**
 
 ```bash
+# macOS: installs git with Apple's command-line tools
 xcode-select --install
-git --version                     # check: prints a version
 ```
 
-Tell git who you are (use the email of your GitHub account):
+```powershell
+# Windows
+winget install --id Git.Git -e
+```
+
+Open a new terminal, check it worked with `git --version`, then tell git who
+you are (use the email of your GitHub account):
 
 ```bash
 git config --global user.name "Your Name"
 git config --global user.email "you@example.org"
 ```
 
-**uv**, then open a new terminal so it is on your `PATH`:
+**uv.**
 
 ```bash
+# macOS / Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
-uv --version                      # check, in a new terminal
 ```
 
-You do not need to install Python: uv downloads Python 3.11 for each project.
+```powershell
+# Windows
+winget install --id astral-sh.uv -e
+```
 
-**GitHub.** Make an account at [github.com](https://github.com) if you do not
+Open a new terminal and check with `uv --version`. You don't need to install
+Python: uv downloads Python 3.11 for each project.
+
+**GitHub.** Make an account at [github.com](https://github.com) if you don't
 have one, and ask a maintainer to add you to the lab's repositories.
 
-**VS Code.** Download it from [code.visualstudio.com](https://code.visualstudio.com)
-and move it to Applications. Open it, press `Cmd+Shift+P`, run
-**Shell Command: Install 'code' command in PATH**, and open a new terminal.
-Then install the extensions:
+**VS Code.**
+
+- **macOS:** download it from
+  [code.visualstudio.com](https://code.visualstudio.com) and move it to
+  Applications. Open it, press `Cmd+Shift+P`, run **Shell Command: Install
+  'code' command in PATH**, and open a new terminal.
+- **Windows:** run `winget install --id Microsoft.VisualStudioCode -e`, or
+  use the installer from the website. Either way, the `code` command is
+  set up for you; open a new terminal.
+
+Then install the extensions (the same on every system):
 
 ```bash
 code --install-extension anthropic.claude-code     # Claude Code
@@ -61,7 +82,11 @@ code --install-extension charliermarsh.ruff        # formatting and linting
 when you open it.)
 
 **Claude Code.** Click the Claude icon at the top right of an open editor, or
-press `Cmd+Esc`, and sign in with your Claude account when it asks.
+press `Cmd+Esc` (macOS) / `Ctrl+Esc` (Windows), and sign in with your Claude
+account when it asks.
+
+**Keyboard shortcuts below** are written for macOS. On Windows and Linux,
+use `Ctrl` where they say `Cmd`.
 
 ## 2. Create your project from starter_project
 
@@ -80,7 +105,7 @@ files, under your name, with a clean history.
 Replace `<you>` with the owner you chose (your GitHub username, or the organisation) and `my-project` with your repository's name:
 
 ```bash
-mkdir -p ~/Documents && cd ~/Documents
+cd ~/Documents                    # works in PowerShell too
 git clone https://github.com/<you>/my-project.git
 cd my-project
 git remote add template https://github.com/HDClark94/starter_project.git
@@ -114,7 +139,8 @@ code .
 - Click **Install** if VS Code offers the recommended extensions.
 - VS Code picks up the project's environment (`.venv`) on its own. If a
   Python file shows import errors, press `Cmd+Shift+P`, run
-  **Python: Select Interpreter**, and choose `./.venv/bin/python`.
+  **Python: Select Interpreter**, and choose the `.venv` one (`./.venv/bin/python` on macOS and Linux,
+  `.\.venv\Scripts\python.exe` on Windows).
 - The terminal inside VS Code (`` Ctrl+` ``) opens in the project folder; use
   it for the `uv run ...` commands below.
 
@@ -212,8 +238,10 @@ Before committing your project, go back to a released Raphael with the
 
 | Problem | Fix |
 |---|---|
-| `uv: command not found` | open a new terminal; or run `source ~/.local/bin/env` |
-| `code: command not found` | in VS Code, `Cmd+Shift+P` → **Shell Command: Install 'code' command in PATH** |
+| Windows: `running scripts is disabled on this system` | run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once in PowerShell |
+| Windows: a GPU stage says no CUDA | install the current NVIDIA driver; Raphael's torch brings its own CUDA 12.6, so no separate CUDA install is needed |
+| `uv: command not found` (or "not recognized" on Windows) | open a new terminal (on macOS/Linux you can also run `source ~/.local/bin/env`) |
+| `code: command not found` | macOS: in VS Code, `Cmd+Shift+P` → **Shell Command: Install 'code' command in PATH**. Windows: open a new terminal after installing, or reinstall VS Code with "Add to PATH" ticked |
 | uv says no solution because of `requires-python` | the project must say `requires-python = "==3.11.*"`, as Raphael requires |
 | notebook cannot find `raphael` or `starter_project` | the kernel is not `.venv`: **Select Kernel** → `.venv`; run `uv sync` first |
 | `ModuleNotFoundError: kilosort` | spike sorting needs `uv sync --extra gpu` |
