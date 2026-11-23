@@ -1,6 +1,7 @@
 """Job bundles and GPU checks, run on the CPU so they pass anywhere."""
 
 import json
+from pathlib import Path
 
 import pytest
 import yaml
@@ -206,3 +207,18 @@ def test_personal_overrides_merge_over_the_site(tmp_path, monkeypatch):
     assert cfg['paths']['data'] == '/msc/home/tester/scratch'
     assert cfg['paths']['jobs'] == '/msc/home/tester/jobs'
     assert cfg['slurm']['account'] == '--account=neurop'
+
+
+def test_recorded_paths_use_forward_slashes(tmp_path, data_root, site):
+    """A job made on Windows must run on the (Linux) cluster: every path it
+    records uses '/', never '\\'."""
+    nested = data_root / 'raw' / 'M1' / 'D2' / 'OF1'
+    (nested / 'deeper').mkdir(parents=True)
+    (nested / 'deeper' / 'a.bin').write_bytes(b'x' * 10)
+    rel = str(Path('raw') / 'M1' / 'D2' / 'OF1')           # backslashes on Windows
+    job = jobs.make(tmp_path / 'jobs' / 'nested', 'smoke', [rel],
+                    data_root, resources={'gpu': False}, site=site)
+    spec = jobs.load(job)
+    paths = [spec['inputs'][0]['path']] + [f['path'] for f in spec['inputs'][0]['files']]
+    assert paths == ['raw/M1/D2/OF1', 'deeper/a.bin']
+    jobs.verify_inputs(spec, data_root)

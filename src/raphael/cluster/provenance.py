@@ -153,12 +153,12 @@ def write_records(outputs, record, name):
     Returns {session folder: record path}."""
     written = {}
     for folder in session_folders(outputs):
-        files = [{'path': str(f.relative_to(folder)), 'bytes': f.stat().st_size,
+        files = [{'path': f.relative_to(folder).as_posix(), 'bytes': f.stat().st_size,
                   'sha256': sha256(f)} for f in _files(folder)]
         target = folder / RECORD_DIR / f'{name}.json'
         target.parent.mkdir(exist_ok=True)
         target.write_text(json.dumps({'format': RECORD_FORMAT, **record,
-                                      'session_folder': str(folder.relative_to(outputs)),
+                                      'session_folder': folder.relative_to(outputs).as_posix(),
                                       'outputs': files}, indent=2, default=str) + '\n')
         written[folder] = target
     return written
