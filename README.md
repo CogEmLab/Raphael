@@ -96,6 +96,11 @@ The tests simulate recordings with known spikes and ROIs, so they need no lab da
 CI runs them, and every linked project's tests against this Raphael, on each
 push and pull request ([docs/ci.md](docs/ci.md)).
 
+When you add a module or a function people should use, add it to
+[src/raphael/AGENTS.md](src/raphael/AGENTS.md), the guide coding agents
+read (`python -m raphael`); a test checks the guide names only real things
+and covers every module.
+
 Several projects depend on Raphael, so change it carefully. A change that
 alters outputs (a default threshold, a filter) needs a test and a new version,
 and every change that matters to a project gets a line in
