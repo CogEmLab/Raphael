@@ -201,7 +201,9 @@ def _folder_files(folder):
 
 
 def _record(path, rel, hash_inputs):
-    return {'path': str(rel), 'bytes': path.stat().st_size,
+    # Paths are stored with forward slashes, so a job made on Windows runs on
+    # the (Linux) cluster and vice versa.
+    return {'path': Path(rel).as_posix(), 'bytes': path.stat().st_size,
             'sha256': provenance.sha256(path) if hash_inputs else None}
 
 
@@ -227,7 +229,7 @@ def make(job_dir, stage_name, inputs=(), data_root=None, params=None, resources=
             files = [_record(f, f.relative_to(path), hash_inputs) for f in _folder_files(path)]
             if not files:
                 raise JobError(f'input folder is empty: {path}')
-            records.append({'path': str(rel), 'bytes': sum(f['bytes'] for f in files),
+            records.append({'path': Path(rel).as_posix(), 'bytes': sum(f['bytes'] for f in files),
                             'files': files})
         else:
             raise JobError(f'input not found: {path}')
@@ -350,7 +352,7 @@ def verify_inputs(spec, data_root, hash_inputs=True):
                 raise JobError(f'input folder missing: {path}')
             for f in rec['files']:
                 _verify_file(path / f['path'], f, hash_inputs)
-            extra = {str(f.relative_to(path)) for f in _folder_files(path)} - {
+            extra = {f.relative_to(path).as_posix() for f in _folder_files(path)} - {
                 f['path'] for f in rec['files']}
             if extra:
                 raise JobError(f'{path} has files not there when the job was made: '
@@ -429,7 +431,7 @@ def record_provenance(job_dir, spec, env, gpu_info, device, started):
     written = provenance.write_records(job_dir / 'outputs', record, spec['job_id'])
     _write_json(job_dir / 'logs' / 'provenance.json',
                 {'format': provenance.RECORD_FORMAT, **record,
-                 'session_records': [str(p.relative_to(job_dir)) for p in written.values()]})
+                 'session_records': [p.relative_to(job_dir).as_posix() for p in written.values()]})
     return written
 
 
