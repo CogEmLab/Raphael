@@ -20,7 +20,8 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   environment (every VAME pins an older pynwb than Raphael needs);
   `_src-vame-…_motifs.csv`. `raphael-tracking` command, job stages
   `dlc_train`, `dlc_capture`, `vame`, template `configs/tracking.yaml`,
-  new `tracking` extra (DeepLabCut 3.0.2). See docs/behavioural_tracking.md.
+  new `tracking` extra (DeepLabCut 3.0.2). `tables` (PyTables) is now a core
+  dependency, for reading DeepLabCut's HDF5 output. See docs/behavioural_tracking.md.
 - Provenance with the results: every job writes `provenance/{job_id}.json`
   into each processed session folder it writes (Raphael version, tag and
   commit, project commit and `uv.lock`, settings and config text, inputs'

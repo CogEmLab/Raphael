@@ -23,6 +23,7 @@ dependencies = [
     "numpy<2",
     "tqdm>=4.66",
     "tifffile>=2024.1",         # raw two-photon movies (raphael.toy)
+    "tables>=3.10",             # HDF5 pose files (DeepLabCut output, _src-dlc_pose.h5)
 ]
 
 [project.optional-dependencies]

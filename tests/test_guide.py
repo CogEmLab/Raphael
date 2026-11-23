@@ -2,6 +2,7 @@
 names only things that exist, and ships with the package."""
 
 import importlib
+import importlib.util
 import re
 
 import pytest
@@ -9,13 +10,21 @@ import pytest
 import raphael
 from raphael.__main__ import GUIDE, api, main, modules
 
+OPTIONAL = object()      # exists, but needs an extra that isn't installed here
+
 
 def resolve(dotted):
-    """raphael.a.b.c -> the module or attribute it names, or raise."""
+    """raphael.a.b.c -> the module or attribute it names (OPTIONAL if its
+    module needs a dependency from an extra that isn't installed), or raise."""
     parts = dotted.split('.')
     for i in range(len(parts), 0, -1):
+        name = '.'.join(parts[:i])
         try:
-            obj = importlib.import_module('.'.join(parts[:i]))
+            obj = importlib.import_module(name)
+        except ModuleNotFoundError as e:
+            if e.name and not e.name.startswith('raphael') and importlib.util.find_spec(name):
+                return OPTIONAL
+            continue
         except ImportError:
             continue
         for attr in parts[i:]:
