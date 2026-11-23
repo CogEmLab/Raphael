@@ -74,3 +74,51 @@ def test_raw_ground_truth_neuropixels(tmp_path):
     recording = srt.read(paths['ephys'])
     assert recording.get_num_channels() == 64 and recording.get_total_duration() == 20
     assert (SESSION.folder(tmp_path) / f'{SESSION.stem}_ephys-truth').exists()
+
+
+def test_days_share_cells_but_not_behaviour():
+    day1 = toy.session(duration=60, seed=1, tuning_seed=0)
+    day2 = toy.session(duration=60, seed=2, tuning_seed=0)
+    pd.testing.assert_frame_equal(day1['tuning'], day2['tuning'])
+    assert not np.allclose(day1['behaviour']['P_x'].values, day2['behaviour']['P_x'].values)
+
+
+def test_raw_movie_shows_the_rois(data, tmp_path):
+    import tifffile
+
+    paths = toy.raw(tmp_path, SESSION, data, ephys=None, photometry=False,
+                    imaging_duration_s=30)
+    tif = next(paths['imaging'].glob('*.tif'))
+    assert tif.name == f'{SESSION.stem}_ophys_00001.tif'
+    movie = tifffile.imread(tif)
+    assert movie.shape == (900, 96, 96) and movie.dtype == np.uint16
+    rois = data['tuning'].query('modality == "dff"')
+    for r in rois.head(4).itertuples():
+        pixel = movie[:, round(r.py), round(r.px)].astype(float)
+        trace = data['dff'].loc[int(r.id)].values[:900]
+        assert np.corrcoef(pixel, trace)[0, 1] > 0.5
+
+
+def test_toy_dataset_notebook_runs(tmp_path, monkeypatch):
+    """examples/toy_dataset.ipynb, on a short dataset in a scratch folder."""
+    import json
+    import warnings
+    from pathlib import Path
+
+    import matplotlib
+    matplotlib.use('Agg')
+    monkeypatch.setenv('RAPHAEL_TOY_ROOT', str(tmp_path / 'dataset'))
+    monkeypatch.setenv('RAPHAEL_TOY_DURATION', '90')
+    nb = json.loads((Path(__file__).resolve().parents[1] / 'examples' / 'toy_dataset.ipynb')
+                    .read_text())
+    code = '\n'.join(''.join(c['source']) for c in nb['cells'] if c['cell_type'] == 'code')
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        # Our own notebook's code, run as a test (no Jupyter kernel needed).
+        exec(compile(code, 'toy_dataset.ipynb', 'exec'), {'__name__': '__main__'})  # noqa: S102
+    root = tmp_path / 'dataset'
+    assert (root / 'README.md').exists()
+    for day in (1, 2, 3):
+        for tree in ('raw', 'processed'):
+            folder = root / tree / 'M1' / f'D{day}' / 'OF1'
+            assert all(p.name.startswith(f'sub-M1_ses-D{day}_typ-OF1_') for p in folder.iterdir())

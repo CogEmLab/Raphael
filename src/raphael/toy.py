@@ -51,9 +51,14 @@ KINDS = ('place', 'head_direction', 'speed', 'theta', 'event', 'untuned')
 
 
 def session(duration=600.0, seed=0, n_place=20, n_hd=8, n_speed=3, n_theta=3, n_event=3,
-            n_untuned=5, n_rois=12):
-    """One simulated session (see the module docstring for what it holds)."""
+            n_untuned=5, n_rois=12, tuning_seed=None):
+    """One simulated session (see the module docstring for what it holds).
+
+    `seed` drives behaviour, spikes and noise; `tuning_seed` (default: seed)
+    the cells' tuning. Days of one mouse share a tuning_seed and differ in
+    seed: the same place fields and preferred directions, a new walk."""
     rng = np.random.default_rng(seed)
+    rt = np.random.default_rng(seed if tuning_seed is None else tuning_seed)
     t = np.arange(0, duration, 1 / RATE)
     xy, speed, hd = _walk(rng, t.size)
     theta = (2 * np.pi * THETA_HZ * t + np.cumsum(rng.normal(0, 0.02, t.size))) % (2 * np.pi)
@@ -75,24 +80,24 @@ def session(duration=600.0, seed=0, n_place=20, n_hd=8, n_speed=3, n_theta=3, n_
         rows.append({'id': unit, 'modality': 'spikes', 'kind': kind, **params})
 
     for _ in range(n_place):
-        cx, cy = rng.uniform(10, 90, 2)
-        width, peak = rng.uniform(8, 14), rng.uniform(6, 15)
+        cx, cy = rt.uniform(10, 90, 2)
+        width, peak = rt.uniform(8, 14), rt.uniform(6, 15)
         add('place', 0.2 + peak * field(cx, cy, width), x=cx, y=cy, width=width, peak_hz=peak)
     for k in range(n_hd):
-        pref = (2 * np.pi * k / max(n_hd, 1) + rng.normal(0, 0.1)) % (2 * np.pi)
-        peak = rng.uniform(8, 15)
+        pref = (2 * np.pi * k / max(n_hd, 1) + rt.normal(0, 0.1)) % (2 * np.pi)
+        peak = rt.uniform(8, 15)
         add('head_direction', 0.5 + peak * np.exp(2.5 * (np.cos(hd - pref) - 1)),
             preferred=pref, peak_hz=peak)
     for _ in range(n_speed):
-        slope = rng.uniform(0.3, 0.6)
+        slope = rt.uniform(0.3, 0.6)
         add('speed', 1.0 + slope * speed, slope_hz_per_cm_s=slope)
     for _ in range(n_theta):
-        pref = rng.uniform(0, 2 * np.pi)
+        pref = rt.uniform(0, 2 * np.pi)
         add('theta', 6 * (1 + 0.9 * np.cos(theta - pref)), preferred=pref)
     for _ in range(n_event):
-        add('event', 1.0 + rng.uniform(25, 45) * response, latency_s=0.15)
+        add('event', 1.0 + rt.uniform(25, 45) * response, latency_s=0.15)
     for _ in range(n_untuned):
-        add('untuned', np.full(t.size, rng.uniform(1, 6)))
+        add('untuned', np.full(t.size, rt.uniform(1, 6)))
     spikes = nap.TsGroup({u: nap.Ts(t=_poisson(rng, t, r)) for u, r in rates.items()},
                          time_support=nap.IntervalSet(0, duration))
 
@@ -103,14 +108,16 @@ def session(duration=600.0, seed=0, n_place=20, n_hd=8, n_speed=3, n_theta=3, n_
     traces = []
     for k in range(n_rois):
         roi = len(rates) + k
+        px, py = rt.uniform(8, 88, 2)              # ROI centre in the raw movie (pixels)
         if k % 4 == 3:
             drive = response[idx]
-            rows.append({'id': roi, 'modality': 'dff', 'kind': 'event', 'latency_s': 0.15})
+            rows.append({'id': roi, 'modality': 'dff', 'kind': 'event', 'latency_s': 0.15,
+                         'px': px, 'py': py})
         else:
-            cx, cy = rng.uniform(15, 85, 2)
+            cx, cy = rt.uniform(15, 85, 2)
             drive = field(cx, cy, 12)[idx]
             rows.append({'id': roi, 'modality': 'dff', 'kind': 'place', 'x': cx, 'y': cy,
-                         'width': 12.0})
+                         'width': 12.0, 'px': px, 'py': py})
         traces.append(np.convolve(rng.random(t_img.size) < 0.4 * drive, kernel)[:t_img.size]
                       * 0.5 + rng.normal(0, 0.05, t_img.size))
     dff = nap.TsdFrame(t=t_img, d=np.column_stack(traces) if traces else np.zeros((t_img.size, 0)),
@@ -136,6 +143,7 @@ def session(duration=600.0, seed=0, n_place=20, n_hd=8, n_speed=3, n_theta=3, n_
         'arena': ARENA_CM,
         'duration': duration,
         'seed': seed,
+        'tuning_seed': seed if tuning_seed is None else tuning_seed,
     }
 
 
@@ -204,9 +212,30 @@ def _sha256(path):
     return h.hexdigest()
 
 
+def _write_movie(folder, stem, data, rng, seconds, fov_px):
+    """A raw two-photon movie (uint16 TIFF, frames x height x width) of the
+    session's ROIs, named like ScanImage's output."""
+    import tifffile
+
+    dff = data['dff']
+    rois = data['tuning'].set_index('id').loc[list(dff.columns)]
+    n = len(dff) if not seconds else min(len(dff), int(seconds * 30))
+    yy, xx = np.mgrid[0:fov_px, 0:fov_px]
+    masks = np.stack([np.exp(-((xx - r.px) ** 2 + (yy - r.py) ** 2) / (2 * 3.0 ** 2))
+                      for r in rois.itertuples()])                       # rois x y x x
+    neuropil = 1 + 0.1 * np.sin(2 * np.pi * np.arange(n) / 900)[:, None, None]
+    movie = 300 * neuropil + np.einsum('tr,ryx->tyx', 400 * dff.values[:n], masks)
+    movie += rng.normal(0, 15, movie.shape)
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f'{stem}_ophys_00001.tif'
+    tifffile.imwrite(path, np.clip(movie, 0, 65535).astype(np.uint16), imagej=True,
+                     metadata={'axes': 'TYX', 'fps': 30.0})
+    return folder
+
+
 def raw(root, sess=None, data=None, ephys='light', recording_start_s=3.2,
         recording_duration_s=120.0, drift_ppm=20.0, behaviour_rate_hz=60.0, n_channels=4,
-        photometry=True, **kwargs):
+        photometry=True, imaging=True, imaging_duration_s=60.0, fov_px=96, **kwargs):
     """Write `data` (default: session(**kwargs)) as session `sess` of the
     raw tree under `root`, named as docs/data_server.md describes. Returns
     {name: path}, and 'clock' (recording time = slope * rig time + intercept).
@@ -214,7 +243,12 @@ def raw(root, sess=None, data=None, ephys='light', recording_start_s=3.2,
     The light recording covers `recording_duration_s` of the session (from
     `recording_start_s`; None for all of it): Open Ephys stores a sample
     number and a timestamp for every 30 kHz sample, about 0.7 MB per second
-    whatever the channel count, and two minutes is plenty to test sync."""
+    whatever the channel count, and two minutes is plenty to test sync.
+
+    The raw two-photon movie (`_ophys/`, a multi-page TIFF at 30 Hz,
+    `fov_px` square) shows each ROI of `data['dff']` as a blob at its
+    (px, py), lit by its trace, over neuropil and noise, for the first
+    `imaging_duration_s` (None for all)."""
     from raphael.sync.simulate import write_openephys
 
     sess = _session_id(sess)
@@ -269,6 +303,10 @@ def raw(root, sess=None, data=None, ephys='light', recording_start_s=3.2,
     elif ephys is not None:
         raise ValueError("ephys must be 'light', 'spikes' or None")
 
+    if imaging and data['dff'].shape[1]:
+        paths['imaging'] = _write_movie(Path(f'{stem}_ophys'), sess.stem, data, rng,
+                                        imaging_duration_s, fov_px)
+
     if photometry:
         from raphael.photometry import benchmark as fp_benchmark
         paths['photometry'] = Path(f'{stem}_photometry.doric')
@@ -286,5 +324,8 @@ def raw(root, sess=None, data=None, ephys='light', recording_start_s=3.2,
     paths['clock'] = {'slope': scale, 'intercept': -recording_start_s * scale}
     (Path(f'{stem}_toy-truth.json')).write_text(json.dumps(
         {'clock': paths['clock'], 'ttl_onsets_rig_s': onsets.tolist(), 'seed': data['seed'],
-         'ephys': ephys}, indent=2))
+         'tuning_seed': data.get('tuning_seed'), 'ephys': ephys,
+         'imaging': {'fps': 30.0, 'fov_px': fov_px,
+                     'roi_centres_px': data['tuning'].query('modality == "dff"')[['id', 'px', 'py']]
+                     .to_dict('records')} if imaging else None}, indent=2))
     return paths

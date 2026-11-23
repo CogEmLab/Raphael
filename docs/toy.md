@@ -19,6 +19,12 @@ toy.raw('/tmp/toy/raw', Session('1', '1', 'OF1'), s)               # raw tree
 Passing the same `s` to both writes the same session twice: raw and
 processed, on the same clock.
 
+**A ready-made dataset.**
+[examples/toy_dataset.ipynb](../examples/toy_dataset.ipynb) makes three
+days of one mouse, every modality, raw and processed, with a README. It
+takes about 30 s and 400 MB. Copies of it live on the lab's drives and
+server, so people can start from it without running anything.
+
 ## The session
 
 | Key | What |
@@ -31,6 +37,12 @@ processed, on the same clock.
 | `photometry` | a dF/F trace (%) that rises after each event |
 | `tuning` | one row per unit or ROI: `id`, `modality` (spikes or dff), `kind`, and its parameters (field centre and width, preferred direction or phase, peak rate) |
 | `ttl` | TTL pulse times on the behaviour rig's clock, at random 0.5-1.5 s intervals |
+
+`seed` drives behaviour, spikes and noise, and `tuning_seed` (default:
+`seed`) drives the cells' tuning. For several days of one mouse, keep
+`tuning_seed` fixed and change `seed`. Each day then has the same place
+fields and preferred directions, with a new walk and new spikes:
+`[toy.session(seed=day, tuning_seed=0) for day in (1, 2, 3)]`.
 
 ## Processed tree
 
@@ -60,6 +72,7 @@ mistaken for a real sorter's or pipeline's output.
 {root}/M{mouse}/D{day}/{type}/
     sub-..._beh-rig.csv          behaviour on the rig's clock, ~60 Hz rows, with a ttl column
     sub-..._ephys/Record Node 101/   light Neuropixels 2.0 recording, Open Ephys format
+    sub-..._ophys/sub-..._ophys_00001.tif   two-photon movie (30 Hz, 96 x 96 px, first minute)
     sub-..._photometry.doric     Doric photometry file
     sub-..._manifest.tsv         every file's size, sha256 and original name
     sub-..._toy-truth.json       the true clock relation and pulse times
@@ -73,6 +86,10 @@ mistaken for a real sorter's or pipeline's output.
   (`recording_duration_s`). Open Ephys stores a sample number and a
   timestamp for every 30 kHz sample, which is about 0.7 MB per second
   whatever the channel count.
+- **The two-photon movie** shows each imaging ROI as a blob at its
+  position (`px`, `py` in the tuning table), lit by its dF/F trace, over
+  neuropil and noise. It covers the first minute by default
+  (`imaging_duration_s`), the right size for trying suite2p.
 - **`ephys='spikes'`** writes a full ground-truth Neuropixels recording
   instead: 64 channels and 20 units, with the true spike trains in
   `_ephys-truth/`. Use it for testing spike sorting. Its units are

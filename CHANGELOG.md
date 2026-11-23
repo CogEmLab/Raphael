@@ -38,6 +38,10 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   loaders read, or as the BIDS-style raw tree (behaviour CSV, light Open
   Ephys recording sharing the TTL pulses, Doric file, manifest), optionally
   with a ground-truth Neuropixels recording. See docs/toy.md.
+- `toy.raw` also writes a raw two-photon movie (`_ophys/`, TIFF) of the
+  session's ROIs, and `toy.session(tuning_seed=...)` keeps the same cells
+  across days. examples/toy_dataset.ipynb makes a three-day, all-modality
+  dataset, raw and processed, with a README. tifffile is now a dependency.
 - A guide for coding agents shipped in the package: `python -m raphael`
   prints the rules and which Raphael tool to use for each task
   (`raphael/AGENTS.md`), `python -m raphael api [module]` lists every

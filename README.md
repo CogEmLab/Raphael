@@ -72,7 +72,7 @@ project. To move something into Raphael, open a pull request with its tests.
 | [Photometry pipeline](docs/photometry_pipeline.md) | Doric files, dF/F, syncing to video |
 | [Syncing behaviour](docs/sync.md) | TTL alignment of behaviour with Neuropixels, its checks and QC figure (preliminary) |
 | [Machine learning](docs/ml.md) · [notebook](examples/ml_encoding_decoding.ipynb) | encoding and decoding models, how they're scored |
-| [Toy data](docs/toy.md) | simulated raw and processed sessions for testing and teaching |
+| [Toy data](docs/toy.md) · [dataset notebook](examples/toy_dataset.ipynb) | simulated raw and processed sessions for testing and teaching; a ready three-day dataset |
 | [Figure style](docs/style.md) · [Plots](docs/plots.md) | the default look for figures; standard plots and a gallery |
 | [Data on Leonardo](docs/data_server.md) | the labs' data server: raw and processed layout, NWB, who can change what (proposal) |
 | [Running jobs](docs/cluster.md) · [MSC cluster](docs/msc_cluster.md) | job bundles, the MedUni Wien cluster |
