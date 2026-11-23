@@ -32,6 +32,12 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   spatial-manifolds' mlencoding.py (Benjamin et al. 2018). XGBoost is in the
   new `ml` extra. Example notebook examples/ml_encoding_decoding.ipynb; see
   docs/ml.md.
+- `raphael.toy`: a simulated session with known tuning (place,
+  head-direction, speed, theta, event-responsive and untuned units; imaging
+  ROIs; photometry; TTL pulses), written as a processed tree that Raphael's
+  loaders read, or as the BIDS-style raw tree (behaviour CSV, light Open
+  Ephys recording sharing the TTL pulses, Doric file, manifest), optionally
+  with a ground-truth Neuropixels recording. See docs/toy.md.
 ### Changed
 - Raphael moved to the CogEmLab organisation (https://github.com/CogEmLab/Raphael);
   old addresses redirect. New projects start from starter_project with
