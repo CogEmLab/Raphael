@@ -1,0 +1,168 @@
+# Behavioural tracking settings (raphael.behavioural_tracking).
+#
+# Copy this file into your project (configs/tracking.yaml), edit it there,
+# and pass it to `raphael-tracking --config` and to the dlc_train /
+# dlc_capture / vame job stages (--config). Keeping the choices here, not in
+# DeepLabCut's config.yaml, keeps them under version control.
+#
+# Two ways to make a DLC project:
+#   - from scratch (raphael-tracking create/extract/...): `dlc` section;
+#   - from labels you already have (raphael-tracking build ...), with several
+#     models trained on the same split: `project` + `models` sections.
+
+project:
+  task: my_task
+  scorer: me                   # must match CollectedData_<scorer>.h5 in the labels
+  experimenter: me
+  root: ~/Documents/tracking   # outside the repo: frames, models and videos are data
+  labels: null                 # folder of existing labelled-data folders (for `build`)
+
+# What is tracked. Order matters for DLC's left/right flip augmentation,
+# which pairs bodyparts by index.
+individuals: [mouse]
+bodyparts: [Nose, FrontPawR, FrontPawL, BodyMid, HindPawR, HindPawL, TailBase, TailTip]
+skeleton:
+  - [Nose, BodyMid]
+  - [BodyMid, TailBase]
+  - [TailBase, TailTip]
+  - [Nose, FrontPawR]
+  - [Nose, FrontPawL]
+  - [BodyMid, HindPawR]
+  - [BodyMid, HindPawL]
+
+# A new project from scratch (raphael-tracking create).
+dlc:
+  multianimal: false
+  identity: false
+  individuals: [mouse]
+  bodyparts: [Nose, FrontPawR, FrontPawL, BodyMid, HindPawR, HindPawL, TailBase, TailTip]
+  # Static landmarks labelled on every frame: the arena's floor corners
+  # (named by where they appear in the image) and, optionally, a reference
+  # point on one wall. They give each video its own pixels -> cm mapping.
+  uniquebodyparts: [CornerTL, CornerTR, CornerBR, CornerBL]
+  skeleton:
+    - [Nose, BodyMid]
+    - [BodyMid, TailBase]
+    - [TailBase, TailTip]
+  net_type: resnet_50
+  numframes2pick: 20           # frames to label per training video (k-means on appearance)
+  pcutoff: 0.6
+  test_fraction: 0.2           # fraction of recording days held out
+  seed: 0
+
+# Arena: pixels -> cm from the corner landmarks (arena.fit_arena).
+arena:
+  size_cm: [100, 100]          # long and short side
+  corners: [CornerTL, CornerTR, CornerBR, CornerBL]
+  reference: null              # a landmark on the wall that should be x = 0 (e.g. Door)
+  pcutoff: 0.9
+
+videos:
+  zip: null                    # raw videos in a zip (read one at a time), or
+  folder: null                 # a folder of videos read in place
+  # How a video's name gives its recording day and rig (videos.parse_name):
+  day_pattern: '(20\d{6})'     # first group = the day, e.g. 20240315
+  rig_pattern: null            # regex (first group = rig) or {rig: substring}; null = one rig
+  max_fps: 30                  # standardise to at most this fps (never upsample)
+  max_side: 800                # and scale the crop so its longer side is at most this
+  crf: 20
+
+split:
+  # Hold out whole recording days, so test error measures transfer to unseen
+  # sessions rather than memorisation of near-duplicate frames.
+  method: day                  # day | random
+  test_fraction: 0.15
+  seed: 0
+  min_two_animal_test_frames: 0          # multi-animal: frames where animals interact
+  min_two_animal_test_frames_per_rig: 0
+
+# An already-trained model to compare against (optional). Registered as one
+# more shuffle on the same split; new top-down models can reuse its training
+# recipe (recipe: benchmark) and detector (detector: benchmark).
+benchmark: null
+#   name: colleague_td_hrnet32
+#   model_dir: /path/to/its/model/folder
+#   snapshot: snapshot-best-200.pt
+#   detector_snapshot: snapshot-detector-best-180.pt
+#   shuffle: 100
+
+# Each model is one shuffle of the project, on the same labels and split.
+models:
+  bu_resnet50:
+    shuffle: 1
+    net_type: resnet_50
+    epochs: 200
+    batch_size: 8
+  td_hrnet32_sa:
+    shuffle: 2
+    net_type: top_down_hrnet_w32
+    superanimal: superanimal_topviewmouse
+    detector: train            # train | benchmark
+    detector_epochs: 100
+    epochs: 200
+    batch_size: 8
+
+# Inference for raw capture: permissive, so the sweep decides later.
+capture:
+  max_individuals: 4
+  min_bbox_score: 0.01
+  peaks_per_bodypart: 5
+  nms_radius: 2
+  min_peak_score: 0.01
+  batch_size: 8
+
+sweep:
+  pcutoffs: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  bbox_thresholds: [0.1, 0.3, 0.5, 0.7]
+  track_method: ellipse
+  max_age: 1
+  min_hits: 1
+  iou_threshold: 0.6
+  min_tracklet_length: 10
+  max_gap: null
+  jump_px: 40
+
+# Identity correction for two interacting animals (identity.py).
+identity:
+  skeleton:
+    percentiles: [0.5, 99.5]
+    shrinkage: 0.5
+  correct:
+    k: 3
+    bbox_threshold: 0.3
+    max_detections: 3
+    min_peak_score: 0.02
+    merge: 0.08
+    p_missing: 0.02
+    p_absent: 0.15
+    skeleton_weight: 0.5
+    keep_dlc: 1.5
+    temporal_sigma: 0.25
+    temporal_cap: 9.0
+    reject_p: 0.00001
+    min_parts: 3
+  tune:
+    gate:
+      - {gate: false}
+      - {gate: true, gate_p: 0.0, gate_close: 0.5}
+    min_gain: [0.0, 3.0]
+    skeleton_cap: [null, 20.0]
+
+# VAME motifs (vame.py). `config` takes any key of VAME's config.yaml.
+vame:
+  project_name: vame
+  source_software: DeepLabCut
+  fps: 30
+  device: auto                 # auto | cpu | cuda | mps (auto: no Apple GPU before macOS 15)
+  config:
+    pose_confidence: 0.6       # VAME's default (0.99) discards most DLC points
+    n_clusters: 15
+    segmentation_algorithms: [hmm, kmeans]
+    max_epochs: 500
+  preprocessing:
+    centered_reference_keypoint: BodyMid
+    orientation_reference_keypoint: Nose
+  trainset:
+    test_fraction: 0.1
+  community:
+    cut_tree: 2

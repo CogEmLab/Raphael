@@ -1,0 +1,37 @@
+# VAME's own environment, separate from Raphael's.
+#
+# Every VAME release pins an exact, older pynwb than Raphael's NWB checks
+# need, so VAME can't be installed alongside Raphael. Raphael runs VAME here
+# instead (raphael.behavioural_tracking.vame), through `uv run --frozen`, so
+# every machine gets exactly the versions in this folder's uv.lock. The
+# environment itself is created on first use in ~/.cache/raphael/vame-env
+# (or $RAPHAEL_VAME_ENV), never inside the installed package.
+[project]
+name = "raphael-vame-env"
+version = "0.13.0"
+requires-python = "==3.11.*"
+dependencies = [
+    "vame-py==0.13.0",
+    # netCDF4 1.7.5+ ships Apple-silicon builds for macOS 15 only; 1.7.4 runs on macOS 14.
+    "netcdf4==1.7.4",
+    # VAME 0.13 needs matplotlib >= 3.9 but imports matplotlib.cm.get_cmap,
+    # which 3.10 removed: only 3.9.x satisfies both.
+    "matplotlib>=3.9,<3.10",
+]
+
+[tool.uv]
+package = false
+environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+
+# CUDA builds of torch on Windows (PyPI's Linux wheels already include CUDA).
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu126", marker = "sys_platform == 'win32'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true

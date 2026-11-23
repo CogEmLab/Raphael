@@ -10,6 +10,18 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
 ### Added
+- `raphael.behavioural_tracking`, moved from social-manifolds (pose/):
+  video preparation and day-held-out splits, DeepLabCut projects (from
+  scratch, or several models on one split from existing labels, with an
+  optional benchmark model), multi-peak capture, threshold sweeps, the
+  skeleton model and two-animal identity correction, pixels -> arena cm,
+  pose -> Raphael behaviour (P_x, P_y, H, S, moving) and the processed tree
+  (`_src-dlc_pose.h5`). VAME 0.13 motifs, run in VAME's own locked
+  environment (every VAME pins an older pynwb than Raphael needs);
+  `_src-vame-…_motifs.csv`. `raphael-tracking` command, job stages
+  `dlc_train`, `dlc_capture`, `vame`, template `configs/tracking.yaml`,
+  new `tracking` extra (DeepLabCut 3.0.2). `tables` (PyTables) is now a core
+  dependency, for reading DeepLabCut's HDF5 output. See docs/behavioural_tracking.md.
 - Provenance with the results: every job writes `provenance/{job_id}.json`
   into each processed session folder it writes (Raphael version, tag and
   commit, project commit and `uv.lock`, settings and config text, inputs'
@@ -48,6 +60,9 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   public function of the installed version. Projects point Claude Code at
   it from CLAUDE.md. See docs/using_raphael.md.
 ### Changed
+- Apple-silicon Macs only (with Linux and Windows): torch has had no
+  Intel-Mac builds since 2.2, so Intel Macs could not install the gpu extra
+  anyway.
 - Windows is supported natively (no WSL): uv.lock covers Windows (CUDA 12.6
   torch, as on Linux), CI runs the tests on Windows, and
   docs/getting_started.md gives Windows steps (winget, PowerShell) beside

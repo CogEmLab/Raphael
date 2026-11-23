@@ -23,12 +23,18 @@ dependencies = [
     "numpy<2",
     "tqdm>=4.66",
     "tifffile>=2024.1",         # raw two-photon movies (raphael.toy)
+    "tables>=3.10",             # HDF5 pose files (DeepLabCut output, _src-dlc_pose.h5)
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.9.9"]
 # Machine-learning encoders/decoders beyond scikit-learn (raphael.ml): XGBoost.
 ml = ["xgboost>=2.1"]
+# Behavioural tracking (raphael.behavioural_tracking): DeepLabCut 3 (PyTorch).
+# VAME is not here: every VAME release pins an older pynwb than Raphael's NWB
+# checks need, so it runs in its own locked environment
+# (src/raphael/behavioural_tracking/vame_env), installed on first use.
+tracking = ["deeplabcut==3.0.2"]
 # GPU stages (motion correction, segmentation, spike sorting). DeepLabCut is
 # not here: pose estimation is project code (social-manifolds adds it).
 # kilosort 4.0.16 imports pkg_resources (setuptools < 81), and spikeinterface
@@ -44,6 +50,7 @@ raphael-imaging = "raphael.scripts.imaging:main"
 raphael-jobs = "raphael.scripts.jobs:main"
 raphael-photometry = "raphael.scripts.photometry:main"
 raphael-sync = "raphael.scripts.sync:main"
+raphael-tracking = "raphael.scripts.tracking:main"
 
 [build-system]
 requires = ["setuptools", "wheel"]
@@ -55,7 +62,8 @@ where = ["src"]
 # Default settings and scheduler templates ship inside the package, so they
 # are there however Raphael is installed (editable, wheel or git URL).
 [tool.setuptools.package-data]
-raphael = ["configs/*.yaml", "cluster/templates/*.sh", "style/*.mplstyle", "AGENTS.md"]
+raphael = ["configs/*.yaml", "cluster/templates/*.sh", "style/*.mplstyle", "AGENTS.md",
+           "behavioural_tracking/vame_env/pyproject.toml", "behavioural_tracking/vame_env/uv.lock"]
 
 # One lockfile for every machine the code runs on: `uv sync --frozen` on a
 # laptop, a cluster node or Colab installs exactly what uv.lock lists. See
@@ -65,7 +73,8 @@ raphael = ["configs/*.yaml", "cluster/templates/*.sh", "style/*.mplstyle", "AGEN
 # `environments`, `sources` and `index` blocks below into its pyproject.
 [tool.uv]
 environments = [
-    "sys_platform == 'darwin'",
+    # Apple-silicon Macs only: torch has had no Intel-Mac builds since 2.2.
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
