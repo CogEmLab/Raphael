@@ -26,6 +26,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.9.9"]
+# Machine-learning encoders/decoders beyond scikit-learn (raphael.ml): XGBoost.
+ml = ["xgboost>=2.1"]
 # GPU stages (motion correction, segmentation, spike sorting). DeepLabCut is
 # not here: pose estimation is project code (social-manifolds adds it).
 # kilosort 4.0.16 imports pkg_resources (setuptools < 81), and spikeinterface

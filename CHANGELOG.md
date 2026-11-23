@@ -23,6 +23,15 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   passes, plus `qc/_sync.json` and a QC figure. `raphael-sync` command and
   `sync` job stage; simulated behaviour CSV and light Open Ephys NP2
   recording for testing. See docs/sync.md.
+- `raphael.ml`: machine-learning encoding (behaviour -> spikes, Poisson
+  pseudo-R2) and decoding (population -> continuous, circular or categorical
+  behaviour) with models from a mean baseline, linear, ridge and Poisson GLM
+  to random forest, gradient boosting, XGBoost and an MLP; blocked-in-time
+  cross-validation, model comparison, a time-shift shuffle test, spatial and
+  circular basis features and raised-cosine history features. Based on
+  spatial-manifolds' mlencoding.py (Benjamin et al. 2018). XGBoost is in the
+  new `ml` extra. Example notebook examples/ml_encoding_decoding.ipynb; see
+  docs/ml.md.
 ### Changed
 - Raphael moved to the CogEmLab organisation (https://github.com/CogEmLab/Raphael);
   old addresses redirect. New projects start from starter_project with

@@ -1,8 +1,8 @@
 # Raphael's continuous integration.
 #
 #   lint        ruff over src/ and tests/
-#   test        the test suite, without and with the gpu extra (Kilosort,
-#               suite2p, torch), on GitHub's CPU runners
+#   test        the test suite, without and with the gpu and ml extras
+#               (Kilosort, suite2p, torch, XGBoost), on GitHub's CPU runners
 #   downstream  each project that depends on Raphael, installed as its own
 #               uv.lock pins it, with this Raphael swapped in, running the
 #               project's own tests: a change that breaks a project fails
@@ -50,8 +50,8 @@ jobs:
         include:
           - name: core
             extras: --extra dev
-          - name: gpu extra, on CPU
-            extras: --extra dev --extra gpu
+          - name: gpu and ml extras, on CPU
+            extras: --extra dev --extra gpu --extra ml
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: astral-sh/setup-uv@v10.3.3

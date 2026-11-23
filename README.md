@@ -50,6 +50,7 @@ example processing and analysis, step by step.
 | `raphael.photometry` | Doric fibre photometry → dF/F per channel (bleaching and isosbestic correction) |
 | `raphael.population` | loading spikes or dF/F the same way |
 | `raphael.sync` | aligning behaviour with recordings from TTL pulses, with sanity checks and a QC figure (preliminary) |
+| `raphael.ml` | encoding and decoding with machine learning, from linear regression and GLMs to XGBoost, cross-validated |
 | `raphael.tuning_scores` | spatial information, head direction, speed, with shuffled nulls |
 | `raphael.plots` | rate maps, tuning curves, head direction, theta phase, peri-event, rasters, traces, histograms |
 | `raphael.style` | the labs' figure style: Arial, open axes, journal sizes, colours, saving |
@@ -69,6 +70,7 @@ project. To move something into Raphael, open a pull request with its tests.
 | [Imaging pipeline](docs/imaging_pipeline.md) · [walkthrough](docs/imaging_walkthrough.md) | suite2p, file formats |
 | [Photometry pipeline](docs/photometry_pipeline.md) | Doric files, dF/F, syncing to video |
 | [Syncing behaviour](docs/sync.md) | TTL alignment of behaviour with Neuropixels, its checks and QC figure (preliminary) |
+| [Machine learning](docs/ml.md) · [notebook](examples/ml_encoding_decoding.ipynb) | encoding and decoding models, how they're scored |
 | [Figure style](docs/style.md) · [Plots](docs/plots.md) | the default look for figures; standard plots and a gallery |
 | [Data on Leonardo](docs/data_server.md) | the labs' data server: raw and processed layout, NWB, who can change what (proposal) |
 | [Running jobs](docs/cluster.md) · [MSC cluster](docs/msc_cluster.md) | job bundles, the MedUni Wien cluster |
