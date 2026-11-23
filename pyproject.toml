@@ -67,14 +67,15 @@ raphael = ["configs/*.yaml", "cluster/templates/*.sh", "style/*.mplstyle", "AGEN
 environments = [
     "sys_platform == 'darwin'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 
 [tool.uv.sources]
 # torchvision (needed by suite2p -> cellpose) is listed in the gpu extra
 # because sources only apply to direct dependencies; it must come from the
 # same index, or its compiled ops target a different CUDA from torch's.
-torch = [{ index = "pytorch-cu126", marker = "sys_platform == 'linux'" }]
-torchvision = [{ index = "pytorch-cu126", marker = "sys_platform == 'linux'" }]
+torch = [{ index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" }]
+torchvision = [{ index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" }]
 
 [[tool.uv.index]]
 name = "pytorch-cu126"

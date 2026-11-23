@@ -45,7 +45,7 @@ def versions(root=ROOT):
         found['CITATION.cff'] = m.group(1) if m else None
     for init in _init_files(root):
         m = re.search(rf"^__version__\s*=\s*['\"]({VERSION})['\"]", init.read_text(), re.MULTILINE)
-        found[str(init.relative_to(root))] = m.group(1) if m else None
+        found[init.relative_to(root).as_posix()] = m.group(1) if m else None
     return found
 
 

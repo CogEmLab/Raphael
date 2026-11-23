@@ -2,7 +2,8 @@
 #
 #   lint        ruff over src/ and tests/
 #   test        the test suite, without and with the gpu and ml extras
-#               (Kilosort, suite2p, torch, XGBoost), on GitHub's CPU runners
+#               (Kilosort, suite2p, torch, XGBoost), on GitHub's CPU runners,
+#               and on Windows
 #   downstream  each project that depends on Raphael, installed as its own
 #               uv.lock pins it, with this Raphael swapped in, running the
 #               project's own tests: a change that breaks a project fails
@@ -43,22 +44,27 @@ jobs:
 
   test:
     name: test (${{ matrix.name }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: core
+            os: ubuntu-latest
             extras: --extra dev
           - name: gpu and ml extras, on CPU
-            extras: --extra dev --extra gpu --extra ml
+            os: ubuntu-latest
+            extras: --extra dev --extra ml --extra gpu
+          - name: Windows
+            os: windows-latest
+            extras: --extra dev --extra ml
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
       - name: Free disk space for torch and CUDA wheels
-        if: contains(matrix.extras, 'gpu')
+        if: contains(matrix.extras, 'gpu') && runner.os == 'Linux'
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
       - run: uv sync --frozen ${{ matrix.extras }}
       - run: uv run --frozen pytest -q -rs

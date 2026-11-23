@@ -316,7 +316,7 @@ def raw(root, sess=None, data=None, ephys='light', recording_start_s=3.2,
     rows = []
     for f in sorted(p for p in folder.rglob('*') if p.is_file()):
         rel = f.relative_to(folder)
-        rows.append({'path': str(rel), 'original_name': f.name, 'bytes': f.stat().st_size,
+        rows.append({'path': rel.as_posix(), 'original_name': f.name, 'bytes': f.stat().st_size,
                      'sha256': _sha256(f)})
     paths['manifest'] = Path(f'{stem}_manifest.tsv')
     pd.DataFrame(rows).to_csv(paths['manifest'], sep='\t', index=False)
