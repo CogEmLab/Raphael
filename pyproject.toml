@@ -22,6 +22,7 @@ dependencies = [
     "spikeinterface[full]==0.104.9",
     "numpy<2",
     "tqdm>=4.66",
+    "tifffile>=2024.1",         # raw two-photon movies (raphael.toy)
 ]
 
 [project.optional-dependencies]
