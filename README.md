@@ -49,6 +49,7 @@ example processing and analysis, step by step.
 | `raphael.imaging` | two-photon → suite2p → ROIs and dF/F |
 | `raphael.photometry` | Doric fibre photometry → dF/F per channel (bleaching and isosbestic correction) |
 | `raphael.population` | loading spikes or dF/F the same way |
+| `raphael.behavioural_tracking` | video → DeepLabCut pose (several models, sweeps, two-animal identity fixes) → behaviour; VAME motifs |
 | `raphael.sync` | aligning behaviour with recordings from TTL pulses, with sanity checks and a QC figure (preliminary) |
 | `raphael.ml` | encoding and decoding with machine learning, from linear regression and GLMs to XGBoost, cross-validated |
 | `raphael.toy` | simulated sessions with known tuning, written as raw or processed data |
@@ -70,6 +71,7 @@ project. To move something into Raphael, open a pull request with its tests.
 | [Neuropixels pipeline](docs/ephys_pipeline.md) · [walkthrough](docs/ephys_walkthrough.md) | spike sorting and LFP, file formats |
 | [Imaging pipeline](docs/imaging_pipeline.md) · [walkthrough](docs/imaging_walkthrough.md) | suite2p, file formats |
 | [Photometry pipeline](docs/photometry_pipeline.md) | Doric files, dF/F, syncing to video |
+| [Behavioural tracking](docs/behavioural_tracking.md) | DeepLabCut and VAME: training, tracking, pose to behaviour, motifs |
 | [Syncing behaviour](docs/sync.md) | TTL alignment of behaviour with Neuropixels, its checks and QC figure (preliminary) |
 | [Machine learning](docs/ml.md) · [notebook](examples/ml_encoding_decoding.ipynb) | encoding and decoding models, how they're scored |
 | [Toy data](docs/toy.md) · [dataset notebook](examples/toy_dataset.ipynb) | simulated raw and processed sessions for testing and teaching; a ready three-day dataset |

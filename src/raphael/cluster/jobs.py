@@ -933,3 +933,226 @@ def sync_stage(ctx):
         failed = [k for k, c in result.checks.items() if c['passed'] is False]
         raise JobError(f'sync checks failed: {", ".join(failed)} (see the QC report); fix the '
                        'cause, or remake the job with --param waive="reason"')
+
+
+# ------------------------------------------------------- behavioural tracking
+
+VIDEO_SUFFIXES = ('.mp4', '.avi', '.mov')
+
+
+def _tracking_settings(ctx, project_root=None, benchmark_dir=None):
+    """The project's tracking.yaml from the bundle (else Raphael's template),
+    pointed at this machine."""
+    from raphael.behavioural_tracking import zoo
+    from raphael.scripts.tracking import DEFAULT_CONFIG
+
+    config = ctx.config / 'tracking.yaml'
+    settings = zoo.load_settings(config if config.exists() else DEFAULT_CONFIG)
+    if project_root is not None:
+        settings['project']['root'] = str(project_root)
+    if benchmark_dir is not None and settings.get('benchmark'):
+        settings['benchmark']['model_dir'] = str(benchmark_dir)
+    return settings
+
+
+def _dlc_capture_check(params, inputs=()):
+    if len(inputs) < 2:
+        raise JobError('dlc_capture inputs: model folder, [skeleton.json], [benchmark .zip], '
+                       'videos...')
+    if not any(str(i).lower().endswith(VIDEO_SUFFIXES) for i in inputs[1:]):
+        raise JobError('dlc_capture needs at least one video input')
+    if 'snapshot' not in params:
+        raise JobError('dlc_capture needs param snapshot')
+
+
+@stage('dlc_capture', check=_dlc_capture_check)
+def dlc_capture_stage(ctx):
+    """Multi-peak DeepLabCut capture of videos and, with a skeleton model,
+    two-animal identity correction (docs/behavioural_tracking.md).
+    Resumable: finished captures are skipped. GPU.
+
+    inputs: a model folder (train/pytorch_config.yaml and snapshots),
+    optionally the skeleton model (skeleton.json; enables correction) and a
+    zip of another model's tracked _el.csv (a benchmark), then the videos.
+    params: snapshot, detector_snapshot, name (label for the outputs),
+    max_frames and start_frame (a stretch of each video), capture and
+    identity (dicts overriding tracking.yaml).
+    """
+    import time
+
+    import pandas as pd
+    import torch
+
+    from raphael.behavioural_tracking import identity, zoo
+    from raphael.behavioural_tracking import multipeak as MP
+
+    p = ctx.params
+    settings = _tracking_settings(ctx)
+    capture = {**settings['capture'], **p.get('capture', {})}
+    ident = {**settings['identity']['correct'], **p.get('identity', {})}
+    model_dir = ctx.inputs[0]
+    rest = ctx.inputs[1:]
+    skeleton = next((i for i in rest if i.suffix == '.json'), None)
+    benchmark = next((i for i in rest if i.suffix == '.zip'), None)
+    videos = [i for i in rest if i.suffix.lower() in VIDEO_SUFFIXES]
+    name = p.get('name', model_dir.name)
+    out = ctx.outputs / name
+    (out / 'qc').mkdir(parents=True, exist_ok=True)
+
+    runners = MP.build_runners(model_dir, p['snapshot'], p.get('detector_snapshot'),
+                               capture, device=ctx.device)
+    rows, tables = [], []
+    for video in videos:
+        npz = out / f'{video.stem}.npz'
+        start = time.perf_counter()
+        if not npz.exists():
+            MP.capture_video(video, npz, model_dir, p['snapshot'], p.get('detector_snapshot'),
+                             capture, runners=runners, name=name,
+                             max_frames=p.get('max_frames'),
+                             start_frame=int(p.get('start_frame', 0)))
+        captured = time.perf_counter() - start
+        frames = int(MP.load_capture(npz)['meta']['n_frames'])
+        row = {'video': video.name, 'frames': frames, 'capture_min': round(captured / 60, 2),
+               'capture_fps': round(frames / captured, 1) if captured > 1 else None}
+        if skeleton is not None:
+            start = time.perf_counter()
+            bench = (zoo.benchmark_poses(benchmark, video.stem, settings['individuals'],
+                                         settings['bodyparts']) if benchmark else None)
+            table = identity.correct_capture(npz, skeleton, ident, bench)
+            identity.qc_frames(video, npz.with_suffix('.identity.npz'),
+                               out / 'qc' / f'{video.stem}.png')
+            tables.append(table)
+            row.update(correct_min=round((time.perf_counter() - start) / 60, 2),
+                       benchmark=bench is not None)
+        rows.append(row)
+        print(row, flush=True)
+    if tables:
+        pd.concat(tables).to_csv(out / 'identity_results.csv', index=False)
+    peak = (round(torch.cuda.max_memory_reserved() / 1e9, 2)
+            if torch.cuda.is_available() else None)
+    _write_json(out / 'capture_summary.json', {
+        'name': name, 'snapshot': p['snapshot'], 'detector_snapshot': p.get('detector_snapshot'),
+        'capture': capture, 'identity': ident if skeleton else None,
+        'peak_gpu_memory_gb': peak, 'videos': rows})
+
+
+def _dlc_train_check(params, inputs=()):
+    if len(inputs) not in (1, 2):
+        raise JobError('dlc_train inputs: the DLC project folder, [the benchmark model folder]')
+    if params.get('fold') is not None:
+        folds = int(params.get('folds', 4))
+        if not 0 <= int(params['fold']) < folds:
+            raise JobError(f'dlc_train param fold must be in 0..{folds - 1}')
+
+
+@stage('dlc_train', check=_dlc_train_check)
+def dlc_train_stage(ctx):
+    """Train one DeepLabCut model of the zoo (tracking.yaml `models`). GPU.
+
+    With `fold`, one fold of a k-fold, day-level cross-validation: whole
+    days held out, close-contact frames spread over the folds
+    (`zoo.fold_splits`), the skeleton model refitted on the fold's training
+    days, and the held-out labelled frames scored before and after identity
+    correction. Without it, the project's own split.
+
+    inputs: the DLC project folder (config.yaml, split.csv, labeled-data,
+    training-datasets), optionally the benchmark model folder (its recipe
+    and detector). params: model (default: the first in tracking.yaml),
+    epochs, fold, folds (default 4), shuffle (default: the model's, or
+    40 + fold), close_threshold (x scale, default 0.5).
+    """
+    import pandas as pd
+    import yaml as _yaml
+
+    from raphael.behavioural_tracking import identity, zoo
+
+    p = ctx.params
+    root = ctx.work / 'tracking'
+    settings = _tracking_settings(ctx, root, ctx.inputs[1] if len(ctx.inputs) > 1 else None)
+    settings['project']['task'], settings['project']['scorer'] = (
+        ctx.inputs[0].name.rsplit('-', 1) if '-' in ctx.inputs[0].name
+        else (settings['project']['task'], settings['project']['scorer']))
+    project = zoo.project_dir(settings)
+    if not project.exists():
+        shutil.copytree(ctx.inputs[0], project)
+    config = zoo.config_path(settings)
+    cfg = _yaml.safe_load(config.read_text())
+    cfg['project_path'] = str(project)
+    config.write_text(_yaml.safe_dump(cfg, sort_keys=False))
+
+    base = p.get('model') or next(iter(settings['models']))
+    spec = dict(settings['models'][base])
+    fold = p.get('fold')
+    name = base
+    if fold is not None:
+        fold, folds = int(fold), int(p.get('folds', 4))
+        close = float(p.get('close_threshold', 0.5))
+        table = (pd.read_csv(ctx.outputs / 'folds.csv') if (ctx.outputs / 'folds.csv').exists()
+                 else zoo.fold_splits(settings, folds, close))
+        table.to_csv(ctx.outputs / 'folds.csv', index=False)
+        zoo.use_fold(settings, table, fold)
+        spec['shuffle'] = int(p.get('shuffle', 40 + fold))
+        name = f'{base}_fold{fold}'
+    elif 'shuffle' in p:
+        spec['shuffle'] = int(p['shuffle'])
+    if 'epochs' in p:
+        spec['epochs'] = int(p['epochs'])
+    settings['models'] = {name: spec}
+    if not (zoo.model_folder(config, spec['shuffle']) / 'train' / 'pytorch_config.yaml').exists():
+        zoo.create_shuffles(settings, [name])
+    folder = zoo.train(settings, name, device=ctx.device)
+
+    kept = ctx.outputs / 'model' / 'train'
+    kept.mkdir(parents=True, exist_ok=True)
+    _, snapshot, detector = zoo.snapshots_for(settings, name)
+    for f in (folder / 'train').iterdir():
+        if f.suffix in ('.yaml', '.csv', '.txt') or f.name in (snapshot, detector):
+            shutil.copy2(f, kept / f.name)
+    if fold is None:
+        return
+    model = zoo.fit_skeleton(settings)
+    npz = zoo.capture_labels(settings, name, ctx.outputs, 'test')
+    summary, parts, _ = zoo.evaluate_identity(settings, npz, model)
+    points, frames, _ = zoo.labelled_points(settings)
+    near = dict(zip(frames['path'], zoo.close_contact(points, frames, close), strict=True))
+    parts['close'] = parts['path'].map(near)
+    rows = [summary.assign(fold=fold)]
+    for method, sub in parts[parts['close']].groupby('method'):
+        rows.append(pd.DataFrame([{'method': method, 'frames': 'close_contact', 'fold': fold,
+                                   **identity.summarise(sub)['all']}]))
+    pd.concat(rows).to_csv(ctx.outputs / f'{name}_identity.csv', index=False)
+    parts.assign(fold=fold).to_csv(ctx.outputs / f'{name}_parts.csv', index=False)
+    shutil.copy2(zoo.skeleton_path(settings), ctx.outputs / 'skeleton.json')
+
+
+def _vame_check(params, inputs=()):
+    if not inputs:
+        raise JobError('vame needs pose files as inputs (DLC h5/csv, one per session)')
+
+
+@stage('vame', check=_vame_check)
+def vame_stage(ctx):
+    """VAME motifs from pose files, in VAME's own locked environment (see
+    raphael.behavioural_tracking.vame). GPU recommended (CPU works).
+
+    inputs: one pose file per session. params: vame (dict overriding
+    tracking.yaml's `vame` section), steps (default all).
+    Writes outputs/vame/ (VAME's project), outputs/vame/motifs/*.csv
+    (frame, time, motif, community per session) and the summary, which
+    records the VAME lockfile checksum.
+    """
+    from raphael.behavioural_tracking import vame
+
+    settings = _tracking_settings(ctx).get('vame') or {}
+    p = ctx.params
+    merged = vame.settings_with_defaults(settings)
+    for key, value in (p.get('vame') or {}).items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key].update(value)
+        else:
+            merged[key] = value
+    if merged.get('device', 'auto') == 'auto' and ctx.device:
+        merged['device'] = 'cuda' if str(ctx.device).startswith('cuda') else merged['device']
+    summary = vame.run(ctx.inputs, ctx.outputs / 'vame', merged, steps=p.get('steps'),
+                       log=ctx.outputs / 'vame' / 'vame.log')
+    _write_json(ctx.outputs / 'vame_summary.json', summary)

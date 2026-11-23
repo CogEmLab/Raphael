@@ -46,6 +46,9 @@ same way. Before writing processing, loading, analysis or plotting code,
 | Fibre photometry (Doric) to dF/F | `raphael.photometry`: `run.process_file`, and `nwb.load` to read the results |
 | Spike sorting, LFP, suite2p, photometry on the cluster | job stages via `raphael-jobs make --stage {kilosort4, lfp, suite2p, photometry, sync}` (`raphael.cluster.jobs`) |
 | Record what code and settings produced a result | job bundles do it (a `provenance/` record beside every output); `raphael.cluster.provenance.environment()` |
+| Pose from video (DeepLabCut): projects, training several models on one day-held-out split, tracking, threshold sweeps, two-animal identity fixes | `raphael.behavioural_tracking`: `zoo`, `dlc`, `multipeak`, `sweep`, `identity`, `skeleton`; the command `raphael-tracking`; job stages dlc_train, dlc_capture |
+| Pose to arena cm, to Raphael behaviour (P_x, P_y, H, S, moving), into the processed tree | `raphael.behavioural_tracking.io`: `load_dlc`, `to_behaviour`, `write_pose`, `read_pose` |
+| Behavioural motifs (VAME) | `raphael.behavioural_tracking.vame`: `run`, `write_motifs` (VAME runs in its own environment; job stage vame) |
 | Test data with known tuning, raw or processed | `raphael.toy`: `session`, `processed`, `raw` |
 | NWB files and their checks | `raphael.imaging.nwb.new_nwbfile`, `raphael.imaging.nwb.write`; `raphael-imaging validate` |
 

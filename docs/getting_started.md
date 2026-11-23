@@ -13,7 +13,7 @@ You will set up:
 - **uv**, which installs the exact Python environment a project needs,
   Raphael included.
 
-Everything works on **macOS, Windows and Linux**. Where a step differs,
+Everything works on **macOS (Apple silicon), Windows and Linux**. Where a step differs,
 it's given for each. On Windows, type commands in **PowerShell** (Start
 menu → PowerShell) or in VS Code's terminal, which is PowerShell by
 default. Windows 10 and 11 come with `winget`, which installs the tools in
