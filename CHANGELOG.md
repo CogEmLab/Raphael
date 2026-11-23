@@ -38,6 +38,11 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   loaders read, or as the BIDS-style raw tree (behaviour CSV, light Open
   Ephys recording sharing the TTL pulses, Doric file, manifest), optionally
   with a ground-truth Neuropixels recording. See docs/toy.md.
+- A guide for coding agents shipped in the package: `python -m raphael`
+  prints the rules and which Raphael tool to use for each task
+  (`raphael/AGENTS.md`), `python -m raphael api [module]` lists every
+  public function of the installed version. Projects point Claude Code at
+  it from CLAUDE.md. See docs/using_raphael.md.
 ### Changed
 - Windows is supported natively (no WSL): uv.lock covers Windows (CUDA 12.6
   torch, as on Linux), CI runs the tests on Windows, and

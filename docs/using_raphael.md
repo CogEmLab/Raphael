@@ -237,6 +237,36 @@ Each person sets their cluster login once with
 `~/.config/raphael/cluster.yaml`. Each run records the project's commit and
 `uv.lock` hash, plus Raphael's version and commit, in `logs/env.json`.
 
+## Coding agents (Claude Code)
+
+A coding agent working in a project can't see what Raphael already does,
+so it may write its own rate maps, binning or plotting, and the labs' code
+drifts apart again. Raphael ships a guide for agents to prevent that.
+
+- **`uv run python -m raphael`** prints the guide (`raphael/AGENTS.md`,
+  inside the package): the rules (use Raphael's function, never copy and
+  modify it, flag general code as a candidate for Raphael), and a table
+  of which Raphael tool to use for each task.
+- **`uv run python -m raphael api [module]`** lists every public function
+  and class, each with its signature and a one-line description.
+- **`uv run python -m raphael path`** prints where the installed source is.
+
+All three come from the installed package, so they describe exactly the
+Raphael version the project pins. A test checks that every function the
+guide names exists, and that every module is in it.
+
+In a project, point the agent at them from `CLAUDE.md` (starter_project
+does this):
+
+```markdown
+Before writing any processing, loading, analysis or plotting code, run
+`uv run python -m raphael` and follow it: use Raphael's functions rather
+than writing your own. `uv run python -m raphael api <module>` lists what
+a module offers.
+```
+
+When you add something to Raphael, add a row to `src/raphael/AGENTS.md` too.
+
 ## Command reference
 
 | Command | What it does |
