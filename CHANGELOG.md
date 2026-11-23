@@ -16,6 +16,13 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   and outputs' sha256, package versions, machine, timings), and every NWB
   file names the Raphael that wrote it (`source_script`). Session folders
   now contain a `provenance/` folder. See docs/cluster.md.
+- `raphael.sync` (preliminary): aligns a behaviour CSV's TTL column with
+  a Neuropixels recording's TTL line (Open Ephys), checks the alignment
+  (pulse counts, unpaired pulses, ambiguity, intervals, widths, drift,
+  residuals) and writes `_beh.csv` on the recording clock only if it
+  passes, plus `qc/_sync.json` and a QC figure. `raphael-sync` command and
+  `sync` job stage; simulated behaviour CSV and light Open Ephys NP2
+  recording for testing. See docs/sync.md.
 ### Changed
 - Raphael moved to the CogEmLab organisation (https://github.com/CogEmLab/Raphael);
   old addresses redirect. New projects start from starter_project with
