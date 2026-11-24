@@ -117,6 +117,93 @@ coordinates, the GLM manages only 0.20.
   null isn't too easy to beat. The p-value is
   (shuffles scoring at least as well + 1) / (shuffles + 1).
 
+## Pooling recordings: Unified CEBRA
+
+Most recordings sample a few neurons each. `raphael.ml.unified` trains
+**one** contrastive encoder on the neurons of **every** recording, lined up
+on a label they share, such as position, trial time or a stimulus feature.
+It also gives each neuron an attribution to the features the population
+encodes, on one scale across recordings and animals. The method is from
+Benquet, Mirzaei, Schneider & Mathis (2026), *Unified CEBRA learns shared
+neural latents across recordings to map single-neuron contributions to
+population codes*, bioRxiv,
+[doi:10.64898/2026.11.18.767506](https://doi.org/10.64898/2026.11.18.767506).
+
+**Example notebook:**
+[examples/ml_unified_cebra.ipynb](../examples/ml_unified_cebra.ipynb). It
+pools five simulated animals and checks every result against the
+simulation's truth:
+- position is decoded far better pooled than from any one animal;
+- the shuffle control removes the information;
+- place cells' attributions point to their fields;
+- the map agrees across seeds.
+
+```python
+from raphael.ml import unified
+
+# one (bins x neurons) array or DataFrame per recording, any number of neurons
+# each; labels: the matching (bins x labels), defined the same way everywhere
+train, test = unified.split(neural, labels, test_fraction=0.2)
+model = unified.Unified(max_iterations=5000).fit(*train)
+
+z = model.transform(*test, target=0)                    # along recording 0's timeline
+unified.decode(model, train, test, train[1], test[1])   # kNN decoding, per recording
+unified.decode(model, train, (unified.shuffle_neurons(test[0]), test[1]), train[1], test[1])
+
+M = unified.attribution(model, train, features_train)   # (recording, neuron) x feature
+model.save('unified.pt'); unified.Unified.load('unified.pt')
+```
+
+**Install:** the `cebra` extra, CEBRA 0.6.1 (the first release with the
+unified solver) and torch:
+
+```bash
+uv add "raphael[cebra] @ git+https://github.com/CogEmLab/Raphael" --tag vX.Y.Z   # in a project
+uv sync --extra cebra                                                           # in Raphael
+```
+
+Train on a GPU. On an Apple-silicon Mac, 2,000 iterations over 100
+neurons take about 3 minutes. A CPU is about 20 times slower: fine for the
+tests, too slow for real fits. `device='auto'` picks CUDA, then the Apple
+GPU, then the CPU.
+
+**What to know:**
+- **How it works.** At each step one recording is the reference. Every
+  other recording contributes its activity at the timepoint whose label is
+  nearest (squared Euclidean distance). Labels are standardised first, so
+  their units don't matter. The matched activities are concatenated into
+  one pseudo-population and embedded with CEBRA's InfoNCE objective.
+  Inference does the same along one target recording's timeline.
+- **Decoding scores mean something specific.** The labels choose which
+  timepoints of the other recordings are pooled, including at inference.
+  `decode` therefore measures how much the **pooled population** carries
+  along a recording's timeline, not how well that recording alone predicts
+  behaviour. Always run the shuffle control: shuffling activity in time,
+  with the labels and matching left alone, should drop R² to zero or below.
+- **The labels are like a GLM's regressors.** They decide which
+  relationships you can test, but can't impose structure: labels
+  unrelated to the activity give an unstructured embedding. Add
+  categorical variables as one-hot columns.
+- **The attribution map, `M = J^T W`.** J is the encoder's Jacobian,
+  averaged over its receptive field (10 bins for `offset10-model`) and
+  over time. W is a ridge readout (alpha = 9) from the embedding to
+  standardised features. A test checks that M doesn't change when the
+  latent space is rotated, as it is between runs. Use
+  `attribution(..., over_time=True, target=i)` to see which way a neuron pulls the readout at each moment (e.g. at which
+  positions) a neuron matters.
+- **Check reproducibility before interpreting.** Fit two seeds and compare
+  their embeddings with `consistency`, and the rank correlation of their
+  attribution magnitudes. The paper also used neuron/time masking, and
+  Jacobian regularisation for its attribution maps. Neither is in CEBRA
+  0.6.1's unified solver, so they aren't here yet.
+- **Things Raphael works around:**
+  - CEBRA's own unified `transform` fails on Apple GPUs, because it
+    indexes CPU tensors with GPU indices. Raphael matches labels, builds
+    the pooled input and computes the Jacobian itself, on any device.
+  - CEBRA's sampler searches labels on the CPU unless CUDA is present.
+    During `fit`, Raphael moves that search to the Apple GPU too, which
+    halves the time per step with identical results.
+
 ## Calcium imaging and other signals
 
 `bin_counts` averages a continuous signal (a dF/F `TsdFrame`, or a

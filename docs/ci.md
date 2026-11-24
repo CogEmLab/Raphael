@@ -9,7 +9,7 @@ It is free, because Raphael is public.
 |---|---|
 | `lint` | `ruff check src tests` |
 | `test (core)` | the test suite without the `gpu` extra (Kilosort and suite2p tests skip) |
-| `test (gpu, ml and tracking extras, on CPU)` | the full suite with Kilosort, suite2p, torch, XGBoost and DeepLabCut installed, on GitHub's CPU runners |
+| `test (gpu, ml, cebra and tracking extras, on CPU)` | the full suite with Kilosort, suite2p, torch, XGBoost, CEBRA and DeepLabCut installed, on GitHub's CPU runners |
 | `test (Windows)` | the suite with the ml extra on Windows, so the labs' Windows PCs keep working |
 | `find downstream projects` | reads `.github/downstream/*.yml` (below) |
 | `downstream (<project>)` | each project that uses Raphael, with this Raphael swapped in |

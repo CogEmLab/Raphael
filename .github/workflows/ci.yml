@@ -1,7 +1,7 @@
 # Raphael's continuous integration.
 #
 #   lint        ruff over src/ and tests/
-#   test        the test suite, without and with the gpu and ml extras
+#   test        the test suite, without and with the optional extras
 #               (Kilosort, suite2p, torch, XGBoost), on GitHub's CPU runners,
 #               and on Windows
 #   downstream  each project that depends on Raphael, installed as its own
@@ -52,9 +52,9 @@ jobs:
           - name: core
             os: ubuntu-latest
             extras: --extra dev
-          - name: gpu, ml and tracking extras, on CPU
+          - name: gpu, ml, cebra and tracking extras, on CPU
             os: ubuntu-latest
-            extras: --extra dev --extra ml --extra gpu --extra tracking
+            extras: --extra dev --extra ml --extra cebra --extra gpu --extra tracking
           - name: Windows
             os: windows-latest
             extras: --extra dev --extra ml
