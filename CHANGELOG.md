@@ -9,6 +9,15 @@ additions that leave existing results unchanged. Each release is a GitHub
 Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
+### Added
+- `raphael.ml.unified`: Unified CEBRA (Benquet et al. 2026), one
+  contrastive encoder over recordings with different neurons, lined up on a
+  shared label (position, trial time, a stimulus feature). Blocked
+  train/test split per recording, kNN decoding, the shuffle control, the
+  neuron-to-feature attribution map (encoder Jacobian x ridge readout),
+  time-resolved attributions, cross-run consistency, saving and loading.
+  Runs on CUDA, Apple GPUs and the CPU. New `cebra` extra (CEBRA 0.6.1,
+  torch). Example notebook examples/ml_unified_cebra.ipynb; see docs/ml.md.
 
 ## [0.4.0] - 2026-11-24
 ### Added

@@ -24,6 +24,10 @@ alongside Raphael (scikit-learn's Poisson GLM, random forest and neural
 network replace pyglmnet and Keras), its Poisson pseudo-R2 and its
 raised-cosine history features. Folds are contiguous blocks of time by
 default, and `shuffle_test` gives a time-shift null. See docs/ml.md.
+
+`raphael.ml.unified` pools recordings with different neurons into one
+encoder (Unified CEBRA, the cebra extra), with each neuron's attribution to
+the features it encodes.
 """
 
 from raphael.ml.evaluate import (

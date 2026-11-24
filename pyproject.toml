@@ -30,6 +30,11 @@ dependencies = [
 dev = ["pytest>=8.0", "ruff>=0.9.9"]
 # Machine-learning encoders/decoders beyond scikit-learn (raphael.ml): XGBoost.
 ml = ["xgboost>=2.1"]
+# Unified CEBRA (raphael.ml.unified): one contrastive encoder over many
+# recordings. CEBRA 0.6.1 is the first release with the unified solver; torch
+# is pinned as in the gpu extra, and comes from the same CUDA index on Linux
+# and Windows.
+cebra = ["cebra==0.6.1", "torch==2.14.1"]
 # Behavioural tracking (raphael.behavioural_tracking): DeepLabCut 3 (PyTorch).
 # VAME is not here: every VAME release pins an older pynwb than Raphael's NWB
 # checks need, so it runs in its own locked environment

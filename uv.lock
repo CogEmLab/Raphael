@@ -169,6 +169,27 @@ wheels = [
 ]
 
 [[package]]
+name = "cebra"
+version = "0.6.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "joblib", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "literate-dataclasses", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "matplotlib", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "numpy", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "requests", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "scikit-learn", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "scipy", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "torch", version = "2.14.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { name = "torch", version = "2.14.1+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "tqdm", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0f/d0/395f96d7ef0d554a321c8de13a51c63c22cbaa2f12a42b29d7e5aa77327f/cebra-0.6.1.tar.gz", hash = "sha256:ec7a6674f2e5520e1022d3af45925fa8a6326e23beb27d06a6fc92064bf876c7", size = 240709, upload-time = "2026-05-30T16:13:29.766Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/3e/08cfd4197bdedb1eb42a1f3349cc69c246ddf098d9bc434d57e0f83f80d8/cebra-0.6.1-py3-none-any.whl", hash = "sha256:e6ef02cc9c62ccdb1e5cf75419539276de0ec0d60e3f7ac43a8a9894eadbf23a", size = 254211, upload-time = "2026-05-30T16:13:28.322Z" },
+]
+
+[[package]]
 name = "cellpose"
 version = "4.2.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1005,6 +1026,15 @@ wheels = [
 ]
 
 [[package]]
+name = "literate-dataclasses"
+version = "0.0.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/6e/4dec6ba9484821799bab1b529e37cdae6d05dd2caf8ab61746a5e4bca4fa/literate_dataclasses-0.0.6.tar.gz", hash = "sha256:bac03b318aa19504dc69b7ce3b1a03c17304b8f2a9156337ec8ac2c02a78072d", size = 4565, upload-time = "2022-08-22T10:26:09.864Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9c/9a/f8294a4f52408b228f8fdb447b2e842f40b3ab37780b48d6a5d12afcabae/literate_dataclasses-0.0.6-py3-none-any.whl", hash = "sha256:b8617f7e8e838b224053bdde86005bd48fa83de71733aa61accb78fd215744b3", size = 4957, upload-time = "2022-08-22T10:26:08.222Z" },
+]
+
+[[package]]
 name = "llvmlite"
 version = "0.50.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1826,6 +1856,11 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+cebra = [
+    { name = "cebra", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "torch", version = "2.14.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { name = "torch", version = "2.14.1+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+]
 dev = [
     { name = "pytest", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "ruff", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
@@ -1850,6 +1885,7 @@ tracking = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cebra", marker = "extra == 'cebra'", specifier = "==0.6.1" },
     { name = "deeplabcut", marker = "extra == 'tracking'", specifier = "==3.0.2" },
     { name = "faiss-cpu", marker = "extra == 'gpu'", specifier = "==1.15.1" },
     { name = "h5py", specifier = ">=3.11.0" },
@@ -1873,14 +1909,16 @@ requires-dist = [
     { name = "suite2p", marker = "extra == 'gpu'", specifier = "==1.1.0" },
     { name = "tables", specifier = ">=3.10" },
     { name = "tifffile", specifier = ">=2024.1" },
+    { name = "torch", marker = "(sys_platform == 'linux' and extra == 'cebra') or (sys_platform == 'win32' and extra == 'cebra')", specifier = "==2.14.1", index = "https://download.pytorch.org/whl/cu126" },
     { name = "torch", marker = "(sys_platform == 'linux' and extra == 'gpu') or (sys_platform == 'win32' and extra == 'gpu')", specifier = "==2.14.1", index = "https://download.pytorch.org/whl/cu126" },
+    { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'cebra'", specifier = "==2.14.1" },
     { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'gpu'", specifier = "==2.14.1" },
     { name = "torchvision", marker = "(sys_platform == 'linux' and extra == 'gpu') or (sys_platform == 'win32' and extra == 'gpu')", specifier = "==0.29.1", index = "https://download.pytorch.org/whl/cu126" },
     { name = "torchvision", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'gpu'", specifier = "==0.29.1" },
     { name = "tqdm", specifier = ">=4.66" },
     { name = "xgboost", marker = "extra == 'ml'", specifier = ">=2.1" },
 ]
-provides-extras = ["dev", "ml", "tracking", "gpu"]
+provides-extras = ["dev", "ml", "cebra", "tracking", "gpu"]
 
 [[package]]
 name = "referencing"
