@@ -9,6 +9,8 @@ additions that leave existing results unchanged. Each release is a GitHub
 Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
+
+## [0.4.0] - 2026-11-24
 ### Added
 - `raphael.behavioural_tracking`, moved from social-manifolds (pose/):
   video preparation and day-held-out splits, DeepLabCut projects (from
@@ -74,6 +76,11 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 - docs/data_server.md: proposed layout and access rights for the labs' data
   on the Leonardo server.
 
+To move from 0.3.0: bump the tag; on Windows, add the `win32` line to
+`[tool.uv] environments` and the torch sources (see starter_project);
+expect a `provenance/` folder in processed session folders. Intel Macs can
+no longer install Raphael.
+
 ## [0.3.0] - 2026-11-22
 ### Added
 - `raphael.style`: the labs' figure style (Arial, 6.5-8 pt text, open axes,
@@ -123,7 +130,8 @@ To move from 0.1.0: no changes needed; photometry is new.
   writing, the population loader, tuning scores and cluster job bundles
   (`raphael-jobs`), with project stages as plug-ins (`raphael.stages`).
 
-[Unreleased]: https://github.com/CogEmLab/Raphael/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/CogEmLab/Raphael/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/CogEmLab/Raphael/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/CogEmLab/Raphael/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/CogEmLab/Raphael/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/CogEmLab/Raphael/releases/tag/v0.1.0
