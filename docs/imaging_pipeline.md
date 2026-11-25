@@ -10,7 +10,9 @@ alongside for fast analysis.
 - Surgery protocol: `docs/protocols/surgery/hippocampal_window_ca1.md` in social-manifolds
 
 **Processing a recording step by step, with the data at each stage:
-[imaging_walkthrough.md](imaging_walkthrough.md).** The Neuropixels
+[imaging_walkthrough.md](imaging_walkthrough.md).** One-photon (miniscope)
+recordings have their own pipeline, writing the same layout:
+[imaging_1p_pipeline.md](imaging_1p_pipeline.md). The Neuropixels
 counterpart, which writes the same shape of output, is
 [ephys_pipeline.md](ephys_pipeline.md).
 

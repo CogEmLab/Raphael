@@ -1,0 +1,89 @@
+# One-photon (miniscope) calcium imaging: metadata and processing settings.
+#
+# Same shape as imaging.yaml (two-photon), so the same NWB writers read it;
+# the `cnmfe` section holds the CaImAn settings. Everything under `nwb` is
+# written into every processed file. Fill in the TODOs before publishing;
+# `raphael-imaging validate` flags anything DANDI will reject.
+#
+# These are Raphael's defaults. A project keeps its own copy in its configs/
+# and passes it with `raphael-jobs make --config configs/imaging_1p.yaml`;
+# the job snapshots it.
+
+nwb:
+  lab: TODO
+  institution: TODO
+  timezone: Europe/Vienna
+  experimenter: [TODO]               # DANDI form: 'Last, First'
+  keywords: [one-photon, miniscope, calcium imaging, mice]
+  related_publications: []
+  experiment_description: TODO
+  surgery: TODO                      # point to the project's protocol pages
+  virus: TODO
+  pharmacology: TODO
+  data_collection: TODO              # microscope, lens, frame rate, LED power
+
+subject:
+  species: Mus musculus
+  strain: C57BL/6J
+  sex: U
+
+microscope:
+  name: Microscope
+  description: Inscopix nVista3 head-mounted microscope
+  manufacturer: Inscopix
+
+imaging_plane:
+  indicator: TODO                    # e.g. GCaMP6f
+  location: CA1
+  excitation_lambda: 455.0           # nm, nVista3 excitation LED
+  emission_lambda: 525.0             # nm, centre of the green emission filter
+
+processing:
+  pipeline: cnmfe                    # the `src-` tag in file names
+  # Which trace goes into _traces.npz (the analysis table): `denoised` is
+  # CNMF-E's C, `detrended` its detrended C + YrA, `F` the raw C + YrA,
+  # `deconvolved` S. All of them are in the NWB file.
+  trace: denoised
+
+# CaImAn, with its own parameter names. Defaults are those of the
+# helping-behaviour analysis (CogEmLab/helping-behaviour-calcium-imaging,
+# config/master.yaml); see raphael.imaging.cnmfe.
+cnmfe:
+  spatial_downsample: 2              # bin 2 x 2 pixels before CaImAn
+  # A factor, or {target_hz: 30}: the rate to reach, which must divide the
+  # recorded rate (60 -> 30 Hz bins 2 frames; 20 Hz stays as it is).
+  temporal_downsample: {target_hz: 30}
+  motion:
+    pw_rigid: false                  # rigid NoRMCorre
+    gSig_filt: [3, 3]                # high-pass filter before registration (1p)
+    max_shifts: [5, 5]               # px, after spatial downsampling
+    strides: [48, 48]                # pw-rigid only
+    overlaps: [24, 24]
+    max_deviation_rigid: 3
+    border_nan: copy
+  cnmfe:
+    decay_time: 0.3                  # s, typical transient
+    p: 1                             # AR order (OASIS)
+    gSig: [3, 3]                     # px, half-width of a neuron
+    gSiz: [7, 7]                     # px, bounding box (CaImAn's example: 4 gSig + 1)
+    merge_thr: 0.7
+    rf: 20                           # px, half-size of a patch
+    stride: 10                       # px, patch overlap
+    tsub: 2                          # temporal downsampling for initialisation
+    ssub: 1
+    min_corr: 0.8                    # seed: correlation image peak
+    min_pnr: 7                       # seed: peak-to-noise
+    ssub_B: 2                        # background downsampling
+    ring_size_factor: 1.4
+    update_background_components: true
+    del_duplicates: true
+  quality:                           # component evaluation -> `accepted`
+    use_cnn: false
+    min_SNR: 3.0
+    SNR_lowest: 2.0
+    rval_thr: 0.85
+    rval_lowest: 0.3
+
+behaviour:
+  moving_threshold_cm_s: 5.0
+  min_epoch_s: 0.05

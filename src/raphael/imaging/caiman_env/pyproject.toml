@@ -1,0 +1,28 @@
+# CaImAn's own environment, separate from Raphael's.
+#
+# CaImAn is not on PyPI (the `caiman` there is an unrelated MicroPython tool),
+# builds Cython extensions at install time and pulls in a GUI stack (PySide6,
+# Panel, Bokeh) and Keras/torch that Raphael does not need. So, as with VAME,
+# Raphael runs it here instead (raphael.imaging.cnmfe), through
+# `uv run --frozen`, and reads back plain arrays: nothing from CaImAn is
+# imported into Raphael's process. The environment is created on first use in
+# ~/.cache/raphael/caiman-env (or $RAPHAEL_CAIMAN_ENV), never inside the
+# installed package. Building CaImAn needs a C compiler (gcc or clang).
+[project]
+name = "raphael-caiman-env"
+version = "1.13.2"
+requires-python = "==3.11.*"
+dependencies = [
+    "caiman",
+]
+
+[tool.uv]
+package = false
+environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+
+[tool.uv.sources]
+caiman = { git = "https://github.com/flatironinstitute/CaImAn", tag = "v1.13.2" }

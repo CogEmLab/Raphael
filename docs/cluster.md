@@ -1,7 +1,8 @@
 # Running heavy stages elsewhere
 
-GPU stages (motion correction, segmentation, denoising, spike sorting) run on a cluster or
-another GPU machine, not on a laptop. Three pieces make that reproducible:
+Heavy stages (motion correction, segmentation, denoising, spike sorting,
+CNMF-E, pose estimation) run on a cluster or another big machine, not on a
+laptop. Three pieces make that reproducible:
 
 1. **One environment, everywhere**: `uv.lock` pins every package, including
    the CUDA build of torch, and `uv sync --frozen` installs exactly that.
@@ -15,6 +16,23 @@ Everything site-specific lives in
 [configs/cluster.yaml](../src/raphael/configs/cluster.yaml), which is set up for MSC,
 the MedUni Wien Scientific Cluster. **Step-by-step guide for MSC:
 [msc_cluster.md](msc_cluster.md).**
+
+## What runs where
+
+| on a laptop | on the cluster |
+|---|---|
+| making job bundles (`raphael-jobs make`), copying them and the data | every stage below on whole recordings |
+| unit tests, linting | anything that loads a full movie, recording or video |
+| reading results, figures, analysis on processed tables | runs longer than a few minutes |
+| short looks at raw data (`--param max_frames=...`), after checking free RAM and disk | |
+
+Memory is what breaks laptops: a stage past the machine's RAM swaps until
+the machine stops responding. CaImAn on a 4-minute miniscope session needs
+about 20 GB; on an 8 GB laptop it froze the machine, which restarted. The
+`cnmfe` stage now refuses to start when its estimate exceeds the machine's
+RAM or the job's `--mem-gb`. Large scratch on a laptop goes on an external
+drive (`raphael-jobs run ... --work /Volumes/BIG/work/JOB`), never the
+internal disk, which macOS also needs for swap.
 
 ## The environment
 
@@ -188,6 +206,7 @@ laptop) get the NWB stamp but no record: run a job for anything you keep.
 | `lfp` (CPU) | each Neuropixels recording -> LFP and theta phase, `_lfp.nwb` per session; size and detail set by `lfp` in configs/ephys.yaml | as `kilosort4` for the metadata; `lfp` (overrides). Make with `--cpu` Step by step: [ephys_walkthrough.md](ephys_walkthrough.md) |
 | `suite2p` | one movie -> registration, ROIs, traces, deconvolution; writes processed NWB, traces, ROI table and QC in the clark2025 tree, plus suite2p's own files for its GUI | `fs` and `session_start` (required), `subject`, `um_per_pixel`, `depth_um`, `mouse`, `day`, `session_type`, `suite2p` (setting overrides), `blank_fraction`, `keep_binary`. Step by step: [imaging_walkthrough.md](imaging_walkthrough.md) |
 | `photometry` (CPU) | Doric files -> `_photometry.nwb`, `.npz`, `.csv` and QC per session | `session_type` (one per input), `mouse`, `day`, `channels`, `processing`. See [photometry_pipeline.md](photometry_pipeline.md) |
+| `cnmfe` (CPU) | one Inscopix `.isxd` (or a binned TIFF) -> binning, NoRMCorre, CaImAn CNMF-E, component evaluation; writes `_src-cnmfe_ophys.nwb`, `_traces.npz` (C), `_rois.csv` and QC; the CaImAn model stays in `work/`. CaImAn runs in its own environment, built on first use | `mouse`, `day`, `session_type`, `subject`; `session_start` and `fs` for a TIFF; `cnmfe` (overrides of imaging_1p.yaml), `max_frames`, `keep_movies`, `skip_memory_check`. See [imaging_1p_pipeline.md](imaging_1p_pipeline.md) and [msc_cluster.md](msc_cluster.md#10-process-an-inscopix-recording-with-cnmf-e) |
 | `sync` (CPU) | behaviour CSV + Open Ephys recording -> behaviour on the recording clock (`_beh.csv`) and sync QC; fails if a sync check fails | `mouse`, `day`, `session_type`; `time_column`, `ttl_column`, `ttl_line`, `stream`; `sync` (limits); `waive`. See [sync.md](sync.md) |
 
 ```bash

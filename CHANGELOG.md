@@ -10,6 +10,27 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
 ### Added
+- One-photon (miniscope) imaging, from the helping-behaviour analysis
+  (CogEmLab/helping-behaviour-calcium-imaging) with its settings as
+  defaults: `raphael.imaging.inscopix` reads Inscopix `.isxd` movies
+  directly (frames, timing, dropped frames, acquisition settings; equal to
+  Inscopix's TIFF export pixel for pixel) and bins them for CaImAn;
+  `raphael.imaging.cnmfe` runs CaImAn 1.13.2 (motion correction, CNMF-E,
+  component evaluation) in its own locked environment, as VAME does
+  (CaImAn is not on PyPI); job stage `cnmfe` writes `_src-cnmfe_ophys.nwb`,
+  `_traces.npz` (C) and `_rois.csv` (every component, with `accepted`)
+  and keeps the CaImAn model in the job's work folder.
+  `raphael-imaging inscopix-sessions` lists raw recordings with each
+  mouse's recording day. New `configs/imaging_1p.yaml`. See
+  docs/imaging_1p_pipeline.md.
+- Pose in the behaviour file: `nwb.build_beh_nwb(..., pose=table)` (or
+  `nwb.add_pose`) writes DeepLabCut keypoints as ndx-pose
+  `PoseEstimation`, one per animal, with the video linked. `ndx-pose` is a
+  new core dependency.
+- `nwb.Plane` has `denoised` and `detrended` traces (NWB `Denoised`,
+  `Detrended`), and `nwb.export_tables(..., trace=...)` chooses which trace
+  goes into `_traces.npz`; `build_ophys_nwb` takes the processing module's
+  description. Two-photon outputs are unchanged.
 - `raphael.ml.unified`: Unified CEBRA (Benquet et al. 2026), one
   contrastive encoder over recordings with different neurons, lined up on a
   shared label (position, trial time, a stimulus feature). Blocked

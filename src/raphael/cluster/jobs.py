@@ -19,8 +19,8 @@ root that each machine supplies at run time (`--data-root`), so the same
 bundle runs wherever a copy of the data lives; sizes and checksums recorded
 at creation catch a stale or partial copy before any GPU time is spent.
 
-Stages. Raphael defines the shared ones (`smoke`, `suite2p`, `kilosort4`,
-`lfp`). A project adds its own by decorating functions with `stage` in a
+Stages. Raphael defines the shared ones (`smoke`, `suite2p`, `cnmfe`,
+`kilosort4`, `lfp`, ...). A project adds its own by decorating functions with `stage` in a
 module it names under the `raphael.stages` entry-point group in its
 pyproject.toml, e.g. in social-manifolds:
 
@@ -584,6 +584,153 @@ def suite2p_stage(ctx):
     if ctx.device == 'cuda':
         summary['peak_gpu_memory_gb'] = round(torch.cuda.max_memory_allocated() / 1e9, 2)
     _write_json(ctx.outputs / 'suite2p_summary.json', summary)
+
+
+MOVIE_SUFFIXES = ('.isxd', '.tif', '.tiff')
+
+
+def _cnmfe_check(params, inputs=(), timezone='Europe/Vienna'):
+    """Recording start time (None: read from the .isxd) and subject fields
+    from cnmfe job params."""
+    from raphael.imaging import cnmfe, nwb
+
+    if len(inputs) != 1 or not str(inputs[0]).lower().endswith(MOVIE_SUFFIXES):
+        raise JobError('cnmfe takes one movie: an Inscopix .isxd, or a TIFF already '
+                       'downsampled for CaImAn')
+    isxd = str(inputs[0]).lower().endswith('.isxd')
+    if not isxd:
+        for key in ('fs', 'session_start'):
+            if key not in params:
+                raise JobError(f'cnmfe on a TIFF needs {key} (an .isxd carries it): '
+                               f'make --param {key}=...')
+    unknown = set(params.get('cnmfe') or {}) - set(cnmfe.DEFAULTS)
+    if unknown:
+        raise JobError(f'unknown cnmfe settings {sorted(unknown)}; known: '
+                       f'{sorted(cnmfe.DEFAULTS)}')
+    try:
+        start = (nwb.parse_start_time(params['session_start'], timezone)
+                 if 'session_start' in params else None)
+        subject = nwb.subject_fields(params.get('subject'), timezone)
+    except ValueError as e:
+        raise JobError(str(e)) from e
+    return start, subject
+
+
+def _job_mem_gb(ctx):
+    return float((load(ctx.job_dir).get('resources') or {}).get('mem_gb') or 0)
+
+
+def _cpus():
+    try:
+        return len(os.sched_getaffinity(0))   # what the scheduler gave this job
+    except AttributeError:
+        return os.cpu_count()
+
+
+@stage('cnmfe', check=_cnmfe_check)
+def cnmfe_stage(ctx):
+    """One-photon movie -> CaImAn CNMF-E -> processed NWB, traces, ROI table
+    and QC in ctx.outputs (clark2025 tree, `src-cnmfe`). CPU.
+
+    input: an Inscopix .isxd (binned in space and time first, as
+    imaging_1p.yaml's `cnmfe` section says), or a TIFF already binned for
+    CaImAn (then `fs` and `session_start` are needed). The CaImAn model
+    (`.hdf5`), the arrays it was read from and CaImAn's log stay in the work
+    folder (cluster scratch), for comparison and re-curation in CaImAn.
+    params: mouse, day, session_type (output names); session_start
+    (default: the .isxd's start time); fs (TIFF only); subject (dict);
+    cnmfe (dict overriding imaging_1p.yaml's cnmfe section, by group:
+    motion, cnmfe, quality, spatial_downsample, temporal_downsample);
+    um_per_pixel (after binning); indicator, location; max_frames (raw
+    frames to process, for a quick look); skip_memory_check (start even if
+    the job's RAM looks too small; default false); keep_movies (keep the binned and
+    motion-corrected movies, default false).
+    """
+    import time
+
+    from raphael.imaging import cnmfe, inscopix, nwb, qc
+    from raphael.imaging.layout import Session, load_settings
+
+    p = ctx.params
+    config = ctx.config / 'imaging_1p.yaml'
+    settings = load_settings(config if config.exists() else
+                             provenance.PACKAGE_ROOT / 'configs' / 'imaging_1p.yaml')
+    start_time, subject = _cnmfe_check(p, ctx.inputs,
+                                       timezone=settings['nwb'].get('timezone', 'UTC'))
+    s = cnmfe.settings_with_defaults({**(settings.get('cnmfe') or {})})
+    s = cnmfe.settings_with_defaults({**s, **(p.get('cnmfe') or {})})
+    session = Session(str(p.get('mouse', 'test')), str(p.get('day', '0')),
+                      str(p.get('session_type', 'test')))
+    movie_in = ctx.inputs[0]
+    keep = bool(p.get('keep_movies', False))
+    work = ctx.work / 'caiman'
+    work.mkdir(parents=True, exist_ok=True)
+    timing, notes = {}, {'pipeline': 'cnmfe', 'input': movie_in.name, 'job': ctx.job_dir.name}
+
+    start = time.perf_counter()
+    if movie_in.suffix.lower() == '.isxd':
+        rec = inscopix.open_isxd(movie_in, settings['nwb'].get('timezone', 'UTC'))
+        start_time = start_time or rec.start
+        factor = cnmfe.temporal_factor(rec.rate, s)
+        # Check memory before spending minutes binning: the binned movie's
+        # size follows from the raw one's.
+        n_raw = min(rec.n_frames, p.get('max_frames') or rec.n_frames)
+        binned_bytes = (n_raw // factor) * rec.height * rec.width * 2 // int(
+            s['spatial_downsample']) ** 2
+        needed = int(binned_bytes * 2 * cnmfe.MEMORY_FACTOR)
+        limit = min(cnmfe.physical_memory(), int(_job_mem_gb(ctx) * 1e9) or 10**15)
+        if needed > limit and not p.get('skip_memory_check'):
+            raise JobError(f'this session needs about {needed / 1e9:.0f} GB of RAM in CaImAn; '
+                           f'the job has {limit / 1e9:.0f} GB: remake it with --mem-gb '
+                           f'{int(needed / 1e9) + 4} on a machine that has it, or set max_frames')
+        movie = ctx.work / f'{session.stem}_binned.tif'
+        rate, times = inscopix.downsample(rec, movie, spatial=int(s['spatial_downsample']),
+                                          temporal=factor, max_frames=p.get('max_frames'))
+        notes.update(recording=rec.info(), spatial_downsample=int(s['spatial_downsample']),
+                     temporal_downsample=factor,
+                     dropped_frames=_ranges(rec.dropped), cropped_frames=rec.cropped)
+    else:
+        movie, rate = movie_in, float(p['fs'])
+        times = None
+    timing['downsample_s'] = round(time.perf_counter() - start, 1)
+
+    start = time.perf_counter()
+    summary = cnmfe.run(movie, work, session.stem, rate, s, n_processes=_cpus(),
+                        keep_movies=keep, log=work / f'{session.stem}_caiman.log',
+                        memory_check=not p.get('skip_memory_check'))
+    timing['caiman_s'] = round(time.perf_counter() - start, 1)
+    result = cnmfe.load(work / f'{session.stem}_cnmfe.npz')
+    if times is None:
+        times = np.arange(result['C'].shape[1]) / rate
+
+    start = time.perf_counter()
+    plane = cnmfe.to_plane(result, times, rate,
+                           description=f'CaImAn CNMF-E on {movie_in.name}.')
+    if 'um_per_pixel' in p:
+        um = p['um_per_pixel']
+        plane.grid_spacing_um = tuple(map(float, um)) if isinstance(um, list) else (float(um),) * 2
+    notes.update(caiman=summary['caiman'], caiman_env_lock_sha256=summary['caiman_env_lock_sha256'],
+                 cnmfe_overrides=p.get('cnmfe') or {})
+    ophys = nwb.new_nwbfile(settings, session,
+                            f'Processed one-photon imaging for {session.stem}.',
+                            session_start_time=start_time, subject=subject, notes=notes)
+    nwb.build_ophys_nwb(ophys, [plane], settings, indicator=p.get('indicator'),
+                        location=p.get('location'),
+                        description='Processed one-photon (miniscope) imaging data.')
+    nwb.write(ophys, session.ophys(ctx.outputs, 'cnmfe'))
+    nwb.export_tables([plane], session.traces(ctx.outputs, 'cnmfe'),
+                      session.rois(ctx.outputs, 'cnmfe'),
+                      trace=settings['processing'].get('trace', 'denoised'))
+    qc.plane_figure(plane, 1, session.qc(ctx.outputs))
+    timing['write_s'] = round(time.perf_counter() - start, 1)
+    if not keep and movie != movie_in:
+        Path(movie).unlink(missing_ok=True)
+
+    _write_json(ctx.outputs / 'cnmfe_summary.json', {
+        'frames': len(plane.timestamps), 'rate_hz': rate, 'image_shape': list(plane.image_shape),
+        'components': len(plane.masks), 'accepted': int(plane.rois['accepted'].sum()),
+        'max_shift_px': summary['max_shift_px'], 'caiman_work': str(work), 'cpus': _cpus(),
+        **timing, **{k: v for k, v in summary.items() if k.endswith('_s')}})
 
 
 def _ephys_metadata(params, inputs=(), timezone='Europe/Vienna'):

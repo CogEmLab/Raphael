@@ -1,11 +1,20 @@
-"""In vivo two-photon imaging: inspect raw files, write processed NWB, validate.
+"""In vivo calcium imaging: inspect raw files, write processed NWB, validate.
 
-Settings and publication metadata: configs/imaging.yaml.
+Settings and publication metadata: configs/imaging.yaml (two-photon),
+configs/imaging_1p.yaml (one-photon). Processing itself runs as job stages
+(`raphael-jobs make --stage suite2p | cnmfe`).
 
 Usage:
     raphael-imaging inspect RAW.nwb
     raphael-imaging from-dandi RAW.nwb --out ROOT [--planes 1 2] [--max-frames N]
     raphael-imaging validate ROOT_OR_FILES...
+    raphael-imaging inscopix-sessions RAW_ROOT --out sessions.csv
+
+`inscopix-sessions` lists every raw Inscopix recording under RAW_ROOT
+(animal ID, start time, frames, rate, microscope settings, from each
+.isxd's own description) with each mouse's recording day, which names the
+`D{day}` folders: day 1 is the mouse's first recording date, habituation
+included.
 
 `from-dandi` re-exports the processed data inside a DANDI 000402 (MICrONS)
 file into our clark2025-style tree. It needs no processing of our own, so
@@ -97,6 +106,20 @@ def from_dandi(path, out, settings, planes=None, max_frames=None):
         print(f'-> {qc.plane_figure(plane, i, session.qc(out))}')
 
 
+def inscopix_sessions(root, out, settings, raw_only=True):
+    from raphael.imaging import inscopix
+
+    table = inscopix.sessions(root, settings['nwb'].get('timezone', 'UTC'), raw_only)
+    if table.empty:
+        raise SystemExit(f'no raw .isxd recordings under {root}')
+    table.insert(2, 'day', inscopix.day_numbers(table))
+    table = table.sort_values(['mouse', 'start_local'])
+    out.parent.mkdir(parents=True, exist_ok=True)
+    table.to_csv(out, index=False)
+    print(f'{len(table)} recordings of {table.mouse.nunique()} mice -> {out}')
+    return table
+
+
 def validate(paths):
     from nwbinspector import inspect_nwbfile
 
@@ -127,6 +150,11 @@ def main():
     p.add_argument('--max-frames', type=int, default=None)
     p = sub.add_parser('validate')
     p.add_argument('paths', nargs='+')
+    p = sub.add_parser('inscopix-sessions')
+    p.add_argument('root', type=Path)
+    p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--all', action='store_true',
+                   help='include .isxd files written after acquisition (no session.json)')
     args = parser.parse_args()
 
     settings = load_settings(args.config)
@@ -136,6 +164,8 @@ def main():
         from_dandi(args.path, args.out, settings, args.planes, args.max_frames)
     elif args.command == 'validate':
         validate(args.paths)
+    elif args.command == 'inscopix-sessions':
+        inscopix_sessions(args.root, args.out, settings, raw_only=not args.all)
 
 
 if __name__ == '__main__':

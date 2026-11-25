@@ -11,7 +11,8 @@ from raphael.style import styled
 
 @styled
 def plane_figure(plane, index, out_dir, n_traces=30):
-    """Mean image with ROI centroids, and a sample of dF/F traces."""
+    """Mean image with ROI centroids, and a sample of traces (dF/F, else
+    denoised, else F)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     image = next(iter(plane.images.values()), None)
     accepted = (
@@ -22,7 +23,9 @@ def plane_figure(plane, index, out_dir, n_traces=30):
         np.average(np.asarray(m)[:, :2], axis=0, weights=np.asarray(m)[:, 2])
         for m in plane.masks
     ]).reshape(-1, 2)
-    traces = plane.dff if plane.dff is not None else plane.F
+    name, traces = next((n, getattr(plane, a)) for n, a in (
+        ('dF/F', 'dff'), ('denoised (C)', 'denoised'), ('F', 'F'))
+        if getattr(plane, a) is not None)
 
     fig, (ax_img, ax_tr) = plt.subplots(1, 2, figsize=(10, 3.5),
                                         gridspec_kw={'width_ratios': [1.4, 1]})
@@ -44,7 +47,7 @@ def plane_figure(plane, index, out_dir, n_traces=30):
         ax_tr.plot(t[window] - t[0], k + 0.9 * y / scale, lw=0.5, c='k')
     ax_tr.set_xlabel('time (s)')
     ax_tr.set_ylabel('ROI')
-    ax_tr.set_title('dF/F, first 120 s' if plane.dff is not None else 'F, first 120 s')
+    ax_tr.set_title(f'{name}, first 120 s')
     fig.tight_layout()
     path = out_dir / f'plane{index}_rois.png'
     fig.savefig(path, dpi=150)
