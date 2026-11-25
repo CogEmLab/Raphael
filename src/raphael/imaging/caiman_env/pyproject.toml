@@ -14,10 +14,16 @@ version = "1.13.2"
 requires-python = "==3.11.*"
 dependencies = [
     "caiman",
+    "opencv-python-headless",
 ]
 
 [tool.uv]
 package = false
+# CaImAn asks for opencv-python, which needs libGL (a display library) just
+# to import, and cluster nodes have none. The headless build is the same cv2
+# without it; this override drops opencv-python (a marker no platform has)
+# so only the headless one is installed.
+override-dependencies = ["opencv-python; sys_platform == 'never'"]
 environments = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",

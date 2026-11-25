@@ -129,7 +129,9 @@ class Recording:
         return self.meta.get('extraProperties') or {}
 
     @cached_property
-    def frames(self):
+    def _rows(self):
+        """Rows stored per frame (image plus header/footer), checked
+        against the file size."""
         if self.meta.get('dataType', 0) != 0:
             raise InscopixError(f'{self.path}: only uint16 movies are supported '
                                 f'(dataType {self.meta.get("dataType")})')
@@ -139,10 +141,30 @@ class Recording:
         if expected != self.data_bytes:
             raise InscopixError(f'{self.path}: {self.data_bytes} bytes of frames, expected '
                                 f'{expected} for {self.n_frames} x {rows} x {self.width} uint16')
+        return rows
+
+    @cached_property
+    def frames(self):
+        """All frames as a read-only memmap. Convenient for a look; for a
+        pass over the whole movie use `read`, which doesn't map the file
+        (a mapped 26 GB movie counts against a cluster job's memory)."""
+        rows = self._rows
         raw = np.memmap(self.path, np.uint16, 'r', shape=(self.n_frames, rows, self.width))
         if rows == self.height:
             return raw
         return raw[:, HEADER_ROWS:HEADER_ROWS + self.height]
+
+    def read(self, start, stop):
+        """Frames [start, stop) as an in-memory (n, height, width) uint16
+        array, read from the file without mapping it."""
+        rows = self._rows
+        start, stop = max(int(start), 0), min(int(stop), self.n_frames)
+        frame_bytes = rows * self.width * 2
+        with open(self.path, 'rb') as f:
+            f.seek(start * frame_bytes)
+            block = np.fromfile(f, np.uint16, count=(stop - start) * rows * self.width)
+        block = block.reshape(stop - start, rows, self.width)
+        return block if rows == self.height else block[:, HEADER_ROWS:HEADER_ROWS + self.height]
 
     def info(self):
         """What the acquisition recorded, as flat fields for a session table
@@ -194,7 +216,6 @@ def downsample(recording, out, spatial=2, temporal=1, chunk_frames=600, dtype=np
     middle of its bin). `max_frames` stops after that many raw frames."""
     import tifffile
 
-    frames = recording.frames
     if chunk_frames % temporal:
         chunk_frames -= chunk_frames % temporal
     n_raw = min(recording.n_frames, max_frames or recording.n_frames)
@@ -207,11 +228,11 @@ def downsample(recording, out, spatial=2, temporal=1, chunk_frames=600, dtype=np
     with tifffile.TiffWriter(out, bigtiff=True) as tif:
         for start in range(0, n_out * temporal, chunk_frames):
             stop = min(start + chunk_frames, n_out * temporal)
-            block = np.asarray(frames[start:stop, :h, :w], dtype=np.float32)
+            block = recording.read(start, stop)[:, :h, :w].astype(np.float32)
             for i in sorted(d for d in dropped if start <= d < stop):
                 if i > 0:
                     block[i - start] = (block[i - start - 1] if i > start
-                                        else np.asarray(frames[i - 1, :h, :w], np.float32))
+                                        else recording.read(i - 1, i)[0, :h, :w])
             t = (stop - start) // temporal
             block = block.reshape(t, temporal, h // spatial, spatial, w // spatial, spatial)
             block = block.mean(axis=(1, 3, 5))

@@ -303,6 +303,9 @@ def render(job_dir, site=SITE_CONFIG):
         'work': (f'{paths["scratch"].rstrip("/")}/{spec["job_id"]}' if paths.get('scratch')
                  else f'{remote_job}/work'),
         'cpus': res['cpus'], 'mem_gb': res['mem_gb'], 'hours': res['hours'],
+        # The GPU report goes in the log of GPU jobs only.
+        'gpu_check': ('uv run --frozen --no-sync raphael-jobs gpu-check || true\n'
+                      if res['gpu'] else ''),
         'setup': '\n'.join(cfg.get('setup') or []),
         'env': '\n'.join(f'export {k}="{v}"' for k, v in (cfg.get('env') or {}).items()
                          if not _unfilled(v)),

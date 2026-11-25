@@ -91,6 +91,7 @@ def test_render(tmp_path, data_root, site):
     assert '#SBATCH --mem=30G' in slurm
     assert 'raphael-jobs run "/cluster/jobs/gpu-1"' in slurm
     assert '--data-root "/cluster/data"' in slurm and '@{' not in slurm
+    assert 'raphael-jobs gpu-check' in slurm                 # GPU jobs report the GPU
     sge = (job / 'submit.sge').read_text()
     assert '#$ -pe sharedmem 8' in sge and '#$ -l h_vmem=4G' in sge  # per core
     assert '#$ -l gpu=1' in sge
@@ -148,6 +149,7 @@ def test_cpu_jobs_use_the_cpu_request(tmp_path, data_root, site):
              if l.startswith('#SBATCH --')]
     assert '#SBATCH --partition=cpu' in lines and '#SBATCH --qos=cpu' in lines
     assert not any('gres' in l or 'partition=gpu' in l for l in lines)
+    assert 'gpu-check' not in (job / 'submit.slurm').read_text()    # no GPU to report
 
 
 def test_project_stages_register_through_entry_points(tmp_path, monkeypatch):

@@ -21,6 +21,5 @@ cd "@{repo}"
 command -v uv >/dev/null || { echo "uv not on PATH: add it under setup: in configs/cluster.yaml" >&2; exit 1; }
 test -d .venv || { echo "no .venv in @{repo}: run 'uv sync --frozen --extra gpu' first" >&2; exit 1; }
 
-uv run --frozen --no-sync raphael-jobs gpu-check || true
-uv run --frozen --no-sync raphael-jobs run "@{job_dir}" \
+@{gpu_check}uv run --frozen --no-sync raphael-jobs run "@{job_dir}" \
     --data-root "@{data}" --work "@{work}"
