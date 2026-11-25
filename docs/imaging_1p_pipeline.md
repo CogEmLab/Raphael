@@ -140,7 +140,7 @@ behaviour clock (below) are next.
 
 | there | here |
 |---|---|
-| reads Inscopix's TIFF exports; 11 sessions stop at 32,767 frames (1,092 s), 5–48 s short of the video | reads the `.isxd`: every frame |
+| reads Inscopix's TIFF exports; 6 sessions stop at 32,767 frames (1,092 s), 5–48 s short of the video | reads the `.isxd`: every frame |
 | CaImAn's `fr` is always 30 (`fps` argument unused), so 20 Hz files were modelled as 30 Hz | `fr` is the binned movie's real rate |
 | frame rates and exceptions by file name (`downsample.py`) | from the file's own description |
 | Oct_2021 re-curated with other thresholds by a separate script | one set of thresholds; a different set is a recorded override |
@@ -166,11 +166,62 @@ behaviour clock (below) are next.
 - **An unclosed recording**: May_2024 HAB2, M8476 (41 GB) ends in zeros,
   with no Inscopix description; `inscopix-sessions` lists it with an error.
 
+## The earlier analysis's outputs, ported (temporary)
+
+Until every helping-behaviour recording is reprocessed through the `cnmfe`
+stage, `raphael-imaging port-helping-behaviour` ports what the earlier
+analysis produced into the same tree, so analysis can start now. **It is
+temporary and will be removed** once the reprocessing is done.
+
+```bash
+raphael-imaging --config configs/imaging_1p.yaml inscopix-sessions RAW/Mar_2024 --out raw_Mar_2024.csv
+# ... one table per cohort with raw recordings, then:
+raphael-imaging --config configs/imaging_1p.yaml port-helping-behaviour \
+    --analysis .../Analysis/Calcium-Imaging-Analysis \
+    --raw-table raw_*.csv --out OUT          # [--session 8472 HBTD3]
+```
+
+It writes `OUT/processed/M{mouse}/D{day}/{type}/` with the tag
+`src-cnmfehb` (never `src-cnmfe`, so the two can't be confused), and
+`OUT/metadata/sessions.csv`, `subjects.csv`:
+
+- `_src-cnmfehb_ophys.nwb`, `_traces.npz`, `_rois.csv`: every CaImAn
+  component of the earlier model (`cnmfe.from_caiman_hdf5` also reads the
+  components it discarded, with `accepted` False; their detrended trace,
+  which CaImAn didn't keep, is NaN), plus the correlation and peak-to-noise
+  images.
+- `_beh.nwb`: the earlier tracking table (`results.csv`): P_x, P_y (cm),
+  H (rad), S (cm/s), the front-body point, its egocentric door angle,
+  running bouts; the DeepLabCut pose (pixels of the cropped video), with
+  the video linked; the session as one `trials` row with the event times
+  (victim insertion, door opening, victim head and body crossing, video
+  end) as columns.
+- `provenance/port-helping-behaviour.json`: every input's path and sha256,
+  and the Raphael that ported it.
+
+Carried over unchanged, and fixed only by reprocessing: the traces of the
+6 sessions cut at 32,767 frames (`truncated` in sessions.csv); frame times
+at the table's 30 Hz (the recordings ran at 29.994 Hz after binning);
+behaviour on the video's frames from its first frame, assumed to start
+with the imaging; tracking only up to the victim's head crossing in HBTD
+sessions; Feb_2025's days from the table's dates (no raw recordings on the
+share, so its habituation days are not counted).
+
 ## Test bed
 
 May_2024 HBTD3, mouse 8472 (D6): 211.7 s, 12,701 frames at 59.988 Hz,
 1280 x 800, no dropped frames; the helping-behaviour run found 38 accepted
 components. Its CaImAn model is
 `processed-data/May_2024/HBTD3/cnmfe_model/Moises_B6J_8472_M_06HBT03_2024-06-05-17-13-10_video.hdf5`
-on the helping-behaviour share; compare against it with the TIFF input
-first (same movie, same settings), then the `.isxd`.
+on the helping-behaviour share.
+
+First run on MSC (2026-11-25, from the `.isxd`, defaults, 16 CPUs): 7 min
+45 s, 24.4 GB peak, 69 components (36 accepted) against the earlier run's
+93 (38). 27 of the earlier run's 38 accepted cells are accepted here, with
+the same footprints (cosine median 0.994) and traces (C correlation median
+0.986). Of the other 11, 9 are found with the same footprint (cosine
+0.93–0.99) but rejected: all sit at the evaluation thresholds (SNR 2.1–3.0,
+r 0.48–0.71). So detection agrees; the threshold calls differ, as they
+will when the input movie differs slightly (binned from the `.isxd`,
+rounded, at 29.994 Hz, against Inscopix's TIFF export, truncated, at 30).
+Running on the earlier TIFF input separates the input from the pipeline.

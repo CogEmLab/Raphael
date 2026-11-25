@@ -9,6 +9,11 @@ Usage:
     raphael-imaging from-dandi RAW.nwb --out ROOT [--planes 1 2] [--max-frames N]
     raphael-imaging validate ROOT_OR_FILES...
     raphael-imaging inscopix-sessions RAW_ROOT --out sessions.csv
+    raphael-imaging port-helping-behaviour --analysis DIR --raw-table T.csv... --out OUT
+
+`port-helping-behaviour` is TEMPORARY: it ports the earlier helping-behaviour
+analysis's CaImAn models and tracking into the processed tree
+(`src-cnmfehb`) until those recordings are reprocessed through Raphael.
 
 `inscopix-sessions` lists every raw Inscopix recording under RAW_ROOT
 (animal ID, start time, frames, rate, microscope settings, from each
@@ -150,6 +155,15 @@ def main():
     p.add_argument('--max-frames', type=int, default=None)
     p = sub.add_parser('validate')
     p.add_argument('paths', nargs='+')
+    p = sub.add_parser('port-helping-behaviour',
+                       help='TEMPORARY: port the earlier helping-behaviour outputs')
+    p.add_argument('--analysis', type=Path, required=True,
+                   help='the Calcium-Imaging-Analysis folder')
+    p.add_argument('--raw-table', type=Path, nargs='*', default=[],
+                   help='inscopix-sessions tables of the raw recordings (for days, start times)')
+    p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--session', nargs=2, action='append', metavar=('MOUSE', 'SESSION'),
+                   help='only this session (repeatable), e.g. --session 8472 HBTD3')
     p = sub.add_parser('inscopix-sessions')
     p.add_argument('root', type=Path)
     p.add_argument('--out', type=Path, required=True)
@@ -164,6 +178,11 @@ def main():
         from_dandi(args.path, args.out, settings, args.planes, args.max_frames)
     elif args.command == 'validate':
         validate(args.paths)
+    elif args.command == 'port-helping-behaviour':
+        from raphael.imaging import helping_behaviour
+
+        helping_behaviour.port(args.analysis, args.out, args.raw_table, settings,
+                               sessions={tuple(s) for s in args.session} if args.session else None)
     elif args.command == 'inscopix-sessions':
         inscopix_sessions(args.root, args.out, settings, raw_only=not args.all)
 

@@ -236,7 +236,50 @@ def test_pose_goes_into_the_behaviour_file(tmp_path):
 def test_memory_check_refuses_a_movie_too_big(tmp_path):
     movie = tmp_path / 'm.tif'
     movie.write_bytes(b'\0' * 1000)
-    assert cnmfe.memory_needed(movie) == 6000
+    assert cnmfe.memory_needed(movie) == 8000
     with pytest.raises(cnmfe.CnmfeError, match='cluster'):
-        cnmfe.check_memory(movie, available=5000)
-    assert cnmfe.check_memory(movie, available=7000) == 6000
+        cnmfe.check_memory(movie, available=7000)
+    assert cnmfe.check_memory(movie, available=9000) == 8000
+
+
+def test_from_caiman_hdf5_returns_every_component(tmp_path):
+    import h5py
+
+    result = cnmfe_result()
+    path = tmp_path / 'model.hdf5'
+    with h5py.File(path, 'w') as f:
+        f['dims'] = np.array([6, 8])
+        for name, k in (('estimates', [0, 2]), ('estimates/discarded_components', [1])):
+            g = f.require_group(name)
+            A = result['A'][:, k].tocsc()
+            for key, value in (('data', A.data), ('indices', A.indices), ('indptr', A.indptr),
+                               ('shape', np.array(A.shape))):
+                g[f'A/{key}'] = value
+            for key in ('C', 'YrA', 'S'):
+                g[key] = result[key][k]
+            g['SNR_comp'], g['r_values'] = result['snr'][k], result['r_value'][k]
+            if name == 'estimates':
+                g['F_dff'] = result['detrended'][k]
+                g['idx_components'] = h5py.Empty('f')   # what select_components leaves
+    out = cnmfe.from_caiman_hdf5(path)
+    assert list(out['accepted']) == [True, True, False]          # model's own, then discarded
+    np.testing.assert_allclose(out['C'], result['C'][[0, 2, 1]])
+    assert np.isnan(out['detrended'][2]).all() and not np.isnan(out['detrended'][:2]).any()
+    plane = cnmfe.to_plane(out, np.arange(20) / 30, 30.0)
+    assert len(plane.masks) == 3 and plane.images == {} and plane.shifts is None
+
+
+def test_helping_behaviour_port_helpers():
+    from raphael.imaging import helping_behaviour as hb
+
+    known = {'8000', '848', '8014'}
+    assert hb._mouse_id('B6J-8000', 'x', 'y', known=known) == '8000'
+    assert hb._mouse_id(None, 'Session-20211025-143540_0848', 'v.isxd', known=known) == '848'
+    assert hb._mouse_id(None, 'Moises-dHPC-HBT-240112-B6J-8014-f-HABD1', '', known=known) == '8014'
+    assert hb.session_type('RECNvlCtx') == 'RECNvlCtx' and hb.session_type('HBT D1') == 'HBTD1'
+    trials = hb.trials_table({'timevictiminsertion(s)': 68.0, 'timeonsetdooropening (s)': '75',
+                              'timevictimheadcrossing(s)': None}, stop=212.0)
+    assert trials.loc[0, 'victim_insertion_time'] == 68.0
+    assert trials.loc[0, 'door_opening_time'] == 75.0
+    assert np.isnan(trials.loc[0, 'victim_head_crossing_time']) and trials.loc[0, 'stop_time'] == 212
+    assert hb.local_path('/a', hb.SERVER_PREFIX + 'dlc/x.csv').as_posix() == '/a/dlc/x.csv'

@@ -355,8 +355,13 @@ cd ~/social-manifolds && uv run python -c \
 
 That installs into `~/.cache/raphael/caiman-env` (about 3 GB; set
 `RAPHAEL_CAIMAN_ENV` to put it elsewhere) and takes a few minutes. Repeat
-it when Raphael's CaImAn lockfile changes. Not yet tried on MSC: if there
-is no `gcc`, ask hpc@meduniwien.ac.at, or build it in an Apptainer image.
+it when Raphael's CaImAn lockfile changes. The login node has `gcc` 13.3
+(2026-11-25), which is enough. To check that it imports where jobs run:
+
+```bash
+srun --partition=cpu --qos=cpu --account=neurop -c 1 --mem=4G -t 0:10:00 \
+    ~/.cache/raphael/caiman-env/bin/python -c "import cv2, caiman; print(caiman.__version__)"
+```
 
 Copy the raw `.isxd` (the movie only; the `.gpio`, `.imu` and
 `session.json` beside it are small and worth keeping too), keeping its
@@ -384,9 +389,12 @@ uv run raphael-jobs make ~/jobs/cnmfe-M8472-D6 --stage cnmfe --cpu \
 Copy it across and submit it as in step 8. `--cpu` sends it to the `cpu`
 partition. Making the job reads the whole movie once for its checksum (a
 26 GB file over the share takes several minutes); `--no-hash` records sizes
-only.
+only. Once the movie is on the cluster, the job can instead be made there,
+with `--data-root ~/data` (and `RAPHAEL_CLUSTER_USER` set), where the
+checksum takes seconds; the code to make it from is the cluster's
+checkout of the project.
 
-**Memory.** Ask for about 3x the binned movie's float32 size plus a few
+**Memory.** Ask for about 4x the binned movie's float32 size plus a few
 GB: the stage estimates it and stops at once, naming the `--mem-gb` to use,
 if the job asks for less. The binned movie is frames x 400 x 640 x 2 bytes
 (2x2 binning, 30 Hz):
@@ -394,12 +402,14 @@ if the job asks for less. The binned movie is frames x 400 x 640 x 2 bytes
 | session | binned movie | `--mem-gb` |
 |---|---|---|
 | 4 min (7,000 frames) | 3.6 GB | 32 |
-| 10 min (18,000 frames) | 9 GB | 64 |
-| 18 min (32,000 frames) | 17 GB | 110 |
+| 10 min (18,000 frames) | 9 GB | 80 |
+| 18 min (32,000 frames) | 17 GB | 140 |
 
-These are estimates; after the first runs, `sacct -j JOBID -o MaxRSS`
-gives the real peak, and the factor in `raphael.imaging.cnmfe` should
-follow it.
+Measured on MSC (2026-11-25): May_2024 HBTD3 M8472, 6,350 binned frames,
+16 CPUs, peaked at 24.4 GB (`sacct -j JOBID -o MaxRSS`) and took 7 min 45 s
+(binning 2 min, motion correction 1 min, CNMF-E 1.5 min, evaluation
+3 min). Check `MaxRSS` on longer sessions and adjust `MEMORY_FACTOR` in
+`raphael.imaging.cnmfe` to follow.
 
 **Disk.** The work folder needs about 3x the binned movie while CaImAn
 runs (binned movie, motion-corrected memmap, C-order memmap; CaImAn's
@@ -468,4 +478,5 @@ use `a16` or `3g.20gb` for longer days.
 | `UserWarning: Sparse invariant checks ...` in a suite2p log | harmless notice from suite2p's internals |
 | `needs about N GB of RAM in CaImAn` | the job's `--mem-gb` is below the estimate; remake it with the size the message gives |
 | `CaImAn failed` / `uv sync` errors building CaImAn | its environment is not built, or there is no C compiler; see section 10 |
+| `ImportError: libGL.so.1` in a CaImAn log | an environment with `opencv-python` instead of the headless build (compute nodes have no libGL); re-run `cnmfe.ensure_env()` from a Raphael checkout whose `caiman_env/uv.lock` has `opencv-python-headless` |
 | warning about uncommitted changes | the job cannot be traced to a git commit; fine for tests, commit first for results you keep |

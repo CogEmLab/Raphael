@@ -155,8 +155,10 @@ def temporal_factor(rate, settings):
 
 #: CaImAn holds about this many float32 copies of the movie at its peak
 #: (memmap pages, CNMF-E patches across workers, evaluation), so a session
-#: needs roughly this multiple of the float32 movie size in RAM.
-MEMORY_FACTOR = 3.0
+#: needs roughly this multiple of the float32 movie size in RAM. Measured:
+#: 24.4 GB peak (SLURM MaxRSS) for a 6.5 GB float32 movie (6,350 frames of
+#: 400 x 640, 16 workers, MSC, 2026-11-25), i.e. 3.75x.
+MEMORY_FACTOR = 4.0
 
 
 def physical_memory():
@@ -267,8 +269,9 @@ def to_plane(result, timestamps, rate, description='CaImAn CNMF-E output.'):
         'r_value': result['r_value'],
         'cnmfe_index': np.arange(C.shape[1]),
     })
-    images = {'mean': result['mean'], 'correlation': result['correlation'],
-              'peak_to_noise': result['pnr']}
+    images = {name: result[key] for name, key in (
+        ('mean', 'mean'), ('correlation', 'correlation'), ('peak_to_noise', 'pnr'))
+        if result.get(key) is not None}
     return Plane(
         timestamps=np.asarray(timestamps)[:n],
         rate=float(rate),
@@ -278,8 +281,64 @@ def to_plane(result, timestamps, rate, description='CaImAn CNMF-E output.'):
         denoised=C[:n],
         deconvolved=result['S'].T[:n],
         detrended=result['detrended'].T[:n],
-        shifts=result['shifts'][:n],
+        shifts=result['shifts'][:n] if result.get('shifts') is not None else None,
         images=images,
         rois=rois,
         description=description,
     )
+
+
+def from_caiman_hdf5(path):
+    """A CaImAn model saved with `cnmf.save` (any CaImAn run, not only
+    Raphael's) as the same dict `load` returns, so `to_plane` reads it.
+
+    Components kept by `select_components(save_discarded_components=True)`
+    are in `estimates/discarded_components`; they are appended after the
+    model's own, with `accepted` False, so a curated model gives back every
+    component. A trace a component lacks (the detrended trace of discarded
+    ones, which CaImAn does not keep) is NaN. Without `select_components`,
+    `idx_components` says which are accepted."""
+    import h5py
+    from scipy import sparse
+
+    def csc(group):
+        return sparse.csc_matrix((group['data'][()], group['indices'][()], group['indptr'][()]),
+                                 shape=tuple(int(v) for v in group['shape'][()]))
+
+    def array(group, key, n, frames=None):
+        if key in group and group[key].shape != ():
+            return np.asarray(group[key][()], np.float32)
+        return np.full((n, frames) if frames else n, np.nan, np.float32)
+
+    with h5py.File(path, 'r') as f:
+        dims = tuple(int(v) for v in np.asarray(f['dims'][()]).ravel()[:2])
+        blocks = []
+        for group in (f['estimates'], f['estimates'].get('discarded_components')):
+            if not isinstance(group, h5py.Group) or 'A' not in group or 'shape' not in group['A']:
+                continue
+            A = csc(group['A'])
+            n = A.shape[1]
+            C = array(group, 'C', n)
+            frames = C.shape[1]
+            idx = group.get('idx_components')
+            if group.name.endswith('discarded_components'):
+                accepted = np.zeros(n, bool)
+            elif (idx is not None and idx.shape not in ((), None)
+                  and idx.dtype.kind in 'iuf'):       # a real index list, not None/empty
+                accepted = np.zeros(n, bool)
+                accepted[np.asarray(idx[()], int)] = True
+            else:
+                accepted = np.ones(n, bool)       # select_components left only these
+            blocks.append({'A': A, 'C': C, 'YrA': array(group, 'YrA', n, frames),
+                           'S': array(group, 'S', n, frames),
+                           'detrended': array(group, 'F_dff', n, frames), 'accepted': accepted,
+                           'snr': array(group, 'SNR_comp', n), 'r_value': array(group, 'r_values', n)})
+    if not blocks:
+        raise CnmfeError(f'{path}: no CaImAn estimates (estimates/A) in the file')
+    out = {'A': sparse.hstack([b['A'] for b in blocks]).tocsc(), 'dims': np.asarray(dims)}
+    for key in ('C', 'YrA', 'S', 'detrended'):
+        out[key] = np.concatenate([b[key] for b in blocks], axis=0)
+    for key in ('accepted', 'snr', 'r_value'):
+        out[key] = np.concatenate([b[key] for b in blocks])
+    out['shifts'] = None
+    return out

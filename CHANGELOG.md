@@ -23,6 +23,13 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   `raphael-imaging inscopix-sessions` lists raw recordings with each
   mouse's recording day. New `configs/imaging_1p.yaml`. See
   docs/imaging_1p_pipeline.md.
+- `cnmfe.from_caiman_hdf5` reads any saved CaImAn model, discarded
+  components included, into the arrays `cnmfe.to_plane` takes.
+- TEMPORARY, to be removed once the helping-behaviour recordings are
+  reprocessed through Raphael: `raphael.imaging.helping_behaviour` and
+  `raphael-imaging port-helping-behaviour` port the earlier analysis's
+  CaImAn models and tracking into the processed tree (`src-cnmfehb`,
+  `_beh.nwb`, `metadata/`), so analysis can start now.
 - Pose in the behaviour file: `nwb.build_beh_nwb(..., pose=table)` (or
   `nwb.add_pose`) writes DeepLabCut keypoints as ndx-pose
   `PoseEstimation`, one per animal, with the video linked. `ndx-pose` is a
