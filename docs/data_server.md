@@ -30,17 +30,23 @@ yet. Points still to decide are marked **(open)** and listed at the end.
 
 ## Layout
 
-One tree per lab, so labs can keep their data apart:
+One tree per lab, so labs can keep their data apart. Everything recorded,
+and everything made from it, sits under `data/`:
 
 ```
-/leonardo/{lab}/                          (path open)
-├── raw/                 write-once: acquisition files, as recorded
-├── processed/           pipeline-only: Raphael's outputs, NWB first
+/leonardo/{lab}/data/                     (path open)
+├── incoming/{person}/   each person's landing area for new recordings
 ├── metadata/            cohorts, subjects, sessions, tasks, projects, rigs
-├── jobs/                record of every pipeline run (no bulk data)
-├── projects/            per-project results, writable by the project
-└── incoming/{person}/   each person's landing area for new recordings
+├── raw/                 write-once: acquisition files, as recorded
+└── processed/           pipeline-only: Raphael's outputs, NWB first, each
+                         session with the provenance of how it was made
 ```
+
+**Projects' own work lives outside `data/`**: analysis results, figures and
+code belong to each project (its repository, or a folder of its own next
+to `data/`). Projects read from `data/` and never write to it, so `data/`
+holds only recordings, what the pipeline made from them, and the metadata
+that describes both.
 
 Many people's projects share one tree. What keeps them apart is not the
 folders but the metadata: every mouse, session, task and cohort is
@@ -180,15 +186,11 @@ they need to be complete before processing. These files are small and
 change often. Keeping them under git (with Leonardo holding a checkout)
 gives a history of every edit **(open)**.
 
-### jobs/
+### Provenance
 
-One folder per pipeline run, copied back from the cluster after the run
-finishes. It holds the job's manifest (stage, settings, inputs and their
-sha256), logs and provenance (the Raphael version and commit, and
-`uv.lock`), but **not** the bulk outputs, which go to `processed/`.
-
-Each processed session folder carries its own `provenance/{job_id}.json`,
-which Raphael writes with every run. It records:
+There is no separate folder of run records: each processed session folder
+carries its own `provenance/{job_id}.json`, which Raphael writes with every
+run, so the record travels with the files it describes. It records:
 - the Raphael version, release tag and exact commit;
 - the project's commit and `uv.lock`;
 - the settings, and the full text of every config;
@@ -199,13 +201,8 @@ which Raphael writes with every run. It records:
 Every NWB file also names the Raphael that wrote it (NWB's
 `source_script`). So anyone holding a processed file can tell which raw
 files, code and settings made it, and check it hasn't changed since. See
-[cluster.md](cluster.md#provenance-that-travels-with-the-results).
-
-### projects/
-
-Results a project derives from `processed/` (tables, statistics, figure
-data), one folder per project repository. Project members can write there.
-Project code stays on GitHub; only data goes here.
+[cluster.md](cluster.md#provenance-that-travels-with-the-results). The
+job's logs stay with the job on the cluster, not on Leonardo.
 
 ## Who can change what
 
@@ -217,9 +214,7 @@ permissions, not left to good intentions:
 | `incoming/{person}/` | acquisition group | that person | experimenters copy new recordings here |
 | `raw/` | lab members | **nobody** (admin only) | ingest moves files in and locks them |
 | `processed/` | lab members | **pipeline account** only | Raphael runs on the cluster |
-| `jobs/` | lab members | pipeline account only | copied back with each run |
 | `metadata/` | lab members | data managers | edited through git **(open)** |
-| `projects/{name}/` | lab members | project members | project scripts |
 
 Lab members means members of both labs, unless a lab wants its tree
 private **(open)**.
@@ -258,7 +253,7 @@ cluster (MSC) as the computer. They run as Raphael job bundles
 Leonardo raw/  ──(transfer, open)──▶  cluster scratch  ──▶  Raphael job
                                                               │ kilosort4, lfp, suite2p,
                                                               │ photometry, project stages
-Leonardo processed/ + jobs/  ◀──(transfer, open)──  outputs, logs, provenance
+Leonardo processed/  ◀──(transfer, open)──  outputs, with their provenance
 ```
 
 | Data type | Raw | Raphael stage | Processed NWB |
@@ -272,7 +267,7 @@ Leonardo processed/ + jobs/  ◀──(transfer, open)──  outputs, logs, pro
 Options include the cluster mounting Leonardo directly, or copying with
 `rsync` or Globus. Whatever is chosen has to keep these rules:
 
-- **Transfers into `processed/` and `jobs/` are made by the pipeline
+- **Transfers into `processed/` are made by the pipeline
   account**, never by hand.
 - **Checksums are checked at both ends.** The job manifest already records
   the sha256 of every input (so jobs from Leonardo shouldn't use `--no-hash`),
