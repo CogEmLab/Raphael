@@ -209,14 +209,15 @@ def test_stage_end_to_end(tmp_path, day, monkeypatch):
 
     folder = out / 'M1' / 'D2' / 'OF2'
     base = folder / 'sub-M1_ses-D2_typ-OF2_srt-kilosort4'
-    # The processed tree holds no zarr and no curation file; with
-    # keep_analyzer, those sit in outputs/kilosort4/analyzers/. _ecephys.nwb
-    # is there only because this job asks for it (write_ecephys_nwb).
+    # The processed tree holds the bombcell curation file (as clark2025) but
+    # no zarr; with keep_analyzer, that sits in outputs/kilosort4/analyzers/.
+    # _ecephys.nwb is there only because this job asks for it (write_ecephys_nwb).
     assert sorted(p.name.removeprefix('sub-M1_ses-D2_typ-OF2_srt-kilosort4')
-                  for p in folder.iterdir()) == ['_clusters.npz', '_ecephys.nwb', 'provenance', 'qc']
+                  for p in folder.iterdir()) == ['_bombcell_curation.json', '_clusters.npz',
+                                                 '_ecephys.nwb', 'provenance', 'qc']
     kept = out / 'kilosort4' / 'analyzers' / 'M1' / 'D2' / 'OF2'
     analyzer_path = kept / 'sub-M1_ses-D2_typ-OF2_srt-kilosort4_analyzer.zarr'
-    curation_path = kept / 'sub-M1_ses-D2_typ-OF2_srt-kilosort4_bombcell_curation.json'
+    curation_path = folder / 'sub-M1_ses-D2_typ-OF2_srt-kilosort4_bombcell_curation.json'
     import pynapple as nap
     group = nap.load_file(f'{base}_clusters.npz')
     units = group.metadata.rename_axis('unit').reset_index()

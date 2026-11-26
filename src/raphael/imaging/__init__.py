@@ -1,4 +1,5 @@
-"""In vivo two-photon imaging: raw movie -> processed, publishable NWB.
+"""In vivo calcium imaging, two-photon (suite2p) and one-photon (Inscopix
+movies, CaImAn CNMF-E): raw movie -> processed, publishable NWB.
 
 The output tree mirrors clark2025 (see `layout`), with the spike-sorting
 outputs replaced by their imaging equivalents:
@@ -10,5 +11,6 @@ outputs replaced by their imaging equivalents:
         sub-..._src-{pipeline}_rois.csv                         one row per ROI
         qc/                                                     figures
 
-Settings and publication metadata: configs/imaging.yaml.
+Settings and publication metadata: configs/imaging.yaml (two-photon),
+configs/imaging_1p.yaml (one-photon).
 """

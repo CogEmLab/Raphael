@@ -46,7 +46,7 @@ example processing and analysis, step by step.
 | Module | For |
 |---|---|
 | `raphael.ephys` | Neuropixels → Kilosort 4 → curated units; LFP and theta phase |
-| `raphael.imaging` | two-photon → suite2p → ROIs and dF/F |
+| `raphael.imaging` | two-photon → suite2p → ROIs and dF/F; one-photon (Inscopix) → CaImAn CNMF-E |
 | `raphael.photometry` | Doric fibre photometry → dF/F per channel (bleaching and isosbestic correction) |
 | `raphael.population` | loading spikes or dF/F the same way |
 | `raphael.behavioural_tracking` | video → DeepLabCut pose (several models, sweeps, two-animal identity fixes) → behaviour; VAME motifs |
@@ -67,9 +67,11 @@ project. To move something into Raphael, open a pull request with its tests.
 | | |
 |---|---|
 | [Getting started](docs/getting_started.md) | new laptop to running the examples |
+| **[Processing raw data](docs/processing.md)** | **start here to process recordings**: what Raphael recognises, planning and running every session on the cluster |
 | [Using Raphael from a project](docs/using_raphael.md) | imports, processing stages, project stages, settings, command reference |
 | [Neuropixels pipeline](docs/ephys_pipeline.md) · [walkthrough](docs/ephys_walkthrough.md) | spike sorting and LFP, file formats |
 | [Imaging pipeline](docs/imaging_pipeline.md) · [walkthrough](docs/imaging_walkthrough.md) | suite2p, file formats |
+| [One-photon imaging](docs/imaging_1p_pipeline.md) | Inscopix, CaImAn CNMF-E, recording days |
 | [Photometry pipeline](docs/photometry_pipeline.md) | Doric files, dF/F, syncing to video |
 | [Behavioural tracking](docs/behavioural_tracking.md) | DeepLabCut and VAME: training, tracking, pose to behaviour, motifs |
 | [Syncing behaviour](docs/sync.md) | TTL alignment of behaviour with Neuropixels, its checks and QC figure (preliminary) |

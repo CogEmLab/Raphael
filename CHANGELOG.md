@@ -10,6 +10,34 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
 ### Added
+- One-photon (miniscope) imaging, from the helping-behaviour analysis
+  (CogEmLab/helping-behaviour-calcium-imaging) with its settings as
+  defaults: `raphael.imaging.inscopix` reads Inscopix `.isxd` movies
+  directly (frames, timing, dropped frames, acquisition settings; equal to
+  Inscopix's TIFF export pixel for pixel) and bins them for CaImAn;
+  `raphael.imaging.cnmfe` runs CaImAn 1.13.2 (motion correction, CNMF-E,
+  component evaluation) in its own locked environment, as VAME does
+  (CaImAn is not on PyPI); job stage `cnmfe` writes `_src-cnmfe_ophys.nwb`,
+  `_traces.npz` (C) and `_rois.csv` (every component, with `accepted`)
+  and keeps the CaImAn model in the job's work folder.
+  `raphael-imaging inscopix-sessions` lists raw recordings with each
+  mouse's recording day. New `configs/imaging_1p.yaml`. See
+  docs/imaging_1p_pipeline.md.
+- `cnmfe.from_caiman_hdf5` reads any saved CaImAn model, discarded
+  components included, into the arrays `cnmfe.to_plane` takes.
+- TEMPORARY, to be removed once the helping-behaviour recordings are
+  reprocessed through Raphael: `raphael.imaging.helping_behaviour` and
+  `raphael-imaging port-helping-behaviour` port the earlier analysis's
+  CaImAn models and tracking into the processed tree (`src-cnmfehb`,
+  `_beh.nwb`, `metadata/`), so analysis can start now.
+- Pose in the behaviour file: `nwb.build_beh_nwb(..., pose=table)` (or
+  `nwb.add_pose`) writes DeepLabCut keypoints as ndx-pose
+  `PoseEstimation`, one per animal, with the video linked. `ndx-pose` is a
+  new core dependency.
+- `nwb.Plane` has `denoised` and `detrended` traces (NWB `Denoised`,
+  `Detrended`), and `nwb.export_tables(..., trace=...)` chooses which trace
+  goes into `_traces.npz`; `build_ophys_nwb` takes the processing module's
+  description. Two-photon outputs are unchanged.
 - `raphael.ml.unified`: Unified CEBRA (Benquet et al. 2026), one
   contrastive encoder over recordings with different neurons, lined up on a
   shared label (position, trial time, a stimulus feature). Blocked
@@ -18,6 +46,31 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   time-resolved attributions, cross-run consistency, saving and loading.
   Runs on CUDA, Apple GPUs and the CPU. New `cebra` extra (CEBRA 0.6.1,
   torch). Example notebook examples/ml_unified_cebra.ipynb; see docs/ml.md.
+
+- Processing without naming the modality. `raphael.raw` recognises a
+  recording from its files (Open Ephys or SpikeGLX: Neuropixels; ScanImage
+  TIFF or a movie in `_ophys/`: two-photon; Inscopix `.isxd` with its
+  `session.json`: one-photon; `.doric`: photometry), with its start time
+  and frame rate from the files, and the mouse, day and session type from
+  the raw layout's path. `raphael-jobs detect` lists a raw folder;
+  `raphael-jobs make` without `--stage` fills in the stage, names, start
+  times (else from the layout's `metadata/sessions.csv`), subject,
+  resources and config. `raphael-jobs plan`, `files` and `make-batch` run
+  every recording of a project in batches that fit the cluster's disk (a
+  Neuropixels day as one job; 40 Hz miniscope movies kept at their own
+  rate; recovered Inscopix copies used when the original is unreadable).
+  New main page docs/processing.md, linking each pipeline's page.
+
+### Changed
+- The `kilosort4` stage writes `_srt-kilosort4_bombcell_curation.json`
+  (the bombcell labels, spikeinterface curation format) into the processed
+  tree beside `_clusters.npz`, as in clark2025, instead of deleting it.
+- The `cnmfe` stage writes `cnmfe_summary.json` into the session's
+  `provenance/` folder, so many jobs' outputs merge into one tree.
+- The imaging QC picture (`qc/plane{i}_rois.png`) shows the ROIs on both
+  the mean and the correlation image, so they can be checked against the
+  field of view and against where active cells are; a missing image leaves
+  its panel blank with a note. The legend is readable on dark images.
 
 ## [0.4.0] - 2026-11-24
 ### Added

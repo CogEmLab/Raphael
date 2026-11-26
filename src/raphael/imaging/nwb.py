@@ -16,7 +16,9 @@ Processed ophys file:
                              pixel masks + one column per ROI property
         Fluorescence/RoiResponseSeries{i}    raw F
         Neuropil/RoiResponseSeries{i}        if the pipeline gives it
-        DfOverF/RoiResponseSeries{i}
+        DfOverF/RoiResponseSeries{i}         if the pipeline gives it
+        Denoised/RoiResponseSeries{i}        CNMF-E's C
+        Detrended/RoiResponseSeries{i}       CNMF-E's detrended trace
         Deconvolved/RoiResponseSeries{i}     if spike inference was run
         MotionCorrection/xy_shifts{i}        rigid shifts in pixels
 """
@@ -35,7 +37,7 @@ from hdmf.backends.hdf5.h5_utils import H5DataIO
 from pynwb.base import Images
 from pynwb.epoch import TimeIntervals
 from pynwb.file import Subject
-from pynwb.image import GrayscaleImage
+from pynwb.image import GrayscaleImage, ImageSeries
 from pynwb.ophys import (
     DfOverF,
     Fluorescence,
@@ -44,9 +46,16 @@ from pynwb.ophys import (
 )
 
 ROI_RESPONSES = [
-    ('Fluorescence', 'F', Fluorescence, 'Raw fluorescence, mean over the ROI mask.'),
+    ('Fluorescence', 'F', Fluorescence,
+     ('Raw fluorescence: mean over the ROI mask (suite2p), or the component\'s '
+      'activity plus its residual, C + YrA (CNMF-E).')),
     ('Neuropil', 'neuropil', Fluorescence, 'Neuropil fluorescence around each ROI.'),
     ('DfOverF', 'dff', DfOverF, '(F - F0) / F0, F0 a running low percentile.'),
+    ('Denoised', 'denoised', Fluorescence,
+     'Denoised calcium activity (CNMF-E C), in the movie\'s units.'),
+    ('Detrended', 'detrended', Fluorescence,
+     ('C + YrA with its slow trend removed (CaImAn detrend_df_f, detrend_only): '
+      'not divided by a baseline, so not dF/F.')),
     ('Deconvolved', 'deconvolved', Fluorescence, 'Deconvolved activity (spike inference).'),
 ]
 
@@ -65,6 +74,8 @@ class Plane:
     description: str = ''
     neuropil: np.ndarray | None = None
     dff: np.ndarray | None = None
+    denoised: np.ndarray | None = None
+    detrended: np.ndarray | None = None
     deconvolved: np.ndarray | None = None
     shifts: np.ndarray | None = None  # frames x 2, pixels
     images: dict = field(default_factory=dict)   # name -> 2D array
@@ -139,7 +150,8 @@ def new_nwbfile(settings, session, session_description, session_start_time=None,
     )
 
 
-def build_ophys_nwb(nwbfile, planes, settings, indicator=None, location=None):
+def build_ophys_nwb(nwbfile, planes, settings, indicator=None, location=None,
+                    description='Processed two-photon data.'):
     scope = settings['microscope']
     plane_meta = settings['imaging_plane']
     device = nwbfile.create_device(
@@ -148,7 +160,7 @@ def build_ophys_nwb(nwbfile, planes, settings, indicator=None, location=None):
             str(scope[k]) for k in ('description', 'manufacturer') if scope.get(k)
         ) or None,
     )
-    ophys = nwbfile.create_processing_module('ophys', 'Processed two-photon data.')
+    ophys = nwbfile.create_processing_module('ophys', description)
     segmentation = ImageSegmentation()
     ophys.add(segmentation)
     containers = {}
@@ -204,7 +216,7 @@ def build_ophys_nwb(nwbfile, planes, settings, indicator=None, location=None):
         )
 
         first = None
-        for container_name, attr, cls, description in ROI_RESPONSES:
+        for container_name, attr, cls, series_description in ROI_RESPONSES:
             data = getattr(plane, attr)
             if data is None:
                 continue
@@ -216,7 +228,7 @@ def build_ophys_nwb(nwbfile, planes, settings, indicator=None, location=None):
                 data=_compressed(np.asarray(data, dtype=np.float32)),
                 rois=region,
                 unit='n.a.',
-                description=description,
+                description=series_description,
                 # Share one timestamps dataset per plane.
                 timestamps=first if first is not None else np.asarray(plane.timestamps),
             )
@@ -234,13 +246,17 @@ def build_ophys_nwb(nwbfile, planes, settings, indicator=None, location=None):
     return nwbfile
 
 
-def build_beh_nwb(nwbfile, series, intervals=None, settings=None):
-    """Behaviour file: one TimeSeries per variable, plus interval tables.
+def build_beh_nwb(nwbfile, series, intervals=None, settings=None, pose=None, **pose_kwargs):
+    """Behaviour file: one TimeSeries per variable, plus interval tables,
+    plus the pose the variables came from.
 
     `series`: name -> (data, unit, timestamps, description).
     `intervals`: name -> (DataFrame with start_time, stop_time, ..., description).
+    `pose`: a canonical pose table (see `add_pose`, which `pose_kwargs` go to).
     Adds clark2025's `moving`/`stationary` epochs when `S` (cm/s) is present.
     """
+    if pose is not None:
+        add_pose(nwbfile, pose, **pose_kwargs)
     for name, (data, unit, timestamps, description) in series.items():
         nwbfile.add_acquisition(pynwb.TimeSeries(
             name=name, data=_compressed(data), unit=unit,
@@ -262,6 +278,74 @@ def build_beh_nwb(nwbfile, series, intervals=None, settings=None):
     return nwbfile
 
 
+def add_pose(nwbfile, pose, description='Pose estimated with DeepLabCut.', scorer=None,
+             source_software='DeepLabCut', source_software_version=None, video=None,
+             camera='BehaviourCamera'):
+    """Add a pose table (raphael.behavioural_tracking.io's canonical table:
+    time-indexed, columns individual / bodypart / x, y, likelihood) to the
+    behaviour file as ndx-pose `PoseEstimation`, one per individual, in
+    processing/behavior. Coordinates are in arena cm when the table was
+    fitted to the arena (`attrs['arena']['units'] == 'cm'`), else pixels;
+    the likelihood is each point's confidence. `video` (a path) is linked
+    as an external ImageSeries in acquisition."""
+    from ndx_pose import (
+        PoseEstimation,
+        PoseEstimationSeries,
+        Skeleton,
+        Skeletons,
+    )
+
+    units = (pose.attrs.get('arena') or {}).get('units', 'px')
+    unit, reference = (('cm', 'arena corner (0, 0) of the fitted arena, cm') if units == 'cm'
+                       else ('pixels', '(0, 0) is the top-left pixel of the video'))
+    t = np.asarray(pose.index, dtype=float)
+    module = nwbfile.processing.get('behavior') or nwbfile.create_processing_module(
+        'behavior', 'Behaviour derived from video.')
+    device = nwbfile.devices.get(camera) or nwbfile.create_device(
+        name=camera, description='Camera the pose was estimated from.')
+    source = None
+    if video:   # the video stays outside the file; NWB links it by path
+        source = nwbfile.acquisition.get(f'{camera}Video') or ImageSeries(
+            name=f'{camera}Video', description=f'Video from {camera}, kept as an external file.',
+            external_file=[str(video)], format='external', starting_frame=[0],
+            timestamps=t, unit='n.a.', device=device)
+        if f'{camera}Video' not in nwbfile.acquisition:
+            nwbfile.add_acquisition(source)
+    skeletons, estimations = [], []
+    for individual in dict.fromkeys(pose.columns.get_level_values('individual')):
+        block = pose[individual]
+        nodes = list(dict.fromkeys(block.columns.get_level_values('bodypart')))
+        skeleton = Skeleton(name=f'{individual}_skeleton', nodes=nodes,
+                            edges=np.zeros((0, 2), dtype='uint8'))
+        skeletons.append(skeleton)
+        timestamps = None
+        series = []
+        for node in nodes:
+            xy = np.column_stack([block[(node, 'x')], block[(node, 'y')]]).astype(np.float32)
+            likelihood = (block[(node, 'likelihood')].to_numpy(np.float32)
+                          if (node, 'likelihood') in block else None)
+            series.append(PoseEstimationSeries(
+                name=node, description=f'{node} of {individual}.', data=_compressed(xy),
+                unit=unit, reference_frame=reference,
+                timestamps=timestamps if timestamps is not None else t,
+                confidence=likelihood,
+                confidence_definition=(f'{source_software} likelihood'
+                                       if likelihood is not None else None),
+            ))
+            timestamps = timestamps if timestamps is not None else series[0]
+        estimations.append(PoseEstimation(
+            name=f'PoseEstimation_{individual}', pose_estimation_series=series,
+            description=description, source_video=source,
+            scorer=scorer, source_software=source_software,
+            source_software_version=source_software_version, skeleton=skeleton,
+            device=device,
+        ))
+    module.add(Skeletons(skeletons=skeletons))
+    for estimation in estimations:
+        module.add(estimation)
+    return nwbfile
+
+
 def write(nwbfile, path):
     path.parent.mkdir(parents=True, exist_ok=True)
     with pynwb.NWBHDF5IO(str(path), 'w') as io:
@@ -269,8 +353,11 @@ def write(nwbfile, path):
     return path
 
 
-def export_tables(planes, traces_path, rois_path):
-    """dF/F of every plane as one TsdFrame, and the ROI table as CSV.
+def export_tables(planes, traces_path, rois_path, trace=None):
+    """One trace of every plane as one TsdFrame, and the ROI table as CSV.
+
+    `trace` names the Plane field to export (`dff`, `denoised`, `F`, ...);
+    by default dF/F if the plane has it, else F.
 
     Columns are global ROI indices (plane order, then ROI order), matching
     the `roi` column of the CSV. Planes are sampled at slightly different
@@ -293,7 +380,13 @@ def export_tables(planes, traces_path, rois_path):
         table['centroid_x_px'] = centroids[:, 0]
         table['centroid_y_px'] = centroids[:, 1]
         tables.append(table)
-        traces.append(plane.dff if plane.dff is not None else plane.F)
+        if trace is not None:
+            data = getattr(plane, trace)
+            if data is None:
+                raise ValueError(f'plane {i} has no {trace!r} trace to export')
+        else:
+            data = plane.dff if plane.dff is not None else plane.F
+        traces.append(data)
         start += n
     rois = pd.concat(tables, ignore_index=True)
     rois_path.parent.mkdir(parents=True, exist_ok=True)
@@ -326,6 +419,9 @@ def _describe(column):
     return {
         'accepted': 'True if the ROI passed curation and is used in analysis.',
         'mask_type': 'Classification of the mask (e.g. soma, artifact).',
+        'snr': 'Peak signal-to-noise ratio of the trace (CaImAn component evaluation).',
+        'r_value': 'Spatial correlation of the footprint with the movie (CaImAn).',
+        'cnmfe_index': 'Index of the component in the CaImAn model.',
     }.get(column, column.replace('_', ' '))
 
 

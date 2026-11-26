@@ -1205,6 +1205,19 @@ wheels = [
 ]
 
 [[package]]
+name = "ndx-pose"
+version = "0.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "hdmf", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "pynwb", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8a/46/a90fc0d993dbdb594b9b70aad504f6c632238b447399e17901e305ae3ce4/ndx_pose-0.4.0.tar.gz", hash = "sha256:5c5aaf5d56cd612e21bfee0841a14406f1414673f05d549e02170fc86e2aa75f", size = 182669, upload-time = "2026-09-30T07:42:38.703Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/eb/a5b8de21ec44cf52c4c06b09d3d23a0dee9e47ccb7d1684ae792748b7df1/ndx_pose-0.4.0-py3-none-any.whl", hash = "sha256:5e9c77ebe7e776b3047cba38db31de004948225d1832ee314b43b16d1568da5e", size = 20468, upload-time = "2026-09-30T07:42:37.31Z" },
+]
+
+[[package]]
 name = "neo"
 version = "0.14.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1840,6 +1853,7 @@ source = { editable = "." }
 dependencies = [
     { name = "h5py", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "matplotlib", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "ndx-pose", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "numpy", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "nwbinspector", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "pandas", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
@@ -1891,6 +1905,7 @@ requires-dist = [
     { name = "h5py", specifier = ">=3.11.0" },
     { name = "kilosort", marker = "extra == 'gpu'", specifier = "==4.0.16" },
     { name = "matplotlib", specifier = ">=3.8" },
+    { name = "ndx-pose", specifier = ">=0.4" },
     { name = "numpy", specifier = "<2" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "nwbinspector", specifier = ">=0.7" },

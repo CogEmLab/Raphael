@@ -31,6 +31,15 @@ same way. Before writing processing, loading, analysis or plotting code,
 7. **Figures use Raphael's style.** Don't set fonts, spine visibility or
    rcParams by hand. Use the style, `style.figsize` for journal sizes and
    `style.save` to save.
+8. **Heavy processing runs on the cluster, not on a laptop.** Anything that
+   loads a whole recording or runs for more than a few minutes (spike
+   sorting, LFP, suite2p, CNMF-E, DeepLabCut training or capture, VAME)
+   goes through a job bundle: make it with `raphael-jobs make` on the
+   laptop, run it on the cluster. On a laptop, only make bundles, run unit
+   tests and take short looks (`max_frames`), after checking free RAM and
+   disk. CaImAn on one 4-minute miniscope session needs about 20 GB of RAM
+   and froze an 8 GB laptop. How: Raphael's `docs/cluster.md` (bundles and
+   stages) and `docs/msc_cluster.md` (MSC, step by step).
 
 ## For this task, use this
 
@@ -45,13 +54,16 @@ same way. Before writing processing, loading, analysis or plotting code,
 | Pooling recordings with different neurons into one latent space (Unified CEBRA), decoding from it, and each neuron's attribution to a feature | `raphael.ml.unified`: `split`, `Unified` (`Unified.fit`, `Unified.transform`, `Unified.save`, `Unified.load`), `decode`, `attribution`, `shuffle_neurons`, `consistency` (needs the cebra extra) |
 | Aligning behaviour with a recording from TTL pulses, with checks | `raphael.sync`: `read_behaviour`, `read_openephys`, `edges`, `align`; the command `raphael-sync` |
 | Fibre photometry (Doric) to dF/F | `raphael.photometry`: `run.process_file`, and `nwb.load` to read the results |
-| Spike sorting, LFP, suite2p, photometry on the cluster | job stages via `raphael-jobs make --stage {kilosort4, lfp, suite2p, photometry, sync}` (`raphael.cluster.jobs`) |
+| Spike sorting, LFP, suite2p, CNMF-E, photometry on the cluster | job stages via `raphael-jobs make --stage {kilosort4, lfp, suite2p, cnmfe, photometry, sync}` (`raphael.cluster.jobs`) |
+| One-photon (Inscopix) movies: reading, binning, recording days, CaImAn CNMF-E | `raphael.imaging.inscopix`: `open_isxd`, `downsample`, `sessions`, `day_numbers`; `raphael.imaging.cnmfe.run`, `raphael.imaging.cnmfe.load`, `raphael.imaging.cnmfe.to_plane` (CaImAn runs in its own environment; job stage cnmfe); the command `raphael-imaging inscopix-sessions` |
+| What a raw recording is (modality, start, rate, names) from its files | `raphael.raw.scan`, `raphael.raw.detect`; the command `raphael-jobs detect` |
+| Processing raw data: jobs for every recording, in batches | `raphael.cluster.batch.plan`, `raphael.cluster.batch.batch_files`, `raphael.cluster.batch.make_jobs`, `raphael.cluster.batch.auto_job`; the commands `raphael-jobs plan`, `files`, `make-batch`, and `make` without `--stage` (docs/processing.md) |
 | Record what code and settings produced a result | job bundles do it (a `provenance/` record beside every output); `raphael.cluster.provenance.environment()` |
 | Pose from video (DeepLabCut): projects, training several models on one day-held-out split, tracking, threshold sweeps, two-animal identity fixes | `raphael.behavioural_tracking`: `zoo`, `dlc`, `multipeak`, `sweep`, `identity`, `skeleton`; the command `raphael-tracking`; job stages dlc_train, dlc_capture |
 | Pose to arena cm, to Raphael behaviour (P_x, P_y, H, S, moving), into the processed tree | `raphael.behavioural_tracking.io`: `load_dlc`, `to_behaviour`, `write_pose`, `read_pose` |
 | Behavioural motifs (VAME) | `raphael.behavioural_tracking.vame`: `run`, `write_motifs` (VAME runs in its own environment; job stage vame) |
 | Test data with known tuning, raw or processed | `raphael.toy`: `session`, `processed`, `raw` |
-| NWB files and their checks | `raphael.imaging.nwb.new_nwbfile`, `raphael.imaging.nwb.write`; `raphael-imaging validate` |
+| NWB files and their checks | `raphael.imaging.nwb.new_nwbfile`, `raphael.imaging.nwb.write`, `raphael.imaging.nwb.build_beh_nwb` (with `pose=` for DeepLabCut keypoints); `raphael-imaging validate` |
 
 The docs are in Raphael's repository, under `docs/`: one page per
 module, plus `getting_started.md` and `using_raphael.md`.

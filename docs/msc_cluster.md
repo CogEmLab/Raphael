@@ -303,6 +303,9 @@ with a relative error around 1e-6. Copy finished jobs back with
 
 ## 9. Process a movie with suite2p
 
+For processing data, follow [processing.md](processing.md); this section
+is the by-hand detail for this stage on MSC.
+
 Copy the movie to the cluster's data folder, keeping its path relative to
 your local data root. The `./` marks where the relative part starts:
 
@@ -339,7 +342,124 @@ The job's `work/` folder, which holds the registered movie (about the
 size of the raw one), is deleted after the run to save space; pass
 `--param keep_binary=true` to keep it.
 
-## 10. Spike-sort Neuropixels recordings with Kilosort 4
+## 10. Process an Inscopix recording with CNMF-E
+
+For processing data, follow [processing.md](processing.md); this section
+is the by-hand detail for this stage on MSC.
+
+The `cnmfe` stage runs on the CPU partition. CaImAn is not in the main
+environment: it has its own, locked in Raphael
+(`imaging/caiman_env/uv.lock`), which must be built once **on the login
+node** (compute nodes may have no internet). Building CaImAn compiles C
+code, so check for a compiler first:
+
+```bash
+gcc --version          # needed to build CaImAn
+cd ~/social-manifolds && uv run python -c \
+    "from raphael.imaging import cnmfe; print(cnmfe.ensure_env(quiet=False))"
+```
+
+That installs into `~/.cache/raphael/caiman-env` (about 3 GB; set
+`RAPHAEL_CAIMAN_ENV` to put it elsewhere) and takes a few minutes. Repeat
+it when Raphael's CaImAn lockfile changes. The login node has `gcc` 13.3
+(2026-11-25), which is enough. To check that it imports where jobs run:
+
+```bash
+srun --partition=cpu --qos=cpu --account=neurop -c 1 --mem=4G -t 0:10:00 \
+    ~/.cache/raphael/caiman-env/bin/python -c "import cv2, caiman; print(caiman.__version__)"
+```
+
+Copy the raw `.isxd` (the movie only; the `.gpio`, `.imu` and
+`session.json` beside it are small and worth keeping too), keeping its
+path relative to the raw root:
+
+```bash
+rsync -a --relative \
+    /Volumes/share/raw/dHPC_miniscope/./May_2024/.../dHPC-SSCW-May2024-06HBT03_20240605-170959 \
+    <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:data/
+```
+
+Get the mouse's day from the session table
+(`raphael-imaging inscopix-sessions RAW_ROOT --out sessions.csv`, on the
+laptop: it reads only each file's end), then make the job:
+
+```bash
+uv run raphael-jobs make ~/jobs/cnmfe-M8472-D6 --stage cnmfe --cpu \
+    --cpus 16 --mem-gb 32 --hours 4 \
+    --data-root /Volumes/share/raw/dHPC_miniscope --config configs/imaging_1p.yaml \
+    --input May_2024/.../Moises_B6J_8472_M_06HBT03_2024-06-05-17-13-10_video.isxd \
+    --param mouse=8472 --param day=6 --param session_type=HBTD3 \
+    --param 'subject={sex: M, date_of_birth: 2024-01-23, strain: C57BL/6J}'
+```
+
+Copy it across and submit it as in step 8. `--cpu` sends it to the `cpu`
+partition. Making the job reads the whole movie once for its checksum (a
+26 GB file over the share takes several minutes); `--no-hash` records sizes
+only. Once the movie is on the cluster, the job can instead be made there,
+with `--data-root ~/data` (and `RAPHAEL_CLUSTER_USER` set), where the
+checksum takes seconds; the code to make it from is the cluster's
+checkout of the project.
+
+**Memory.** Ask for about 4x the binned movie's float32 size plus a few
+GB: the stage estimates it and stops at once, naming the `--mem-gb` to use,
+if the job asks for less. The binned movie is frames x 400 x 640 x 2 bytes
+(2x2 binning, 30 Hz):
+
+| session | binned movie | `--mem-gb` |
+|---|---|---|
+| 4 min (7,000 frames) | 3.6 GB | 32 |
+| 10 min (18,000 frames) | 9 GB | 80 |
+| 18 min (32,000 frames) | 17 GB | 140 |
+
+Measured on MSC (2026-11-25): May_2024 HBTD3 M8472, 6,350 binned frames,
+16 CPUs, peaked at 24.4 GB (`sacct -j JOBID -o MaxRSS`) and took 7 min 45 s
+(binning 2 min, motion correction 1 min, CNMF-E 1.5 min, evaluation
+3 min). Check `MaxRSS` on longer sessions and adjust `MEMORY_FACTOR` in
+`raphael.imaging.cnmfe` to follow.
+
+**Disk.** The work folder needs about 3x the binned movie while CaImAn
+runs (binned movie, motion-corrected memmap, C-order memmap; CaImAn's
+temporary files go there too, not to `~/caiman_data`). With
+`paths.scratch` unset that is the job folder in your home, on the 95%-full
+shared filesystem: ask for scratch (section 4) before running many
+sessions. The movies are deleted at the end; the CaImAn model (`.hdf5`),
+the arrays and CaImAn's log stay in `work/caiman/` for comparison and
+re-curation.
+
+The job writes `M{mouse}/D{day}/{type}/..._src-cnmfe_ophys.nwb`,
+`_traces.npz`, `_rois.csv`, `qc/` and `provenance/` (with
+`cnmfe_summary.json`: components, accepted, run times) to `outputs/`. The processing is
+described in [imaging_1p_pipeline.md](imaging_1p_pipeline.md).
+
+## 11. Process every session of a project, in batches
+
+**[processing.md](processing.md) is the walkthrough**: `raphael-jobs
+detect`, `plan`, `files` and `make-batch` work out each recording's
+modality, stage, names, start time and resources, and run a project in
+batches. What matters on MSC:
+
+- **Disk.** There is no scratch by default and home sits on the shared
+  filesystem, about 97% full (7.9 TB free for everyone, 2026-11-26). A
+  project's raw data is usually far larger (helping behaviour's miniscope
+  sessions: 6.7 TB), so keep to batches (`--batch-gb`, default 400 GB) and
+  delete each batch's raw copy once its outputs are back. With scratch
+  (section 4), set `paths.scratch` and `paths.data` in your personal
+  cluster config.
+- **Running jobs.** 12 CPU jobs and 6 GPU jobs run at a time; the rest
+  wait (`PD`). A batch of 12 recordings fills the CPU slots.
+- **Code.** Jobs run the cluster's checkout (`~/Raphael`, or your
+  project's): update it (section 6) before making jobs with new code, and
+  run commands there with `uv run --frozen --no-sync`.
+- **Copying** goes through the laptop (the share is not reachable from
+  MSC): time the first batch.
+
+The sections above and below show each stage's job made by hand, with every
+option; `raphael-jobs make` now fills most of them in from the inputs.
+
+## 12. Spike-sort Neuropixels recordings with Kilosort 4
+
+For processing data, follow [processing.md](processing.md); this section
+is the by-hand detail for this stage on MSC.
 
 Kilosort 4.0.16 (the version in the Methods) is part of the environment
 installed in section 6 (`uv sync --frozen --extra gpu`).
@@ -390,4 +510,7 @@ use `a16` or `3g.20gb` for longer days.
 | `NO USABLE GPU` / `GpuUnavailable` | see the diagnosis in the log; the table in [cluster.md](cluster.md#checking-the-gpu) lists causes |
 | "no kernel image is available" on `b200` | CUDA 12.6 build on a B200; use another GPU type (see section 3) |
 | `UserWarning: Sparse invariant checks ...` in a suite2p log | harmless notice from suite2p's internals |
+| `needs about N GB of RAM in CaImAn` | the job's `--mem-gb` is below the estimate; remake it with the size the message gives |
+| `CaImAn failed` / `uv sync` errors building CaImAn | its environment is not built, or there is no C compiler; see section 10 |
+| `ImportError: libGL.so.1` in a CaImAn log | an environment with `opencv-python` instead of the headless build (compute nodes have no libGL); re-run `cnmfe.ensure_env()` from a Raphael checkout whose `caiman_env/uv.lock` has `opencv-python-headless` |
 | warning about uncommitted changes | the job cannot be traced to a git commit; fine for tests, commit first for results you keep |

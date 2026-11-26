@@ -24,6 +24,7 @@ dependencies = [
     "tqdm>=4.66",
     "tifffile>=2024.1",         # raw two-photon movies (raphael.toy)
     "tables>=3.10",             # HDF5 pose files (DeepLabCut output, _src-dlc_pose.h5)
+    "ndx-pose>=0.4",            # pose (DeepLabCut keypoints) in _beh.nwb, as DANDI expects
 ]
 
 [project.optional-dependencies]
@@ -68,7 +69,8 @@ where = ["src"]
 # are there however Raphael is installed (editable, wheel or git URL).
 [tool.setuptools.package-data]
 raphael = ["configs/*.yaml", "cluster/templates/*.sh", "style/*.mplstyle", "AGENTS.md",
-           "behavioural_tracking/vame_env/pyproject.toml", "behavioural_tracking/vame_env/uv.lock"]
+           "behavioural_tracking/vame_env/pyproject.toml", "behavioural_tracking/vame_env/uv.lock",
+           "imaging/caiman_env/pyproject.toml", "imaging/caiman_env/uv.lock"]
 
 # One lockfile for every machine the code runs on: `uv sync --frozen` on a
 # laptop, a cluster node or Colab installs exactly what uv.lock lists. See
