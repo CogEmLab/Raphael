@@ -64,7 +64,10 @@ above, its folder. `raw/2027-01_2P-Testing/` is a worked example.
 | each session | `sub-M…_ses-D…_typ-…_session.yaml`, beside the recordings | `lab/templates/session.yaml` |
 
 Then copy the session (or the new mouse or cohort) into `incoming/` and
-tell the data manager: see `incoming/README.md`.
+tell the data manager. **[ingestion.md](ingestion.md) walks through it
+step by step, with examples**: a new mouse, a normal recording day, several
+sessions in a day, two photometry sites, imaging, behaviour only, and
+adding things later.
 
 ## Finding data
 

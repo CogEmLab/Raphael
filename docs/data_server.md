@@ -267,6 +267,10 @@ permissions, not left to good intentions:
 Lab members means members of both labs, unless a lab wants its tree
 private **(open)**.
 
+How a person hands data in, with worked examples (a new mouse, a normal
+recording day, several sessions a day, several photometry sites, imaging,
+behaviour only, later additions): [`templates/data/ingestion.md`](../templates/data/ingestion.md).
+
 **Ingest** turns a recording in `incoming/{person}/` into locked raw data, in one
 step run by a data-manager account (a small script, to be written):
 

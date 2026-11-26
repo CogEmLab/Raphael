@@ -2,6 +2,7 @@
 
 Where new sessions wait to be added to `raw/`. Each person has their own
 folder, `incoming/{your username}/`, that only they can write to.
+**Worked examples for every usual case: [../ingestion.md](../ingestion.md).**
 
 1. **Write the describing files** from `lab/templates/`: the session file
    for every session, and the subject, procedures or cohort file if the
