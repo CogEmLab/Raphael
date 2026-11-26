@@ -330,12 +330,12 @@ def collect_commands(plan_table, batch, source, processed):
     for row in plan_table[plan_table['batch'].astype(int) == int(batch)].to_dict('records'):
         dest = Path(processed) / _text(row.get('cohort')) if _text(row.get('cohort')) \
             else Path(processed)
-        src = f'{str(source).rstrip("/")}/{row["job_id"]}/outputs'
-        if ':' in str(source):                    # remote: the remote shell expands M*
-            sources = [f'{src}/M*']
-        else:
-            sources = [str(p) for p in sorted(Path(src).glob('M*'))]
-        commands.append((row['job_id'], dest, ['rsync', '-a', *sources, f'{dest}/']))
+        if ':' in str(source) and not Path(source).exists():   # remote; its shell expands M*
+            sources = [f'{str(source).rstrip("/")}/{row["job_id"]}/outputs/M*']
+        else:                                  # local ('/' paths: rsync's form everywhere)
+            outputs = Path(source) / row['job_id'] / 'outputs'
+            sources = [p.as_posix() for p in sorted(outputs.glob('M*'))]
+        commands.append((row['job_id'], dest, ['rsync', '-a', *sources, f'{dest.as_posix()}/']))
     return commands
 
 

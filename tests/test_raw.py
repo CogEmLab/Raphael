@@ -207,6 +207,6 @@ def test_cohort_level_and_collecting_outputs(tmp_path):
     [(job_id, dest, command)] = batch.collect_commands(table, 1, tmp_path / 'jobs',
                                                         tmp_path / 'processed')
     assert dest == tmp_path / 'processed' / '2024-05_dHPC'
-    assert command == ['rsync', '-a', str(outputs / 'M7'), f'{dest}/']
+    assert command == ['rsync', '-a', (outputs / 'M7').as_posix(), f'{dest.as_posix()}/']
     [(_, _, remote)] = batch.collect_commands(table, 1, 'me@host:jobs', tmp_path / 'processed')
     assert remote[2] == f'me@host:jobs/{job_id}/outputs/M*'
