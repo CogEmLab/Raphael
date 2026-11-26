@@ -10,6 +10,14 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
 ### Added
+- `data/` holds four folders: `incoming/`, `raw/`, `processed/` and
+  `metadata/` (the lab's lists, templates and the catalogue; `lab/` and
+  `index/` are gone). `metadata/catalogue.csv` lists every raw session, one
+  row each: what it is, what it recorded, when it was added, and for each
+  default stage when it was processed and by which Raphael version, or
+  `to do`, with `needs_processing` and `outdated` flags. Built by
+  `raphael.dataserver.catalogue` (`raphael-data catalogue`, a new command)
+  and rebuilt by `raphael-jobs collect` on the data server.
 - New names for every session folder and file, raw and processed:
   `{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/sub-M{mouse}_day-{dd}_ses-{type}_…`
   (two-digit days; the session type keeps its run number, `ses-OF1`).

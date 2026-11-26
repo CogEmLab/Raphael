@@ -1,4 +1,4 @@
-# lab/rigs/{rig}.yaml: one per rig. Devices and wiring, for syncing and for
+# metadata/rigs/{rig}.yaml: one per rig. Devices and wiring, for syncing and for
 # the NWB device descriptions.
 
 rig:                    # the name used in session files, e.g. ephys-rig-1

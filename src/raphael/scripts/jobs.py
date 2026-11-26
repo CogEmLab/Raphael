@@ -261,6 +261,13 @@ def _collect(args):
             missing.append(job_id)
         else:
             print(f'  {len(copied)} files')
+    if not args.dry_run:                       # the data server's catalogue, if there is one
+        from raphael import dataserver
+
+        root = dataserver.data_root(args.processed)
+        if root is not None:
+            rows = dataserver.catalogue(root)
+            print(f'catalogue: {len(rows)} sessions -> {root / "metadata" / dataserver.CATALOGUE}')
     if missing:
         print(f'nothing new copied for {len(missing)} jobs: already copied, or not '
               f'finished, or failed (raphael-jobs status on the cluster): {" ".join(missing)}',

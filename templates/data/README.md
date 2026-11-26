@@ -11,8 +11,7 @@ work.
 | `incoming/` | new sessions waiting to be added | you, in `incoming/{your username}/` |
 | `raw/` | recordings as acquired, with the files that describe each cohort, mouse and session | the data manager's ingest; recordings are then locked |
 | `processed/` | spikes, ROIs, traces, NWB files, and how each was made | the pipeline only |
-| `lab/` | lists not about one animal: people, projects, task codes, rigs; blank templates | see `lab/README.md` |
-| `index/` | tables of every cohort, mouse, procedure and session, built from `raw/` | generated; never edited |
+| `metadata/` | `catalogue.csv` of every session and its processing; the lab's lists (people, projects, task codes, rigs); blank templates | see `metadata/README.md`; the catalogue is generated |
 
 **Projects' own work (analysis results, figures, code) lives outside
 `data/`**, in each project's own folder or repository. It reads from
@@ -51,7 +50,7 @@ example.
    which project, is written in the files, so one mouse can serve several
    projects and mistakes are fixed without moving recordings.
 5. **One code, one task.** Session types start with a task code from
-   `lab/tasks.yaml`, so `OF` means the same thing for everyone.
+   `metadata/tasks.yaml`, so `OF` means the same thing for everyone.
 
 ## Adding data
 
@@ -63,9 +62,9 @@ it should look.**
 
 ### Before your first recording (once)
 
-1. **Add yourself** to `lab/people.yaml`: username, full name ("Last,
+1. **Add yourself** to `metadata/people.yaml`: username, full name ("Last,
    First"), position, email, ORCID.
-2. **Check the codes you will use exist** in `lab/`: your task in
+2. **Check the codes you will use exist** in `metadata/`: your task in
    `tasks.yaml` (e.g. `OF`), your project in `projects.yaml`, your rig in
    `rigs/`. If one is missing, ask its owner or the data manager to add it.
 
@@ -87,10 +86,10 @@ incoming/jsmith/
 
 | file | from | when it changes |
 |---|---|---|
-| `{cohort}_cohort.yaml` | `lab/templates/cohort.yaml` | rarely: written when the cohort starts |
-| `sub-M{mouse}_subject.yaml` | `lab/templates/subject.yaml` | rarely: written when the mouse joins (it names the mouse's cohort) |
-| `sub-M{mouse}_procedures.yaml` | `lab/templates/procedures.yaml` | after each surgery: add an entry. Just `[]` before the first |
-| `sub-M…_day-…_ses-…_session.yaml` | `lab/templates/session.yaml` | every session: written on the day |
+| `{cohort}_cohort.yaml` | `metadata/templates/cohort.yaml` | rarely: written when the cohort starts |
+| `sub-M{mouse}_subject.yaml` | `metadata/templates/subject.yaml` | rarely: written when the mouse joins (it names the mouse's cohort) |
+| `sub-M{mouse}_procedures.yaml` | `metadata/templates/procedures.yaml` | after each surgery: add an entry. Just `[]` before the first |
+| `sub-M…_day-…_ses-…_session.yaml` | `metadata/templates/session.yaml` | every session: written on the day |
 
 Keep your copies of the cohort, subject and procedures files and hand them
 in again each time. When one changes (a surgery, a correction), ingest
@@ -124,7 +123,7 @@ filing it in the wrong place.
 
 ### The session file
 
-Copy `lab/templates/session.yaml` into the session folder, name it like
+Copy `metadata/templates/session.yaml` into the session folder, name it like
 the folder without the time (`sub-M10432_day-04_ses-OF1_session.yaml`) and
 fill in what only you know: at least the notes, and the weight. Fields you
 leave blank that can be worked out are filled in for you (start time, task,
@@ -196,7 +195,7 @@ be. Describing files can be corrected by handing in a new version.
 
 ### Before you hand it in
 
-- [ ] Your username, task code, project and rig exist in `lab/`.
+- [ ] Your username, task code, project and rig exist in `metadata/`.
 - [ ] The cohort, subject and procedures files are there, named for their
       cohort and mouse.
 - [ ] Each session folder is named `sub-M…_day-…_ses-…_{date}_{time}` and
@@ -226,7 +225,7 @@ For each session it:
 
 1. Checks the session folder's name against the recording's own start
    time, the session file and the mouse's earlier days; that the task,
-   project, rig and people exist in `lab/`; and that the cohort, subject
+   project, rig and people exist in `metadata/`; and that the cohort, subject
    and procedures files are there.
 2. Renames the recordings by what they are (`_ephys`, `_ophys`,
    `_photometry`, `_video`, `_beh`), keeping each original name in the
@@ -234,7 +233,7 @@ For each session it:
    session file.
 3. Moves the session into `raw/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/`,
    adds or updates the cohort, subject and procedures files (keeping old
-   versions), locks the recordings and rebuilds `index/`.
+   versions), locks the recordings and rebuilds `metadata/catalogue.csv`.
 4. Tells you and the data managers what was added, or exactly what is
    wrong and how to fix it.
 
@@ -243,9 +242,17 @@ its outputs appear at the same path in `processed/`.
 
 ## Finding data
 
-Browse `raw/` and `processed/` by cohort, mouse, day and session. To find
-every session of a project, a task or a person, filter
-`index/sessions.tsv`.
+Browse `raw/` and `processed/` by cohort, mouse, day and session, or open
+**`metadata/catalogue.csv`**: one row per session, with what it is (cohort,
+mouse, day, session, task, start, experimenter, project, rig, quality),
+what it recorded and how big it is, when it was added, and for each
+processing stage it needs (kilosort4, lfp, suite2p, cnmfe, photometry)
+when it was processed and by which Raphael version, or `to do`.
+`needs_processing` and `outdated` (its describing files changed since it
+was processed) flag what to run. Filter it in Excel or pandas
+(`pd.read_csv(path, comment='#')`) to find every session of a project, a
+task or a person. It is rebuilt whenever data is added or processed;
+never edit it.
 
 Data named before November 2026 (`M{mouse}/D{day}/{type}/`,
 `sub-M…_ses-D…_typ-…`) is still read by Raphael.

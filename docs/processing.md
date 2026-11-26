@@ -190,7 +190,9 @@ uv run raphael-jobs collect $PLAN --batch 1 --from $CLUSTER:jobs --to $OUT/proce
 ```
 
 It prints each `rsync` it runs (`--dry-run` prints them only) and names any
-job with nothing to copy (not finished, or failed).
+job with nothing new to copy (already copied, not finished, or failed).
+On the data server it then rebuilds `metadata/catalogue.csv`, so the
+catalogue shows these sessions as processed.
 
 Look at a few QC figures (`qc/` in each session folder) before deleting
 anything. The job folders on the cluster keep the logs, the provenance and

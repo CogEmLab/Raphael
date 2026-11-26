@@ -28,7 +28,7 @@ yet. Points still to decide are marked **(open)** and listed at the end.
    there, not encoded in paths, so it can be corrected without moving
    recordings and one mouse can serve several projects.
 6. **Enough for NWB, DANDI and BIDS.** Between them, the describing files
-   and `lab/` hold every field an NWB file and a DANDI upload need, so
+   and `metadata/` hold every field an NWB file and a DANDI upload need, so
    publishing needs no extra bookkeeping.
 7. **Every processed file can be traced back** to the raw files it came
    from (with checksums), the Raphael version and commit, and the settings.
@@ -45,11 +45,12 @@ what is made from it, and what describes it, sits under `data/`:
 │                        file at each level: cohort, mouse, procedures, session
 ├── processed/           pipeline-only: the same structure as raw/, NWB first,
 │                        each session with the provenance of how it was made
-├── lab/                 lists not about one animal: lab, people, projects,
-│                        task codes, rigs; blank templates
-└── index/               tables of every cohort, mouse, procedure and session,
-                         generated from raw/ (never edited)
+└── metadata/            catalogue.csv of every session and its processing
+                         (generated); the lab's lists: lab, people, projects,
+                         task codes, rigs; blank templates
 ```
+
+Four folders and nothing else.
 
 **Projects' own work lives outside `data/`**: analysis results, figures and
 code belong to each project (its repository, or a folder of its own next
@@ -102,7 +103,7 @@ raw/{cohort}/
   file.
 - **`ses-{type}`** is a **registered task code plus a run number** (`OF1`,
   `OF2`, `VR1`, `HBT3`). Every task code is defined once in
-  `lab/tasks.yaml`, so `OF` means the same arena and protocol for everyone;
+  `metadata/tasks.yaml`, so `OF` means the same arena and protocol for everyone;
   ingest refuses codes that aren't registered. Two runs of a task on one
   day are `OF1`, `OF2`. A task's own progression (day 3 of the helping
   test) goes in the run number, not in the day.
@@ -133,10 +134,10 @@ raw/{cohort}/
 
 #### The describing files
 
-YAML, one per level, written from the blank templates in `lab/templates/`
+YAML, one per level, written from the blank templates in `metadata/templates/`
 (each field's comment says where it goes in NWB). **Each fact is written
 once, at the level it belongs to**: the mouse's sex in its subject file
-only, a task's description in `lab/tasks.yaml` only.
+only, a task's description in `metadata/tasks.yaml` only.
 
 | file | written | holds | becomes |
 |---|---|---|---|
@@ -164,8 +165,8 @@ later correction shows which processed files are out of date **(planned)**.
 projects, projects get renamed and people leave, but raw data is written
 once: a path that encodes the project would end up wrong, or need moving.
 Writing who and what in the describing files keeps the tree stable, and
-`index/sessions.tsv` finds every session of a project, task or person in
-one filter.
+`metadata/catalogue.csv` finds every session of a project, task or person
+in one filter.
 
 ### processed/
 
@@ -201,12 +202,13 @@ processed/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/
   re-run with another sorter or pipeline sits beside the first instead of
   replacing it.
 
-### lab/
+### metadata/
 
-Lists that aren't about any one animal, and the blank templates:
+What's in the tree, and the lists that aren't about any one animal:
 
 ```
-lab/
+metadata/
+├── catalogue.csv      generated: one row per session (below)
 ├── lab.yaml           lab, institution, PI, timezone, default licence      NWB lab, institution
 ├── people.yaml        username: full name ("Last, First"), email, ORCID,   NWB experimenter;
 │                      affiliation, DANDI roles, joined, left                DANDI contributors
@@ -223,14 +225,27 @@ tasks and rigs by code, looked up here, so each is described once. People
 who leave stay in `people.yaml` (with `left:`), so old sessions still
 resolve.
 
-### index/
+#### catalogue.csv
 
-`cohorts.tsv`, `subjects.tsv`, `procedures.tsv` and `sessions.tsv`: one row
-per cohort, mouse, procedure and session, **generated from the describing
-files** by ingest and nightly, for searching and filtering (BIDS's
-`participants.tsv` and `sessions.tsv` among them). Never edited: correct
-the `.yaml` file and the tables follow, so they can't disagree with the
-tree. The script that builds them is still to be written **(open)**.
+**One row per session in `raw/`, generated, never edited.** Ingest and
+`raphael-jobs collect` rebuild it whenever data is added or processed
+(`raphael-data catalogue` rebuilds it on demand), from the describing
+files, the manifests in `raw/` and the provenance records in `processed/`,
+so it can't disagree with the data. Its first line says when it was built.
+
+| columns | from |
+|---|---|
+| `cohort`, `mouse`, `day`, `session`, `raw_path` | the session's folder |
+| `task`, `start`, `experimenter`, `project`, `rig`, `quality`, `notes` | its session file |
+| `modalities`, `raw_gb` | detection, and file sizes (recordings are not read) |
+| `ingested` | the session file (written by ingest), else the manifest's date |
+| `kilosort4`, `lfp`, `suite2p`, `cnmfe`, `photometry`, each with `_version` | the provenance in `processed/`: the date of the latest run and the Raphael version; `to do` when the session's modalities need the stage and it hasn't run; blank when it doesn't apply |
+| `needs_processing` | any stage `to do` |
+| `outdated` | a describing file changed after the latest processing run |
+
+It is where to look for what has been recorded, what is waiting to be
+processed, and what was processed with an older Raphael. Filter it in
+Excel or pandas (`pd.read_csv(path, comment='#')`).
 
 Raphael reads the describing files directly: `raphael-jobs plan` and
 `make` take a session's start time from its session file when the
@@ -266,8 +281,8 @@ permissions, not left to good intentions:
 | `raw/` recordings | lab members | **nobody** (admin only) | ingest moves files in and locks them |
 | `raw/` describing `.yaml` files | lab members | data managers (owners? **(open)**) | ingest, then corrections; every edit kept |
 | `processed/` | lab members | **pipeline account** only | Raphael runs on the cluster |
-| `lab/` | lab members | data managers; people add themselves to `people.yaml` | edited through git **(open)** |
-| `index/` | lab members | ingest only | generated |
+| `metadata/` | lab members | data managers; people add themselves to `people.yaml` | edited through git **(open)** |
+| `metadata/catalogue.csv` | lab members | ingest and collect only | generated |
 
 Lab members means members of both labs, unless a lab wants its tree
 private **(open)**.
@@ -292,7 +307,7 @@ data manager (`raphael-data ingest`, to be written; `--dry-run` first):
    mouse's earlier days (is `day-04` the right number for that date? is
    `ses-OF1` free?); the cohort named in the subject file against the
    cohort file; the required fields; and that the task, project, rig and
-   people exist in `lab/`. Anything that disagrees is reported, not filed.
+   people exist in `metadata/`. Anything that disagrees is reported, not filed.
 2. **Rename** the recordings to the BIDS-style names above by what they
    are (several of one kind matched to labels by name), wrapping
    acquisition folders without changing their insides, and fill blank
@@ -302,7 +317,7 @@ data manager (`raphael-data ingest`, to be written; `--dry-run` first):
    its recordings owned by the data account and read-only to everyone else,
    and add or update the cohort, subject and procedures files (keeping the
    old version; changes to identity fields are left for the data manager).
-4. **Rebuild** `index/`, empty the hand-in from `incoming/{person}/`, and
+4. **Rebuild** `metadata/catalogue.csv`, empty the hand-in from `incoming/{person}/`, and
    **tell** the person and the data managers what was added or what is
    wrong: by email when `lab.yaml` has mail settings, otherwise in
    `PROBLEMS.md` in the person's folder.
@@ -316,7 +331,7 @@ mistake by an admin, a failed disk or ransomware gets past them. So the
 server also needs:
 
 - **snapshots**, so yesterday's state can be restored, and
-- **a backup in another building** of `raw/` and `lab/`. Everything in
+- **a backup in another building** of `raw/` and `metadata/`. Everything in
   `processed/` can be regenerated from those, but a backup saves weeks of
   cluster time **(open)**.
 
@@ -430,8 +445,8 @@ on the server would double the largest files (Neuropixels runs at about
 - **Mouse IDs:** the animal facility's IDs, or IDs the lab hands out at
   registration; and how existing datasets (M20–M29, M5592, M8472, …) map
   onto them.
-- **Task codes:** who keeps `lab/tasks.yaml`, and the first list of codes.
-- **Index:** writing the script that builds `index/` (with ingest).
+- **Task codes:** who keeps `metadata/tasks.yaml`, and the first list of codes.
+- **Ingest:** writing `raphael-data ingest`, which also rebuilds the catalogue.
 - **Cohort names:** renaming existing cohorts (`May_2024` →
   `2024-05_…`) when they are ingested.
 - **Video:** how long raw video is kept once pose estimation has run.

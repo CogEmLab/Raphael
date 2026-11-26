@@ -2,12 +2,12 @@
 # the cohort, and handed in with every session (raw/{cohort}/sub-M{mouse}/).
 # Fields marked * are required: DANDI refuses NWB files without them.
 #   NWB Subject: subject_id, species, sex, date_of_birth, strain, genotype, description
-#   BIDS participants.tsv (built in index/)
+#   BIDS participants.tsv (listed in metadata/catalogue.csv)
 
 mouse:                  # * lab-wide unique ID, digits only (the folder adds the M)
 cohort:                 # * the mouse's cohort, e.g. 2026-03_dHPC-place
 alias:                  # your own short name for the mouse, if you use one
-owner:                  # username (lab/people.yaml)
+owner:                  # username (metadata/people.yaml)
 sex:                    # * M, F, U (unknown) or O (other)
 date_of_birth:          # * YYYY-MM-DD (NWB works out the age at each session)
 species: Mus musculus   # * Latin binomial

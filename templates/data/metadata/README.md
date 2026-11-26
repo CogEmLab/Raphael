@@ -1,11 +1,12 @@
-# lab/
+# metadata/
 
-Reference lists that aren't about any one animal. Everything about a
-cohort, a mouse or a session lives in that cohort's, mouse's or session's
-own folder under `raw/` (see `raw/README.md`).
+What's in `data/`, and the lab's reference lists. Everything about a
+particular cohort, mouse or session lives in that cohort's, mouse's or
+session's own folder under `raw/` (see `raw/README.md`).
 
 | file | what | edited by |
 |---|---|---|
+| `catalogue.csv` | **every session in `raw/`, one row each**: what it is, what it recorded, when it was added, and for each processing stage it needs, when it was processed and by which Raphael version (or `to do`); `needs_processing`, `outdated` | **generated**: rebuilt by ingest and `raphael-jobs collect` (or `raphael-data catalogue`); never edit |
 | `lab.yaml` | lab name, institution, PI, timezone, default licence | data managers |
 | `people.yaml` | everyone named in the tree: full name, email, ORCID, roles | each person adds themselves |
 | `projects.yaml` | projects: description, members, animal licence, funding, publications | project owners |
@@ -23,3 +24,7 @@ publications.
 All files are YAML: `key: value`, lists in `[ ]` or `- ` lines, `#` starts
 a comment. Dates are `YYYY-MM-DD`, times are local (`2026-03-14T10:05:00`,
 read in `lab.yaml`'s timezone).
+
+`catalogue.csv` starts with a `#` line saying when it was built: read it
+with `pd.read_csv('catalogue.csv', comment='#')`, or skip the first row in
+Excel.

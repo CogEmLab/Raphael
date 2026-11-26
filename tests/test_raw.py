@@ -272,7 +272,7 @@ def test_the_data_template_matches_the_code():
     assert info['cohort']['cohort'] == rec.cohort
     assert info['session']['start'] and info['subject']['sex']
     assert [p['label'] for p in info['procedures'] if p.get('label')] == ['ophys', 'ophys']
-    templates = root / 'lab' / 'templates'
+    templates = root / 'metadata' / 'templates'
     subject = yaml.safe_load((templates / 'subject.yaml').read_text())
     assert set(batch.SUBJECT_KEYS) <= set(subject)
     session = yaml.safe_load((templates / 'session.yaml').read_text())
