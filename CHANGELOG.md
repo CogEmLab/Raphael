@@ -47,6 +47,12 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   Runs on CUDA, Apple GPUs and the CPU. New `cebra` extra (CEBRA 0.6.1,
   torch). Example notebook examples/ml_unified_cebra.ipynb; see docs/ml.md.
 
+### Changed
+- The imaging QC picture (`qc/plane{i}_rois.png`) shows the ROIs on both
+  the mean and the correlation image, so they can be checked against the
+  field of view and against where active cells are; a missing image leaves
+  its panel blank with a note. The legend is readable on dark images.
+
 ## [0.4.0] - 2026-11-24
 ### Added
 - `raphael.behavioural_tracking`, moved from social-manifolds (pose/):
