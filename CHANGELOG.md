@@ -19,7 +19,7 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   to copy onto the server: every README, blank templates with each field's
   NWB destination, `lab/` (people, projects, task codes, rigs) and a worked
   example.
-- `templates/data/ingestion.md`: how to hand data in, with worked examples
+- "Adding data" in `templates/data/README.md`: how to hand data in, with worked examples
   (a new cohort and mouse, a normal recording day, several sessions a day,
   several photometry sites and cameras, two-photon and miniscope imaging,
   behaviour only, later additions, fixing a mistake), a checklist, and

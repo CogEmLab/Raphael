@@ -269,7 +269,7 @@ private **(open)**.
 
 How a person hands data in, with worked examples (a new mouse, a normal
 recording day, several sessions a day, several photometry sites, imaging,
-behaviour only, later additions): [`templates/data/ingestion.md`](../templates/data/ingestion.md).
+behaviour only, later additions): "Adding data" in [`templates/data/README.md`](../templates/data/README.md).
 
 **Ingest** turns a recording in `incoming/{person}/` into locked raw data, in one
 step run by a data-manager account (a small script, to be written):
