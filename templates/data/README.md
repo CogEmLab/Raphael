@@ -59,7 +59,8 @@ How to get a recording from the rig into `raw/`. The examples use cohort
 
 **The short version:** describe it, name it, copy it into
 `incoming/{your username}/`, tell the data manager. You never write in
-`raw/` yourself.
+`raw/` yourself. **`incoming/_example/` shows a hand-in exactly as it should
+look.**
 
 ### What to write, and when
 

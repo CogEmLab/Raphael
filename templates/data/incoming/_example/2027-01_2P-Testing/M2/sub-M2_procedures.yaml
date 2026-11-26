@@ -1,0 +1,25 @@
+# EXAMPLE hand-in: the new mouse's surgeries.
+- date: 2026-12-02
+  procedure: injection
+  label: ophys
+  target: CA1
+  hemisphere: left
+  coordinates_mm: {AP: -2.0, ML: -1.5, DV: -1.3}
+  reference: bregma; DV from brain surface
+  item: AAV9-hSyn-jGCaMP8m, 1e13 vg/ml, 300 nl at 50 nl/min
+  indicator: jGCaMP8m
+  anaesthesia: isoflurane 1.5-2 %
+  analgesia: meloxicam 5 mg/kg s.c.
+  surgeon: hclark
+- date: 2026-12-16
+  procedure: window
+  label: ophys
+  target: CA1
+  hemisphere: left
+  coordinates_mm: {AP: -2.0, ML: -1.5}
+  item: 3 mm glass window over CA1 (cortex aspirated)
+  surgeon: hclark
+- date: 2026-12-16
+  procedure: headplate
+  item: titanium headplate
+  surgeon: hclark

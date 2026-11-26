@@ -1,0 +1,16 @@
+# EXAMPLE hand-in: M1's second imaging session.
+start: 2027-01-13T10:20:00
+task: OF
+experimenter: [hclark]
+project: 2p-pilot
+rig: 2p-rig-1
+weight_g: 21.3
+description: Same field of view as D1.
+recordings:
+  ophys: 2P, 920 nm, 30 Hz, 512 x 512, depth 150 um, 40 mW at sample
+  video-top: top camera, 30 fps
+pharmacology:
+stimulus_notes:
+data_collection:
+quality: good
+notes: Slight z-drift after 15 min, refocused at 16 min.

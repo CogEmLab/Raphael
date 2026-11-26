@@ -2,7 +2,9 @@
 
 Where new sessions wait to be added to `raw/`. Each person has their own
 folder, `incoming/{your username}/`, that only they can write to.
-**Worked examples for every usual case: "Adding data" in [../README.md](../README.md).**
+**`_example/` shows a hand-in exactly as it should look** (an existing
+mouse's next session, and a new mouse with its first session). Worked
+examples for every usual case: "Adding data" in [../README.md](../README.md).
 
 1. **Write the describing files** from `lab/templates/`: the session file
    for every session, and the subject, procedures or cohort file if the
