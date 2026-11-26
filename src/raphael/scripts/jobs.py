@@ -7,6 +7,7 @@ Usage:
     raphael-jobs files PLAN --batch N [--data-root ROOT]
     raphael-jobs make-batch PLAN --batch N --data-root ROOT --jobs JOBS [--configs DIR]
                      [--no-hash]
+    raphael-jobs collect PLAN --batch N --from JOBS --to PROCESSED [--dry-run]
     raphael-jobs cluster-user [LOGIN]     save (or show) your cluster login
     raphael-jobs gpu-check [--backend cuda|mps|any] [--min-memory-gb N]
     raphael-jobs make JOB_DIR [--stage STAGE] --data-root ROOT [--input REL ...]
@@ -26,7 +27,8 @@ Usage:
 stage, filling in what the files and the raw layout say (mouse, day,
 session type, start time, frame rate) and the resources the stage needs;
 anything given on the command line wins. `plan`, `files` and `make-batch`
-do the same for every recording of a project, in batches.
+do the same for every recording of a project, in batches, and `collect`
+copies a batch's outputs into processed/{cohort}/.
 
 How to process data: docs/processing.md. Bundle layout and the checks `run`
 performs: raphael/cluster/jobs.py. Cluster set-up: docs/cluster.md.
@@ -102,6 +104,15 @@ def main():
                    help='record input sizes only (checksums read every file)')
     p.add_argument('--site', type=Path, default=jobs.SITE_CONFIG)
 
+    p = sub.add_parser('collect', help="copy one batch's outputs into the processed tree")
+    p.add_argument('plan', type=Path)
+    p.add_argument('--batch', type=int, required=True)
+    p.add_argument('--from', dest='source', required=True,
+                   help='the jobs folder: user@host:jobs, or a local folder')
+    p.add_argument('--to', dest='processed', type=Path, required=True,
+                   help='the processed tree (outputs go into its {cohort}/ folders)')
+    p.add_argument('--dry-run', action='store_true', help='print the rsync commands only')
+
     p = sub.add_parser('make', help='create a job bundle')
     p.add_argument('job_dir', type=Path)
     p.add_argument('--stage', default=None, choices=sorted(jobs.STAGES),
@@ -160,6 +171,7 @@ def main():
     elif args.command == 'detect':
         from raphael import raw
 
+        _exists(args.root, 'the raw folder')
         found = raw.scan(args.root)
         print(raw.describe(found) or f'no recordings found under {args.root}')
         if args.out:
@@ -170,11 +182,15 @@ def main():
     elif args.command == 'files':
         from raphael.cluster import batch
 
+        _exists(args.plan, 'the plan')
+        _exists(args.data_root, 'the data root')
         print('\n'.join(batch.batch_files(batch.read_plan(args.plan), args.batch,
                                          args.data_root)))
     elif args.command == 'make-batch':
         from raphael.cluster import batch
 
+        _exists(args.plan, 'the plan')
+        _exists(args.data_root, 'the data root')
         try:
             made, existing, not_ready = batch.make_jobs(
                 batch.read_plan(args.plan), args.batch, args.data_root, args.jobs,
@@ -191,6 +207,8 @@ def main():
         if not (made or existing or not_ready):
             print(f'batch {args.batch} is not in {args.plan}', file=sys.stderr)
             sys.exit(1)
+    elif args.command == 'collect':
+        _collect(args)
     elif args.command == 'make':
         _make(args)
     elif args.command == 'render':
@@ -210,12 +228,50 @@ def main():
             print('  '.join(map(str, row)))
 
 
+def _exists(path, what):
+    """Stop with a plain message if `path` isn't on this machine."""
+    if path is not None and not Path(path).exists():
+        raise SystemExit(f'{what} {path} does not exist on this machine. Raw data and '
+                         'metadata are read where they are mounted (usually the laptop); '
+                         'the cluster sees only what was copied to it.')
+
+
+def _collect(args):
+    import subprocess
+
+    from raphael.cluster import batch
+
+    _exists(args.plan, 'the plan')
+    commands = batch.collect_commands(batch.read_plan(args.plan), args.batch, args.source,
+                                      args.processed)
+    if not commands:
+        raise SystemExit(f'batch {args.batch} is not in {args.plan}')
+    missing = []
+    for job_id, dest, command in commands:
+        print(' '.join(command))
+        if args.dry_run:
+            continue
+        if len(command) < 4:                    # local jobs folder, no outputs/M* to copy
+            missing.append(job_id)
+            continue
+        dest.mkdir(parents=True, exist_ok=True)
+        if subprocess.run(command, check=False).returncode != 0:
+            missing.append(job_id)
+    if missing:
+        print(f'no outputs copied for {len(missing)} jobs (not finished, or failed: '
+              f'raphael-jobs status on the cluster): {" ".join(missing)}', file=sys.stderr)
+        sys.exit(1)
+
+
 def _plan(args):
     import pandas as pd
 
     from raphael import raw
     from raphael.cluster import batch
 
+    _exists(args.root, 'the raw folder')
+    _exists(args.sessions, 'the session table')
+    _exists(args.subjects, 'the subject table')
     found = raw.scan(args.root)
     sessions, subjects = batch.metadata_tables(args.root)      # the raw layout's metadata/
     for name, table in (('sessions', sessions), ('subjects', subjects)):
@@ -235,6 +291,7 @@ def _plan(args):
         raise SystemExit('no jobs planned')
     per_batch = table.groupby('batch').agg(
         jobs=('job_id', 'size'), stages=('stage', lambda s: ' '.join(sorted(set(s)))),
+        cohorts=('cohort', lambda s: ' '.join(sorted(set(s) - {''})) or '-'),
         raw_gb=('raw_gb', 'sum'), max_mem_gb=('mem_gb', 'max'))
     print(per_batch.to_string())
     for note, n in table.loc[table['note'] != '', 'note'].value_counts().items():
@@ -248,6 +305,7 @@ def _make(args):
     """make: detect the inputs, fill in what they say, let the command line win."""
     from raphael.cluster import batch
 
+    _exists(args.data_root, 'the data root')
     params = _params(args.params)
     inputs, configs = list(args.inputs), list(args.configs)
     auto = None

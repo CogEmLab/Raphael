@@ -12,9 +12,9 @@ nobody has to name the modality:
 
 Each recording also gets what its files say about it: the start time and,
 for movies, the frame rate. Under the raw layout of docs/data_server.md
-(`raw/M{mouse}/D{day}/{type}/sub-M…_ses-D…_typ-…_{ephys,ophys,photometry}`)
-the path gives the mouse, day and session type too; elsewhere they come
-from a session table (`raphael-jobs plan --sessions`).
+(`raw/{cohort}/M{mouse}/D{day}/{type}/sub-M…_ses-D…_typ-…_{ephys,ophys,photometry}`)
+the path gives the cohort, mouse, day and session type too; elsewhere they
+come from a session table (`raphael-jobs plan --sessions`).
 
     from raphael import raw
     raw.scan('/path/to/raw')          # every recording under a folder
@@ -40,6 +40,8 @@ MODALITIES = {
 CONFIGS = {'neuropixels': 'ephys.yaml', 'two_photon': 'imaging.yaml',
            'one_photon': 'imaging_1p.yaml', 'photometry': 'photometry.yaml'}
 LAYOUT = re.compile(r'(?:^|/)M([^/]+)/D(\d+)/([^/]+)/sub-M\1_ses-D\2_typ-\3_[^/]+$')
+#: The cohort: the folder above M{mouse}, unless that is the `raw` folder itself.
+COHORT = re.compile(r'([^/]+)/M([^/]+)/D(\d+)/([^/]+)/sub-M\2_ses-D\3_typ-\4_[^/]+$')
 COPY = re.compile(r'_(recovered\d*|fixed)$')        # Inscopix copies made after acquisition
 MOVIE_SUFFIXES = ('.tif', '.tiff', '.h5', '.hdf5')
 
@@ -49,6 +51,7 @@ class Recording:
     path: str                     # relative to the scanned root, '/'-separated
     modality: str
     format: str                   # openephys, spikeglx, scanimage, tiff, hdf5, inscopix, doric
+    cohort: str | None = None     # from the raw layout (the folder above M{mouse})
     mouse: str | None = None      # from the raw layout, when the path follows it
     day: int | None = None
     session_type: str | None = None
@@ -231,10 +234,12 @@ def detect(path, root=None, timezone='Europe/Vienna'):
     if rec is None:
         return None
     rec.bytes = _size(path)
-    m = LAYOUT.search(_rel(path if path.is_dir() or not path.parent.name.endswith('_ophys')
-                           else path.parent, root))
+    named = path if path.is_dir() or not path.parent.name.endswith('_ophys') else path.parent
+    m = LAYOUT.search(_rel(named, root))
     if m:
         rec.mouse, rec.day, rec.session_type = m.group(1), int(m.group(2)), m.group(3)
+        c = COHORT.search(Path(named).resolve().as_posix())
+        rec.cohort = c.group(1) if c and c.group(1) != 'raw' else None
     if rec.modality == 'two_photon' and rec.format in ('tiff', 'hdf5', 'scanimage') \
             and rec.rate_hz is None:
         rec.note = '; '.join(filter(None, [rec.note, 'frame rate not in the file: give fs']))
@@ -286,8 +291,8 @@ def describe(recordings):
     """One line per recording, for the terminal."""
     lines = []
     for r in recordings:
-        who = (f'M{r.mouse} D{r.day} {r.session_type}' if r.mouse is not None
-               else '(no mouse/day/type in the path)')
+        who = (f'{r.cohort + " " if r.cohort else ""}M{r.mouse} D{r.day} {r.session_type}'
+               if r.mouse is not None else '(no mouse/day/type in the path)')
         rate = f', {r.rate_hz:g} Hz' if r.rate_hz else ''
         lines.append(f'{r.modality:<12} {r.format:<10} {who:<28} {r.bytes / 1e9:8.1f} GB'
                      f'{rate}  {r.path}' + (f'\n{"":13}! {r.note}' if r.note else ''))
