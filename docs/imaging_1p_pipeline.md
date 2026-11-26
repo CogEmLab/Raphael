@@ -92,6 +92,10 @@ raphael-jobs make jobs/cnmfe-M8472-D6 --stage cnmfe --cpu --cpus 16 --mem-gb 64 
     --param 'subject={sex: M, date_of_birth: 2024-01-23, strain: C57BL/6J}'
 ```
 
+For a whole project, `raphael-imaging cnmfe-plan`, `cnmfe-files` and
+`cnmfe-jobs` make every session's job and run them in batches that fit the
+cluster's disk: [msc_cluster.md section 11](msc_cluster.md#11-process-every-session-of-a-project-in-batches).
+
 The start time comes from the `.isxd`. The work folder is the site's
 scratch (`paths.scratch/{job_id}` in cluster.yaml), which is where the
 CaImAn model stays, and where CaImAn's temporary memmaps go (Raphael sets

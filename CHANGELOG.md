@@ -47,7 +47,17 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   Runs on CUDA, Apple GPUs and the CPU. New `cebra` extra (CEBRA 0.6.1,
   torch). Example notebook examples/ml_unified_cebra.ipynb; see docs/ml.md.
 
+- Many one-photon sessions through the cluster in batches that fit its
+  disk: `raphael-imaging cnmfe-plan` (one row per session: job, batch,
+  output names, subject, memory and hours from each movie's description;
+  40 Hz recordings kept at their own rate), `cnmfe-files` (a batch's movies
+  and the small files beside them, for `rsync --files-from`) and
+  `cnmfe-jobs` (the batch's bundles). Walkthrough in docs/msc_cluster.md
+  section 11.
+
 ### Changed
+- The `cnmfe` stage writes `cnmfe_summary.json` into the session's
+  `provenance/` folder, so many jobs' outputs merge into one tree.
 - The imaging QC picture (`qc/plane{i}_rois.png`) shows the ROIs on both
   the mean and the correlation image, so they can be checked against the
   field of view and against where active cells are; a missing image leaves

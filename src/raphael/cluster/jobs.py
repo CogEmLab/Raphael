@@ -729,7 +729,9 @@ def cnmfe_stage(ctx):
     if not keep and movie != movie_in:
         Path(movie).unlink(missing_ok=True)
 
-    _write_json(ctx.outputs / 'cnmfe_summary.json', {
+    # In the session's provenance folder, so many jobs' outputs merge into one tree.
+    (session.folder(ctx.outputs) / 'provenance').mkdir(parents=True, exist_ok=True)
+    _write_json(session.folder(ctx.outputs) / 'provenance' / 'cnmfe_summary.json', {
         'frames': len(plane.timestamps), 'rate_hz': rate, 'image_shape': list(plane.image_shape),
         'components': len(plane.masks), 'accepted': int(plane.rois['accepted'].sum()),
         'max_shift_px': summary['max_shift_px'], 'caiman_work': str(work), 'cpus': _cpus(),
