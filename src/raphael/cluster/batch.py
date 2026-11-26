@@ -39,7 +39,7 @@ PER_DAY = ('kilosort4', 'lfp')
 REQUIRED = {'kilosort4': ('session_start',), 'lfp': ('session_start',),
             'suite2p': ('session_start', 'fs')}
 PLAN_COLUMNS = [
-    'job_id', 'batch', 'stage', 'modality', 'inputs', 'mouse', 'day', 'session_type',
+    'job_id', 'batch', 'stage', 'modality', 'inputs', 'cohort', 'mouse', 'day', 'session_type',
     'session_start', 'fs', 'sex', 'date_of_birth', 'strain', 'raw_gb', 'gpu', 'gpu_type',
     'cpus', 'mem_gb', 'hours', 'params', 'ready', 'note',
 ]
@@ -83,7 +83,8 @@ def _session_lookup(sessions):
     missing = {'input', 'mouse', 'day', 'session_type'} - set(t.columns)
     if missing:
         raise ValueError(f'the session table needs columns {sorted(missing)}')
-    keep = [c for c in ('mouse', 'day', 'session_type', 'session_start', 'fs') if c in t]
+    keep = [c for c in ('cohort', 'mouse', 'day', 'session_type', 'session_start', 'fs')
+            if c in t]
     return {_text(r['input']): r for r in t[['input', *keep]].to_dict('records')
             if _text(r['input'])}
 
@@ -206,7 +207,7 @@ def job_row(stage, recordings, data_root, configs=None, subject=None):
     row = {
         'stage': stage, 'modality': modality,
         'inputs': SEP.join(r.path for r in recs),
-        'mouse': first.mouse, 'day': first.day,
+        'cohort': first.cohort or '', 'mouse': first.mouse, 'day': first.day,
         'session_type': (SEP.join(_text(r.session_type) for r in recs) if multi
                          else first.session_type),
         'session_start': SEP.join(starts) if multi else starts[0],
@@ -245,6 +246,7 @@ def plan(recordings, data_root, sessions=None, subjects=None, batch_size=12, bat
         info = names.get(r.path)
         if info is not None:
             r.mouse, r.day = str(info['mouse']), int(info['day'])
+            r.cohort = r.cohort or (_text(info.get('cohort')) or None)
             r.session_type = str(info['session_type'])
             r.start = r.start or _text(info.get('session_start')) or None
             r.rate_hz = r.rate_hz or (float(info['fs']) if _text(info.get('fs')) else None)
@@ -259,10 +261,10 @@ def plan(recordings, data_root, sessions=None, subjects=None, batch_size=12, bat
     # Units of copying: a day's ephys recordings together, else one recording.
     units = {}
     for r in named:
-        key = (r.mouse, r.day, 'ephys') if r.modality == 'neuropixels' else (r.path,)
+        key = (r.cohort, r.mouse, r.day, 'ephys') if r.modality == 'neuropixels' else (r.path,)
         units.setdefault(key, []).append(r)
     modalities = list(raw.MODALITIES)
-    order = sorted(units.values(), key=lambda rs: (str(rs[0].mouse), rs[0].day,
+    order = sorted(units.values(), key=lambda rs: (rs[0].cohort or '', str(rs[0].mouse), rs[0].day,
                                                    rs[0].session_type or '',
                                                    modalities.index(rs[0].modality)))
     rows, batch, n, gb = [], 1, 0, 0.0
@@ -317,6 +319,24 @@ def batch_files(plan_table, batch, data_root=None):
                     if side.is_file():
                         files.append(side.relative_to(data_root).as_posix())
     return list(dict.fromkeys(files))
+
+
+def collect_commands(plan_table, batch, source, processed):
+    """The `rsync` commands that copy one batch's outputs into the processed
+    tree: each job's `outputs/M*` (its sessions' folders) into
+    `processed/{cohort}/` (`processed/` when the plan has no cohort).
+    `source` is the jobs folder, local or remote (`user@host:jobs`)."""
+    commands = []
+    for row in plan_table[plan_table['batch'].astype(int) == int(batch)].to_dict('records'):
+        dest = Path(processed) / _text(row.get('cohort')) if _text(row.get('cohort')) \
+            else Path(processed)
+        if ':' in str(source) and not Path(source).exists():   # remote; its shell expands M*
+            sources = [f'{str(source).rstrip("/")}/{row["job_id"]}/outputs/M*']
+        else:                                  # local ('/' paths: rsync's form everywhere)
+            outputs = Path(source) / row['job_id'] / 'outputs'
+            sources = [p.as_posix() for p in sorted(outputs.glob('M*'))]
+        commands.append((row['job_id'], dest, ['rsync', '-a', *sources, f'{dest.as_posix()}/']))
+    return commands
 
 
 def row_params(row):

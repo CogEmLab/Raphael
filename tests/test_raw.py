@@ -52,6 +52,7 @@ def test_scan_recognises_every_modality(tree):
     ephys = found['neuropixels', 'openephys']
     assert ephys.path == 'M1/D1/OF1/sub-M1_ses-D1_typ-OF1_ephys'     # the wrapping folder
     assert (ephys.mouse, ephys.day, ephys.session_type) == ('1', 1, 'OF1')
+    assert ephys.cohort is None                       # raw/M1/...: no cohort level
     assert ephys.stages == ('kilosort4', 'lfp') and ephys.start is None   # toy: no date
     assert found['neuropixels', 'spikeglx'].start == '2026-11-03T10:00:05'
     tif = found['two_photon', 'tiff']
@@ -166,6 +167,7 @@ def test_session_table_names_recordings_outside_the_layout(tmp_path):
                              'mouse': ['8472'], 'day': [6], 'type': ['HBTD3']})
     table, skipped = batch.plan(found, tmp_path, sessions)
     assert skipped == [] and list(table['job_id']) == ['cnmfe-b01-M8472-D6-HBTD3']
+    assert table['cohort'][0] == 'May_2024'                       # from the table
     assert json.loads(table['params'][0]) == {'cnmfe': {'temporal_downsample': 1}}
     assert '40.00 Hz kept at its own rate' in table['note'][0]
     assert batch.plan(found, tmp_path)[1][0][0] == 'May_2024/some_session/m_video.isxd'
@@ -182,3 +184,29 @@ def test_make_without_a_stage_reads_the_inputs(tree):
     assert batch.auto_job(['M1/D1/OF1/sub-M1_ses-D1_typ-OF1_ephys'], tree / 'raw',
                           stage='lfp')[0] == 'lfp'
     assert batch.auto_job(['M1/D1/OF1/sub-M1_ses-D1_typ-OF1_beh-rig.csv'], tree / 'raw') is None
+
+
+def test_cohort_level_and_collecting_outputs(tmp_path):
+    """raw/{cohort}/M{mouse}/D{day}/{type}/: the cohort comes from the path,
+    goes into the plan, and a batch's outputs are copied into
+    processed/{cohort}/."""
+    ophys = tmp_path / 'raw/2024-05_dHPC/M7/D1/HBT1/sub-M7_ses-D1_typ-HBT1_ophys'
+    ophys.mkdir(parents=True)
+    write_isxd(ophys / 'v.isxd', np.zeros((6, 4, 4), np.uint16))
+    (ophys / 'session.json').write_text('{}')
+    for root in (tmp_path / 'raw', tmp_path / 'raw' / '2024-05_dHPC'):   # whole tree or one cohort
+        [rec] = raw.scan(root)
+        assert (rec.cohort, rec.mouse, rec.day, rec.session_type) == ('2024-05_dHPC', '7', 1,
+                                                                       'HBT1')
+    table, _ = batch.plan(raw.scan(tmp_path / 'raw'), tmp_path / 'raw')
+    assert table['cohort'][0] == '2024-05_dHPC'
+
+    outputs = tmp_path / 'jobs' / table['job_id'][0] / 'outputs'
+    (outputs / 'M7' / 'D1' / 'HBT1').mkdir(parents=True)
+    (outputs / 'cnmfe_summary.json').write_text('{}')            # not part of the tree
+    [(job_id, dest, command)] = batch.collect_commands(table, 1, tmp_path / 'jobs',
+                                                        tmp_path / 'processed')
+    assert dest == tmp_path / 'processed' / '2024-05_dHPC'
+    assert command == ['rsync', '-a', (outputs / 'M7').as_posix(), f'{dest.as_posix()}/']
+    [(_, _, remote)] = batch.collect_commands(table, 1, 'me@host:jobs', tmp_path / 'processed')
+    assert remote[2] == f'me@host:jobs/{job_id}/outputs/M*'

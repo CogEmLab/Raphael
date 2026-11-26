@@ -16,7 +16,8 @@ same way. Before writing processing, loading, analysis or plotting code,
    then read the source of the ones you use. The source is in the project's
    virtual environment, under `site-packages/raphael/`.
 3. **Use Raphael's names and layouts.** Processed files follow
-   `{root}/M{mouse}/D{day}/{type}/sub-M{mouse}_ses-D{day}_typ-{type}_...`.
+   `{root}/M{mouse}/D{day}/{type}/sub-M{mouse}_ses-D{day}_typ-{type}_...`,
+   where `{root}` is `processed/{cohort}` on the data server.
    Build paths with `raphael.ephys.layout.Session`, never by hand.
    Behaviour uses `P_x`, `P_y` (cm), `H` (rad), `S` (cm/s) and a `moving`
    epoch, as pynapple objects.
@@ -57,7 +58,7 @@ same way. Before writing processing, loading, analysis or plotting code,
 | Spike sorting, LFP, suite2p, CNMF-E, photometry on the cluster | job stages via `raphael-jobs make --stage {kilosort4, lfp, suite2p, cnmfe, photometry, sync}` (`raphael.cluster.jobs`) |
 | One-photon (Inscopix) movies: reading, binning, recording days, CaImAn CNMF-E | `raphael.imaging.inscopix`: `open_isxd`, `downsample`, `sessions`, `day_numbers`; `raphael.imaging.cnmfe.run`, `raphael.imaging.cnmfe.load`, `raphael.imaging.cnmfe.to_plane` (CaImAn runs in its own environment; job stage cnmfe); the command `raphael-imaging inscopix-sessions` |
 | What a raw recording is (modality, start, rate, names) from its files | `raphael.raw.scan`, `raphael.raw.detect`; the command `raphael-jobs detect` |
-| Processing raw data: jobs for every recording, in batches | `raphael.cluster.batch.plan`, `raphael.cluster.batch.batch_files`, `raphael.cluster.batch.make_jobs`, `raphael.cluster.batch.auto_job`; the commands `raphael-jobs plan`, `files`, `make-batch`, and `make` without `--stage` (docs/processing.md) |
+| Processing raw data: jobs for every recording, in batches | `raphael.cluster.batch.plan`, `raphael.cluster.batch.batch_files`, `raphael.cluster.batch.make_jobs`, `raphael.cluster.batch.collect_commands`, `raphael.cluster.batch.auto_job`; the commands `raphael-jobs plan`, `files`, `make-batch`, `collect`, and `make` without `--stage` (docs/processing.md) |
 | Record what code and settings produced a result | job bundles do it (a `provenance/` record beside every output); `raphael.cluster.provenance.environment()` |
 | Pose from video (DeepLabCut): projects, training several models on one day-held-out split, tracking, threshold sweeps, two-animal identity fixes | `raphael.behavioural_tracking`: `zoo`, `dlc`, `multipeak`, `sweep`, `identity`, `skeleton`; the command `raphael-tracking`; job stages dlc_train, dlc_capture |
 | Pose to arena cm, to Raphael behaviour (P_x, P_y, H, S, moving), into the processed tree | `raphael.behavioural_tracking.io`: `load_dlc`, `to_behaviour`, `write_pose`, `read_pose` |

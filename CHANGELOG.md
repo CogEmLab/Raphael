@@ -10,6 +10,12 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
 ### Added
+- A cohort level in the raw and processed trees
+  (`raw/{cohort}/M{mouse}/D{day}/{type}/`). `raphael.raw` reads the cohort
+  from the path (or a session table's `cohort` column), plans carry it, and
+  `raphael-jobs collect` copies a batch's outputs into `processed/{cohort}/`.
+  `plan`, `files`, `make-batch`, `detect` and `make` say plainly when a path
+  doesn't exist on the machine they run on.
 - One-photon (miniscope) imaging, from the helping-behaviour analysis
   (CogEmLab/helping-behaviour-calcium-imaging) with its settings as
   defaults: `raphael.imaging.inscopix` reads Inscopix `.isxd` movies
@@ -62,6 +68,13 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   New main page docs/processing.md, linking each pipeline's page.
 
 ### Changed
+- docs/data_server.md: raw data organised by cohort, then mouse (lab-wide
+  unique IDs), day and session; session types are registered task codes
+  plus a run number (`metadata/tasks.csv`); several recordings of one
+  modality are labelled (`photometry-dHPC`, `video-top`); data not tied to
+  a session goes in `M{mouse}/subject/`; each person stages new data in
+  `incoming/{person}/`; projects, people and rigs live in the metadata, not
+  the path. docs/processing.md marks which machine each step runs on.
 - The `kilosort4` stage writes `_srt-kilosort4_bombcell_curation.json`
   (the bombcell labels, spikeinterface curation format) into the processed
   tree beside `_clusters.npz`, as in clark2025, instead of deleting it.
