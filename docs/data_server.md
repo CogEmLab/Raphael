@@ -246,7 +246,8 @@ so it can't disagree with the data. Its first line says when it was built.
 | `software` | `kilosort 4.0.16; spikeinterface 0.104.9 (lfp)` | each stage's main software and version: kilosort, suite2p, CaImAn, spikeinterface (lfp), Raphael (photometry) |
 | `raphael` | `0.5.0`, or `0.5.0+3d947b6` | the Raphael release that made it, or the version and commit when it ran from a code checkout instead of a release |
 | `outdated` | `yes` | a describing file changed after the latest run |
-| `quality`, `notes`, `raw_path` | | its session file, its folder |
+| `quality`, `notes` | | its session file |
+| `raw_path`, `processed_path` | `raw/2026-03_dHPC/sub-M10432/day-04/ses-OF1` | its folders in `raw/` and `processed/` (blank when it has no folder in `processed/`) |
 
 It is where to look for what has been recorded, what is waiting to be
 processed, and what was processed with an older Raphael. Filter it in

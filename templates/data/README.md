@@ -248,8 +248,9 @@ mouse, day, session, start, task, project, experimenter), what it
 recorded (`modalities`) and how big it is, when it was added, its
 processing `status` (`processed`, `partly`, `to do`, `n/a`), when it was
 processed, with which `software` (e.g. `kilosort 4.0.16`, `suite2p 1.1.0`,
-`CaImAn 1.13.2`) and which `raphael` release, and whether it is
-`outdated` (its describing files changed since). Filter it in Excel or pandas
+`CaImAn 1.13.2`) and which `raphael` release, whether it is `outdated`
+(its describing files changed since), and where it is in `raw/` and
+`processed/`. Filter it in Excel or pandas
 (`pd.read_csv(path, comment='#')`) to find every session of a project, a
 task or a person. It is rebuilt whenever data is added or processed;
 never edit it.

@@ -69,11 +69,12 @@ def test_catalogue(tmp_path):
     assert m2['software'] == 'kilosort 4.0.16' and m2['raphael'] == '0.5.0+3d947b6'
     assert of1['outdated'] == 'yes'                    # the describing files are newer
     assert of1['raw_path'] == 'raw/2026-03_dHPC/sub-M1/day-01/ses-OF1'
+    assert of1['processed_path'] == 'processed/2026-03_dHPC/sub-M1/day-01/ses-OF1'
     hab = by['2026-03_dHPC', '1', '2', 'HAB1']
     assert hab['modalities'] == 'video' and hab['status'] == 'n/a'
     old = by['2024-05_old', '7', '3', 'HBT1']
     assert old['modalities'] == 'one_photon' and old['status'] == 'to do'
-    assert old['software'] == '' and old['processed_on'] == ''
+    assert old['software'] == '' and old['processed_on'] == '' and old['processed_path'] == ''
 
     old_time = 1700000000                              # 2023: before the processing run
     for f in (s1 / 'sub-M1_day-01_ses-OF1_session.yaml', mouse / 'sub-M1_subject.yaml'):

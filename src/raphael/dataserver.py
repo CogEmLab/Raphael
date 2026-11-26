@@ -34,7 +34,7 @@ SOFTWARE = {'kilosort4': 'kilosort', 'lfp': 'spikeinterface', 'suite2p': 'suite2
             'cnmfe': 'CaImAn', 'photometry': 'raphael'}
 COLUMNS = ['cohort', 'mouse', 'day', 'session', 'start', 'task', 'project', 'experimenter',
            'modalities', 'raw_gb', 'ingested', 'status', 'processed_on', 'software', 'raphael',
-           'outdated', 'quality', 'notes', 'raw_path']
+           'outdated', 'quality', 'notes', 'raw_path', 'processed_path']
 
 
 def sessions(raw_root):
@@ -145,8 +145,9 @@ def _row(root, cohort, session, folder):
     modalities = _modalities(folder)
     expected = {s for m in modalities if m in raw.MODALITIES for s in raw.MODALITIES[m][0]}
     processed_root = root / 'processed' / cohort if cohort else root / 'processed'
-    done = _runs(Session.find(processed_root, session.mouse, session.day,
-                              session.session_type).folder(processed_root))
+    processed = Session.find(processed_root, session.mouse, session.day,
+                             session.session_type).folder(processed_root)
+    done = _runs(processed)
     manifest = folder / f'{session.stem}_manifest.tsv'
     ingested = _text(described.get('ingested')) or (
         datetime.fromtimestamp(manifest.stat().st_mtime).date().isoformat()
@@ -172,6 +173,7 @@ def _row(root, cohort, session, folder):
         'quality': _text(described.get('quality')),
         'notes': _text(described.get('notes')).replace('\n', ' '),
         'raw_path': folder.relative_to(root).as_posix(),
+        'processed_path': processed.relative_to(root).as_posix() if processed.is_dir() else '',
     }
     if last:
         last_run = datetime.fromisoformat(last)
