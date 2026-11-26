@@ -1,0 +1,12 @@
+# EXAMPLE: replace with the real mouse's details.
+mouse: 1
+alias:
+owner: hclark
+sex: F
+date_of_birth: 2026-10-01
+species: Mus musculus
+strain: C57BL/6J
+genotype: wild type
+source: Charles River
+facility_id:
+description:

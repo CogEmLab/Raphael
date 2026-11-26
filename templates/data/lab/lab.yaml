@@ -1,0 +1,8 @@
+# The lab. Written into every NWB file and into DANDI dataset descriptions.
+# One file for the whole tree; changes rarely.
+
+lab:                    # NWBFile.lab, e.g. "Mikulovic lab"
+institution:            # NWBFile.institution, e.g. "Medical University of Vienna"
+pi:                     # username of the PI (from people.yaml)
+timezone: Europe/Vienna # how local times in session files are read (NWB needs a timezone)
+default_licence:        # DANDI licence for published data: "CC-BY-4.0" or "CC0-1.0"

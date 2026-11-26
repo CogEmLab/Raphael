@@ -1,0 +1,19 @@
+# Projects, by short code (the `project` in cohort and session files).
+#   NWBFile.experiment_description, .keywords, .related_publications, .protocol
+#   DANDI dataset: name, description, keywords, funding, contributors
+#
+# Example:
+#
+# place-cells:
+#   name: Place and grid coding in dHPC and MEC
+#   owner: hclark
+#   members: [hclark, smikulovic]
+#   description: >                  # NWBFile.experiment_description
+#     Neuropixels and photometry in freely moving mice in open field and VR.
+#   keywords: [hippocampus, place cells, Neuropixels]
+#   animal_licence: GZ 2025-0.123.456   # NWBFile.protocol: the approved licence number
+#   funding: [FWF P 12345]
+#   related_publications: []        # DOIs, e.g. doi:10.1101/2025.01.01.000000
+#   dandiset:                       # DANDI ID once published, e.g. "000123"
+
+{}

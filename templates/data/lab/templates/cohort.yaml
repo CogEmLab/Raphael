@@ -1,0 +1,9 @@
+# raw/{cohort}/cohort.yaml: one per cohort, written when the cohort starts.
+# The cohort folder is named YYYY-MM_{label}: the month it started and a short label.
+
+cohort:                 # the folder name, e.g. 2026-03_dHPC-place
+project:                # project code (lab/projects.yaml); sessions may name others
+owner:                  # username (lab/people.yaml)
+start_date:             # YYYY-MM-DD
+animal_licence:         # licence number if not the project's (NWBFile.protocol)
+description:            # what this cohort is for, in a sentence or two

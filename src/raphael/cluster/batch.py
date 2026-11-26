@@ -40,7 +40,8 @@ REQUIRED = {'kilosort4': ('session_start',), 'lfp': ('session_start',),
             'suite2p': ('session_start', 'fs')}
 PLAN_COLUMNS = [
     'job_id', 'batch', 'stage', 'modality', 'inputs', 'cohort', 'mouse', 'day', 'session_type',
-    'session_start', 'fs', 'sex', 'date_of_birth', 'strain', 'raw_gb', 'gpu', 'gpu_type',
+    'session_start', 'fs', 'sex', 'date_of_birth', 'strain', 'genotype', 'species', 'raw_gb',
+    'gpu', 'gpu_type',
     'cpus', 'mem_gb', 'hours', 'params', 'ready', 'note',
 ]
 SEP = ';'                                       # several inputs in one plan cell
@@ -103,8 +104,8 @@ def _start_column(t):
 
 def _session_times(sessions):
     """(mouse, day, session type) -> {'session_start', 'fs'} from a session
-    table such as the raw layout's metadata/sessions.csv (mouse, day, type,
-    start, ...)."""
+    table (mouse, day, type, start, ...), for recordings outside the raw
+    layout, which have no session files."""
     if sessions is None or not {'mouse', 'day'} <= set(sessions.columns):
         return {}
     kind = 'session_type' if 'session_type' in sessions else 'type'
@@ -121,17 +122,22 @@ def _session_times(sessions):
     return out
 
 
-def metadata_tables(path):
-    """(sessions, subjects) from the raw layout's metadata/ folder: the
-    `metadata` beside the `raw` folder that holds `path`; (None, None) if
-    there is none."""
-    for parent in [Path(path), *Path(path).parents]:
-        if parent.name == 'raw':
-            folder = parent.parent / 'metadata'
-            tables = [folder / 'sessions.csv', folder / 'subjects.csv']
-            return tuple(pd.read_csv(t, dtype={'mouse': str}) if t.exists() else None
-                         for t in tables)
-    return None, None
+SUBJECT_KEYS = ('sex', 'date_of_birth', 'strain', 'genotype', 'species')
+
+
+def _fill_from_describing(r, data_root, subject=None):
+    """Fill a recording's start time and frame rate from its session file,
+    and return its subject fields (the subject file's, over `subject`'s)."""
+    info = raw.describing(Path(data_root) / r.path, r)
+    session = info.get('session') or {}
+    r.start = r.start or raw._iso(session.get('start')) or None
+    if r.rate_hz is None and session.get('fs'):
+        r.rate_hz = float(session['fs'])
+    merged = {k: _text((subject or {}).get(k)) for k in SUBJECT_KEYS}
+    for k, v in (info.get('subject') or {}).items():
+        if k in SUBJECT_KEYS and v not in (None, ''):
+            merged[k] = raw._iso(v)
+    return {k: v for k, v in merged.items() if v}
 
 
 def _subjects(subjects):
@@ -212,9 +218,7 @@ def job_row(stage, recordings, data_root, configs=None, subject=None):
                          else first.session_type),
         'session_start': SEP.join(starts) if multi else starts[0],
         'fs': first.rate_hz if stage == 'suite2p' and first.rate_hz else '',
-        'sex': _text((subject or {}).get('sex')),
-        'date_of_birth': _text((subject or {}).get('date_of_birth')),
-        'strain': _text((subject or {}).get('strain')),
+        **{k: _text((subject or {}).get(k)) for k in SUBJECT_KEYS},
         'raw_gb': round(sum(r.bytes for r in recs) / 1e9, 1),
         **res, 'params': json.dumps(params) if params else '',
     }
@@ -234,14 +238,16 @@ def plan(recordings, data_root, sessions=None, subjects=None, batch_size=12, bat
     """The plan: one row per job, in batches. Returns (table, skipped).
 
     Names (mouse, day, session type) come from the raw layout, else from
-    `sessions`, which can also supply start times and frame rates the files
-    lack; recordings with no name are skipped. A batch holds at most
+    `sessions`; recordings with no name are skipped. Start times and frame
+    rates the recording files lack come from each session's describing
+    file (raw layout) or `sessions`; subject fields from the mouse's
+    subject file, else `subjects`. A batch holds at most
     `batch_size` jobs' worth of recordings and `batch_gb` of raw data (one
     larger recording gets a batch of its own); a day's ephys recordings stay
     together. `stages` limits the plan to some stages."""
     names, subj = _session_lookup(_with_input(sessions)), _subjects(subjects)
     times = _session_times(sessions)
-    named, skipped = [], []
+    named, skipped, subject_of = [], [], {}
     for r in map(replace, recordings):            # copies: names are filled in below
         info = names.get(r.path)
         if info is not None:
@@ -256,6 +262,7 @@ def plan(recordings, data_root, sessions=None, subjects=None, batch_size=12, bat
         fill = times.get((str(r.mouse), int(r.day), str(r.session_type)), {})
         r.start = r.start or fill.get('session_start') or None
         r.rate_hz = r.rate_hz or (float(fill['fs']) if fill.get('fs') else None)
+        subject_of[r.path] = _fill_from_describing(r, data_root, subj.get(str(r.mouse)))
         named.append(r)
 
     # Units of copying: a day's ephys recordings together, else one recording.
@@ -279,7 +286,7 @@ def plan(recordings, data_root, sessions=None, subjects=None, batch_size=12, bat
                 continue
             groups = [recs] if stage in PER_DAY else [[r] for r in recs]
             for group in groups:
-                row = job_row(stage, group, data_root, configs, subj.get(str(group[0].mouse)))
+                row = job_row(stage, group, data_root, configs, subject_of[group[0].path])
                 row['batch'] = batch
                 suffix = '' if stage in PER_DAY else f'-{group[0].session_type}'
                 row['job_id'] = f'{stage}-b{batch:02d}-M{group[0].mouse}-D{group[0].day}{suffix}'
@@ -355,7 +362,7 @@ def row_params(row):
         params['session_start'] = starts if multi and len(starts) > 1 else starts[0]
     if _text(row.get('fs')):
         params['fs'] = float(row['fs'])
-    subject = {k: str(row[k]) for k in ('sex', 'date_of_birth', 'strain') if _text(row.get(k))}
+    subject = {k: str(row[k]) for k in SUBJECT_KEYS if _text(row.get(k))}
     if subject:
         params['subject'] = subject
     if _text(row.get('params')):
@@ -410,13 +417,6 @@ def auto_job(inputs, data_root, stage=None, configs=None, timezone='Europe/Vienn
         stage = stages[0]
     elif stage not in stages:
         return None
-    sessions, subjects = metadata_tables(Path(data_root) / inputs[0])
-    times = _session_times(sessions)
-    for r in recs:
-        if r.mouse is not None:
-            fill = times.get((str(r.mouse), int(r.day), str(r.session_type)), {})
-            r.start = r.start or fill.get('session_start') or None
-            r.rate_hz = r.rate_hz or (float(fill['fs']) if fill.get('fs') else None)
-    subject = _subjects(subjects).get(str(recs[0].mouse)) if recs[0].mouse else None
-    row = job_row(stage, recs, data_root, configs, subject)
+    subjects = [_fill_from_describing(r, data_root) for r in recs]
+    row = job_row(stage, recs, data_root, configs, subjects[0])
     return stage, row_params(row), row_resources(row), config_path(modality, configs), row

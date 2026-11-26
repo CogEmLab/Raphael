@@ -16,8 +16,8 @@ laptop   raphael-jobs collect     copy the outputs into processed/{cohort}/
 cluster                           delete the batch's raw copy; next batch
 ```
 
-**Which machine.** Steps marked *(laptop)* run where the raw data and
-`metadata/` are mounted (the laptop, or wherever Leonardo is mounted).
+**Which machine.** Steps marked *(laptop)* run where `data/` is
+mounted (the laptop, or wherever Leonardo is mounted).
 Steps marked *(cluster)* run in an SSH session on the cluster, which sees
 only what has been copied to it: `/Volumes/...` paths don't exist there.
 
@@ -52,18 +52,20 @@ recordings yet.
   so Raphael needs nothing else to name them. (The cohort level can be
   left out; outputs then go straight into `processed/`.) Raw data in
   another layout works too, with a session table (section 6).
-- **`metadata/sessions.csv` and `subjects.csv`** *(laptop)*, beside `raw/`
-  ([data_server.md](data_server.md#metadata)). Raphael finds them itself.
-  `sessions.csv` gives each session's `start` (`mouse`, `day`, `type`,
-  `start` as `2026-11-03T10:00:00`, local time) for recordings whose files
-  don't carry it; `subjects.csv` gives `sex`, `date_of_birth`, `strain` for
+- **The describing files** in the raw tree
+  ([data_server.md](data_server.md#the-describing-files)): each session's
+  `sub-M…_ses-…_session.yaml` and each mouse's `sub-M…_subject.yaml`.
+  Raphael reads them itself: the session's `start` (e.g.
+  `2026-11-03T10:00:00`, local time) for recordings whose files don't carry
+  it, and the mouse's sex, date of birth, species, strain and genotype for
   the NWB files.
 
 The examples use these names. Set them in the laptop's terminal:
 
 ```bash
-RAW=/path/to/lab/raw                      # the raw tree
-OUT=/path/to/lab                          # processed/ goes here
+RAW=/path/to/lab/data/raw                 # the raw tree
+OUT=/path/to/lab/data                     # processed/ goes here
+PLAN=~/plans/my-project.csv               # the plan: a working file, kept outside data/
 CLUSTER=<MUW-ID>@s0-l02.hpc.meduniwien.ac.at
 ```
 
@@ -87,7 +89,7 @@ recordings.csv` writes the same as a table.
 jobs:
 
 ```bash
-uv run raphael-jobs plan $RAW --out $OUT/metadata/plan.csv
+uv run raphael-jobs plan $RAW --out $PLAN
 ```
 
 The plan has one row per job:
@@ -96,7 +98,7 @@ The plan has one row per job:
   `$RAW`; a Neuropixels day's recordings together, `;`-separated, because
   Kilosort sorts a day as one, so a unit keeps its id across sessions);
 - **names and metadata**: `cohort`, `mouse`, `day`, `session_type`, `session_start`,
-  `fs`, `sex`, `date_of_birth`, `strain`;
+  `fs`, `sex`, `date_of_birth`, `strain`, `genotype`, `species`;
 - **resources**: `gpu`, `gpu_type`, `cpus`, `mem_gb`, `hours` (from the
   table below; for `cnmfe`, from each movie's size);
 - `params` (settings changed for this job, as JSON), `ready` (False when a
@@ -126,7 +128,7 @@ copies of the stage configs (`imaging.yaml`, `imaging_1p.yaml`,
 Copy the plan to the cluster *(laptop)*:
 
 ```bash
-rsync -a $OUT/metadata/plan.csv $CLUSTER:jobs/
+rsync -a $PLAN $CLUSTER:jobs/
 ```
 
 ## 4. Run one batch
@@ -136,7 +138,7 @@ Batch 1 is shown; for the others change `--batch 1` and `b01`.
 **4.1 Copy its raw data *(laptop)*.**
 
 ```bash
-uv run raphael-jobs files $OUT/metadata/plan.csv --batch 1 --data-root $RAW > batch01.txt
+uv run raphael-jobs files $PLAN --batch 1 --data-root $RAW > batch01.txt
 rsync -a --progress --files-from=batch01.txt $RAW/ $CLUSTER:data/
 ```
 
@@ -150,7 +152,7 @@ interrupted copy carries on when the same `rsync` is run again.
 
 ```bash
 cd ~/Raphael        # your checkout of the code (or your project's)
-uv run --frozen --no-sync raphael-jobs make-batch ~/jobs/plan.csv --batch 1 \
+uv run --frozen --no-sync raphael-jobs make-batch ~/jobs/my-project.csv --batch 1 \
     --data-root ~/data --jobs ~/jobs
 ```
 
@@ -184,7 +186,7 @@ part of the processed tree; `collect` copies them into
 `processed/{cohort}/`, so they merge into one tree:
 
 ```bash
-uv run raphael-jobs collect $OUT/metadata/plan.csv --batch 1 --from $CLUSTER:jobs --to $OUT/processed
+uv run raphael-jobs collect $PLAN --batch 1 --from $CLUSTER:jobs --to $OUT/processed
 ```
 
 It prints each `rsync` it runs (`--dry-run` prints them only) and names any
@@ -198,7 +200,7 @@ the stage's working files.
 
 ```bash
 cd ~/Raphael
-uv run --frozen --no-sync raphael-jobs files ~/jobs/plan.csv --batch 1 --data-root ~/data \
+uv run --frozen --no-sync raphael-jobs files ~/jobs/my-project.csv --batch 1 --data-root ~/data \
     | (cd ~/data && xargs -d '\n' rm -v)
 ```
 
@@ -216,7 +218,7 @@ uv run raphael-jobs make ~/jobs/one-job --data-root $RAW \
 ```
 
 `make` reads the inputs and fills in the stage (here `kilosort4`), the
-names, the start times (from the files or `metadata/sessions.csv`), the
+names, the start times (from the recording files or the session files), the
 subject, the resources and the stage config. Anything given on the command
 line wins: `--stage lfp`, `--param session_start=...`, `--mem-gb 96`.
 Then copy the bundle and its raw data to the cluster and submit it

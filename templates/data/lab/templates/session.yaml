@@ -1,0 +1,25 @@
+# raw/{cohort}/M{mouse}/D{day}/{type}/sub-M{mouse}_ses-D{day}_typ-{type}_session.yaml:
+# one per session, written on the day it is recorded. Fields marked * are
+# required: ingest refuses a session without them.
+#   NWBFile: session_start_time, session_description, experimenter,
+#            pharmacology, stimulus_notes, data_collection, notes
+#   NWB Subject.weight
+#   BIDS sub-*_sessions.tsv (built in index/)
+
+start:                  # * local start time, e.g. 2026-03-14T10:05:00 (NWB session_start_time)
+task:                   # * task code (lab/tasks.yaml), e.g. OF for session type OF1
+experimenter: []        # * usernames, e.g. [hclark]
+project:                # * project code (lab/projects.yaml)
+rig:                    # rig (lab/rigs/), e.g. ephys-rig-1
+weight_g:               # body weight that day (NWB Subject.weight)
+description:            # what was different about this session; added to the task's
+                        # description in NWB session_description
+recordings:             # one line per recording in the folder: suffix: what it is
+                        # e.g.  ephys: probeA, 384 channels, bank 0
+                        #       photometry-dHPC: 465 nm GCaMP, 405 nm isosbestic
+                        #       video-top: Basler top camera, 30 fps
+pharmacology:           # drugs given before or during the session, dose, time
+stimulus_notes:         # stimuli beyond the task's usual ones
+data_collection:        # anything about how data was collected that differs from the rig's usual
+quality: good           # good, usable, or bad
+notes:                  # what went wrong or is worth knowing later

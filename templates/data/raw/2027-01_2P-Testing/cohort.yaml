@@ -1,0 +1,7 @@
+# EXAMPLE: replace with the real cohort's details.
+cohort: 2027-01_2P-Testing
+project: 2p-pilot
+owner: hclark
+start_date: 2027-01-11
+animal_licence:
+description: Pilot cohort for testing the two-photon rig and pipeline.

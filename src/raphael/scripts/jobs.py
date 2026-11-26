@@ -75,10 +75,11 @@ def main():
     p.add_argument('root', type=Path, help='the raw data root (the data root of the jobs)')
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--sessions', type=Path, default=None,
-                   help='mouse, day, session_type (and session_start, fs) per input path, '
-                        'for recordings outside the raw layout')
+                   help='for recordings outside the raw layout: mouse, day, session_type '
+                        '(and session_start, fs) per input path')
     p.add_argument('--subjects', type=Path, default=None,
-                   help='mouse, sex, date_of_birth, strain')
+                   help='for mice without a subject file: mouse, sex, date_of_birth, strain, '
+                        'genotype, species')
     p.add_argument('--batch-size', type=int, default=12,
                    help='most recordings (an ephys day counts as one) per batch')
     p.add_argument('--batch-gb', type=float, default=400,
@@ -273,14 +274,8 @@ def _plan(args):
     _exists(args.sessions, 'the session table')
     _exists(args.subjects, 'the subject table')
     found = raw.scan(args.root)
-    sessions, subjects = batch.metadata_tables(args.root)      # the raw layout's metadata/
-    for name, table in (('sessions', sessions), ('subjects', subjects)):
-        if table is not None and getattr(args, name) is None:
-            print(f'using {args.root.resolve().parent / "metadata" / (name + ".csv")}')
-    if args.sessions:
-        sessions = pd.read_csv(args.sessions, dtype={'mouse': str})
-    if args.subjects:
-        subjects = pd.read_csv(args.subjects, dtype={'mouse': str})
+    sessions = pd.read_csv(args.sessions, dtype={'mouse': str}) if args.sessions else None
+    subjects = pd.read_csv(args.subjects, dtype={'mouse': str}) if args.subjects else None
     table, skipped = batch.plan(found, args.root, sessions, subjects, args.batch_size,
                                 args.batch_gb, args.stages, args.configs)
     args.out.parent.mkdir(parents=True, exist_ok=True)

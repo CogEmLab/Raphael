@@ -1,0 +1,21 @@
+# Everyone named anywhere in the tree (owner, experimenter, surgeon), by
+# username. Elsewhere only the username is written; full details live here.
+#   NWBFile.experimenter   name ("Last, First")
+#   DANDI contributors     name, email, ORCID, affiliation, roles
+#
+# Add yourself before your first recording. Keep people who have left
+# (set `left:`), so old sessions still resolve.
+#
+# Example (copy, remove the #, fill in):
+#
+# hclark:
+#   name: "Lastname, Firstname"     # NWB/DANDI order: "Last, First"
+#   email: first.last@meduniwien.ac.at
+#   orcid: 0000-0000-0000-0000      # https://orcid.org
+#   affiliation: Medical University of Vienna
+#   roles: [DataCollector, DataCurator]   # DANDI roles: Author, ContactPerson, DataCollector,
+#                                         # DataCurator, Methodology, Software, ...
+#   joined: 2025-10-01
+#   left:
+
+{}

@@ -10,6 +10,15 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
 ### Added
+- Describing files at each level of the raw tree (`cohort.yaml`,
+  `sub-M…_subject.yaml`, `sub-M…_procedures.yaml`,
+  `sub-M…_ses-…_session.yaml`), replacing the flat `metadata/` tables:
+  `raphael.raw.describing` reads them, and `raphael-jobs plan` and `make`
+  take start times from session files and subject fields (now with
+  species and genotype) from subject files. `templates/data/` is the tree
+  to copy onto the server: every README, blank templates with each field's
+  NWB destination, `lab/` (people, projects, task codes, rigs) and a worked
+  example.
 - A cohort level in the raw and processed trees
   (`raw/{cohort}/M{mouse}/D{day}/{type}/`). `raphael.raw` reads the cohort
   from the path (or a session table's `cohort` column), plans carry it, and
