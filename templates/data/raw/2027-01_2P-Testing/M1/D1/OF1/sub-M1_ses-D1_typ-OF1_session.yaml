@@ -1,0 +1,16 @@
+# EXAMPLE: replace with the real session's details.
+start: 2027-01-12T10:05:00
+task: OF
+experimenter: [hclark]
+project: 2p-pilot
+rig: 2p-rig-1
+weight_g: 21.5
+description: First imaging session after window healing.
+recordings:
+  ophys: 2P, 920 nm, 30 Hz, 512 x 512, depth 150 um
+  video-top: top camera, 30 fps
+pharmacology:
+stimulus_notes:
+data_collection:
+quality: good
+notes:

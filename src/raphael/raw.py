@@ -11,7 +11,10 @@ nobody has to name the modality:
 | a Doric `.doric` file | photometry | photometry |
 
 Each recording also gets what its files say about it: the start time and,
-for movies, the frame rate. Under the raw layout of docs/data_server.md
+for movies, the frame rate. Under the raw layout, the describing files at
+each level above a recording (`describing`) add what the recording files
+don't hold: the session's start time and notes, the mouse's sex, date of
+birth and strain, its procedures, the cohort. Under the raw layout of docs/data_server.md
 (`raw/{cohort}/M{mouse}/D{day}/{type}/sub-M…_ses-D…_typ-…_{ephys,ophys,photometry}`)
 the path gives the cohort, mouse, day and session type too; elsewhere they
 come from a session table (`raphael-jobs plan --sessions`).
@@ -166,11 +169,12 @@ def detect(path, root=None, timezone='Europe/Vienna'):
     if path.is_dir():
         if path.name.endswith('_ophys'):
             movie, note = _movie_in(path)
-            if movie is None:
-                return Recording(_rel(path, root), 'two_photon', 'unknown', note=note)
-            rec = detect(movie, root, timezone)
-            if rec and note:
-                rec.note = '; '.join(filter(None, [rec.note, note]))
+            if movie is None:                       # named from its path below, like the rest
+                rec = Recording(_rel(path, root), 'two_photon', 'unknown', note=note)
+            else:
+                rec = detect(movie, root, timezone)
+                if rec and note:
+                    rec.note = '; '.join(filter(None, [rec.note, note]))
         elif _is_openephys(path):
             rec = Recording(_rel(path, root), 'neuropixels', 'openephys',
                             start=_openephys_start(path, timezone))
@@ -277,6 +281,54 @@ def scan(root, timezone='Europe/Vienna'):
             if rec is not None:
                 found.append(rec)
     return found
+
+
+def _yaml(path):
+    import yaml
+
+    if not path.is_file():
+        return None
+    with open(path) as f:
+        return yaml.safe_load(f)
+
+
+def describing(path, recording=None):
+    """The describing files above a recording in the raw layout, as dicts
+    (None where a file is missing):
+
+        session      {type}/sub-M…_ses-D…_typ-…_session.yaml
+        subject      M{mouse}/sub-M{mouse}_subject.yaml
+        procedures   M{mouse}/sub-M{mouse}_procedures.yaml (a list)
+        cohort       {cohort}/cohort.yaml
+
+    plus `paths`, the files read. `path` is the recording (file or folder);
+    `recording` its Recording (detected if not given). Empty if the path
+    doesn't follow the layout."""
+    path = Path(path).resolve()
+    rec = recording or detect(path)
+    if rec is None or rec.mouse is None:
+        return {}
+    mouse, day, kind = rec.mouse, rec.day, rec.session_type
+    session_dir = next((p for p in path.parents if p.name == kind and p.parent.name == f'D{day}'
+                        and p.parent.parent.name == f'M{mouse}'), None)
+    if session_dir is None:
+        return {}
+    mouse_dir = session_dir.parent.parent
+    files = {
+        'session': session_dir / f'sub-M{mouse}_ses-D{day}_typ-{kind}_session.yaml',
+        'subject': mouse_dir / f'sub-M{mouse}_subject.yaml',
+        'procedures': mouse_dir / f'sub-M{mouse}_procedures.yaml',
+        'cohort': mouse_dir.parent / 'cohort.yaml',
+    }
+    out = {name: _yaml(f) for name, f in files.items()}
+    out['paths'] = {name: str(f) for name, f in files.items() if f.is_file()}
+    return out
+
+
+def _iso(value):
+    """A YAML date or time (parsed to date/datetime) as ISO 8601 text."""
+    return value.isoformat() if hasattr(value, 'isoformat') else (
+        None if value is None else str(value))
 
 
 def to_table(recordings):

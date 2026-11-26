@@ -20,118 +20,156 @@ yet. Points still to decide are marked **(open)** and listed at the end.
    `{cohort}/M{mouse}/D{day}/{session type}` folders and the BIDS-style
    `sub-…_ses-…_typ-…` file names that Raphael's `Session` class builds,
    so code finds files without per-project path logic.
-5. **Organised by animal, described by metadata.** The tree is cohorts,
-   mice, days and sessions, the same for every person and project. Who ran
-   a session, for which project, on which rig, with which protocol, lives in
-   the metadata tables, so it can be corrected without moving raw data and
-   one mouse can serve several projects.
-6. **Every processed file can be traced back** to the raw files it came
+5. **Organised by animal; described where it happens.** The tree is
+   cohorts, mice, days and sessions, the same for every person and project.
+   Each level carries a small file describing it (the cohort, the mouse and
+   its procedures, the session), so everything about a session is in or
+   above its folder. Who ran it, for which project, on which rig, is written
+   there, not encoded in paths, so it can be corrected without moving
+   recordings and one mouse can serve several projects.
+6. **Enough for NWB, DANDI and BIDS.** Between them, the describing files
+   and `lab/` hold every field an NWB file and a DANDI upload need, so
+   publishing needs no extra bookkeeping.
+7. **Every processed file can be traced back** to the raw files it came
    from (with checksums), the Raphael version and commit, and the settings.
 
 ## Layout
 
 One tree per lab, so labs can keep their data apart. Everything recorded,
-and everything made from it, sits under `data/`:
+what is made from it, and what describes it, sits under `data/`:
 
 ```
 /leonardo/{lab}/data/                     (path open)
-├── incoming/{person}/   each person's landing area for new recordings
-├── metadata/            cohorts, subjects, sessions, tasks, projects, rigs
-├── raw/                 write-once: acquisition files, as recorded
-└── processed/           pipeline-only: Raphael's outputs, NWB first, each
-                         session with the provenance of how it was made
+├── incoming/{person}/   each person's landing area for new sessions
+├── raw/                 recordings as acquired (locked), with a describing
+│                        file at each level: cohort, mouse, procedures, session
+├── processed/           pipeline-only: the same structure as raw/, NWB first,
+│                        each session with the provenance of how it was made
+├── lab/                 lists not about one animal: lab, people, projects,
+│                        task codes, rigs; blank templates
+└── index/               tables of every cohort, mouse, procedure and session,
+                         generated from raw/ (never edited)
 ```
 
 **Projects' own work lives outside `data/`**: analysis results, figures and
 code belong to each project (its repository, or a folder of its own next
-to `data/`). Projects read from `data/` and never write to it, so `data/`
-holds only recordings, what the pipeline made from them, and the metadata
-that describes both.
+to `data/`). Projects read from `data/` and never write to it.
 
-Many people's projects share one tree. What keeps them apart is not the
-folders but the metadata: every mouse, session, task and cohort is
-registered once, with its owner and project. The tree itself is the same
-for everyone.
+A ready-made copy of this tree, with every README, template and a worked
+example, is in Raphael's [`templates/data/`](../templates/data/README.md):
+copy it to the server to start.
 
 ### raw/
 
 Cohort, then mouse, then day, then session, with the BIDS-style names of
 `processed/`, so a raw recording and the files made from it share a name
 stem (`sub-M{mouse}_ses-D{day}_typ-{type}`) and sit at the same path in
-both trees:
+both trees. Each level has the file that describes it:
 
 ```
 raw/{cohort}/
+├── cohort.yaml                                          the cohort
 └── M{mouse}/
-    ├── D{day}/
-    │   └── {type}/
-    │       ├── sub-M{m}_ses-D{d}_typ-{t}_ephys/                Open Ephys (Record Node …/) or
-    │       │                                                   SpikeGLX (*_g0/), inside untouched
-    │       ├── sub-M{m}_ses-D{d}_typ-{t}_ophys/                ScanImage TIFF / Bruker, or an Inscopix
-    │       │                                                   .isxd with its session.json, inside untouched
-    │       ├── sub-M{m}_ses-D{d}_typ-{t}_photometry.doric
-    │       ├── sub-M{m}_ses-D{d}_typ-{t}_video-{camera}.mp4    one per camera, e.g. video-top
-    │       ├── sub-M{m}_ses-D{d}_typ-{t}_video-{camera}_timestamps.csv
-    │       ├── sub-M{m}_ses-D{d}_typ-{t}_beh-{source}.{ext}    rig logs, task files, e.g. beh-unity.csv
-    │       ├── sub-M{m}_ses-D{d}_typ-{t}_sync-{device}.{ext}   TTL/sync files not inside another recording
-    │       └── sub-M{m}_ses-D{d}_typ-{t}_manifest.tsv          checksum and original name of every file
-    └── subject/                                                anything not tied to one session
-        ├── histology/  surgery/  anatomy/                      e.g. probe tracks, slice images
+    ├── sub-M{m}_subject.yaml                            the mouse
+    ├── sub-M{m}_procedures.yaml                         its surgeries and procedures
+    ├── subject/                                         not tied to a session: histology/, surgery/, anatomy/
+    └── D{day}/{type}/
+        ├── sub-M{m}_ses-D{d}_typ-{t}_session.yaml       the session
+        ├── sub-M{m}_ses-D{d}_typ-{t}_ephys/             Open Ephys (Record Node …/) or SpikeGLX (*_g0/),
+        │                                                inside untouched
+        ├── sub-M{m}_ses-D{d}_typ-{t}_ophys/             ScanImage TIFF / Bruker, or an Inscopix .isxd
+        │                                                with its session.json, inside untouched
+        ├── sub-M{m}_ses-D{d}_typ-{t}_photometry.doric
+        ├── sub-M{m}_ses-D{d}_typ-{t}_video-{camera}.mp4      one per camera, e.g. video-top
+        ├── sub-M{m}_ses-D{d}_typ-{t}_video-{camera}_timestamps.csv
+        ├── sub-M{m}_ses-D{d}_typ-{t}_beh-{source}.{ext}      rig logs, task files, e.g. beh-unity.csv
+        ├── sub-M{m}_ses-D{d}_typ-{t}_sync-{device}.{ext}     TTL/sync files not inside another recording
+        └── sub-M{m}_ses-D{d}_typ-{t}_manifest.tsv            checksum and original name of every file
 ```
 
 - **`{cohort}`** is the group of animals that went through an experiment
   together, named `YYYY-MM_{label}` (e.g. `2024-05_dHPC-SSCW`) so cohorts
-  sort by date. A mouse belongs to one cohort, fixed when it is registered
-  in `subjects.csv`. The cohort is a folder level only: file names don't
-  carry it, because mouse IDs are already unique.
+  sort by date. A mouse belongs to one cohort, fixed when it is added. The
+  cohort is a folder level only: file names don't carry it, because mouse
+  IDs are already unique.
 - **`M{mouse}`** is a **lab-wide unique ID** (the animal facility's ID, or
-  one the lab hands out at registration) **(open)**, never a per-person
-  number like M1, which would collide between people. Each person's own
-  short name for the mouse is kept in `subjects.csv` (`alias`).
+  one the lab hands out) **(open)**, never a per-person number like M1,
+  which would collide between people. Each person's own short name for the
+  mouse is kept in its subject file (`alias`).
 - **`D{day}`** is the day of the experiment for that mouse: `D1` is its
   first recorded day, whichever project that was for, so day numbers never
-  clash. The calendar date and time live in `metadata/sessions.csv`.
+  clash. The calendar date and time are in the session file.
 - **`{type}`** is a **registered task code plus a run number** (`OF1`,
   `OF2`, `VR1`, `HBT3`). Every task code is defined once in
-  `metadata/tasks.csv`, so `OF` means the same arena and protocol for
-  everyone; ingest refuses codes that aren't registered. Two runs of a
-  task on one day are `OF1`, `OF2`. A task's own progression (day 3 of the
-  helping test) goes in the run number or a `sessions.csv` column, not
-  in `D`.
+  `lab/tasks.yaml`, so `OF` means the same arena and protocol for everyone;
+  ingest refuses codes that aren't registered. Two runs of a task on one
+  day are `OF1`, `OF2`. A task's own progression (day 3 of the helping
+  test) goes in the run number, not in `D`.
 - **One session holds every modality recorded in it**, one file or folder
   each, named by suffix (`_ephys`, `_ophys`, `_photometry`, `_video`,
   `_beh`, `_sync`). When there are several of one kind, `-{label}` says
-  which: `video-top`, `video-side`, `photometry-dHPC`, `photometry-mPFC`,
-  `beh-unity`. Neuropixels probes recorded together stay in one `_ephys`
-  folder (Open Ephys and SpikeGLX keep them together); probes recorded
-  separately are `_ephys-probeA`, `_ephys-probeB`. A session has only the
-  modalities it recorded; behaviour-only sessions have just `_video` and
-  `_beh` files.
+  which: `video-top`, `photometry-dHPC`, `photometry-mPFC`. Neuropixels
+  probes recorded together stay in one `_ephys` folder; probes recorded
+  separately are `_ephys-probeA`, `_ephys-probeB`. A session has only what
+  it recorded; a behaviour-only session has just its session file, `_video`
+  and `_beh` files.
 - **`subject/`** holds what belongs to the mouse rather than a session:
-  histology, surgery notes, probe-track reconstructions, anatomy tables.
+  histology, surgery notes, probe-track reconstructions.
 - **Single files are renamed** at ingest. **Folders written by acquisition
   software are wrapped, not changed**: Open Ephys and SpikeGLX expect their
   internal names, so ingest renames only the outer folder
-  (`…_ephys/Record Node 109/…` stays as recorded).
-- The manifest records each file's sha256 and **its original name**, so
-  nothing about the recording is lost by renaming.
+  (`…_ephys/Record Node 109/…` stays as recorded). The manifest records
+  each file's sha256 and **its original name**.
 - Each `_ephys`/`_ophys` folder and each `.doric` file holds **one
   continuous recording**, as Raphael's readers expect.
 - This is BIDS's split between `sourcedata/` (data as recorded) and
   derivatives, with our tree's folder levels. DANDI renames to its own
   scheme on upload either way.
 
+#### The describing files
+
+YAML, one per level, written from the blank templates in `lab/templates/`
+(each field's comment says where it goes in NWB). **Each fact is written
+once, at the level it belongs to**: the mouse's sex in its subject file
+only, a task's description in `lab/tasks.yaml` only.
+
+| file | written | holds | becomes |
+|---|---|---|---|
+| `cohort.yaml` | when the cohort starts | project, owner, start date, animal licence, purpose | NWB `protocol` (licence) |
+| `sub-M…_subject.yaml` | when the mouse joins | **ID, sex, date of birth, species**, strain, genotype, alias, owner, source | NWB `Subject`; BIDS `participants.tsv`; the bold fields are required by DANDI |
+| `sub-M…_procedures.yaml` | after each surgery | per procedure: date, type, `label`, target, coordinates (mm from bregma), angle, what went in (virus and titre, probe or fibre and serial), indicator, anaesthesia, surgeon, histology-verified target | NWB `surgery`, `virus`; electrode, fibre and imaging-plane locations; imaging indicator |
+| `sub-M…_ses-…_session.yaml` | on the day | **start**, **task**, **experimenter**, **project**, rig, weight, what each recording is, pharmacology, stimulus notes, quality, notes | NWB `session_start_time`, `session_description` (with the task's), `experimenter`, `pharmacology`, `stimulus_notes`, `notes`, `Subject.weight`; BIDS `sessions.tsv`. Bold fields are required at ingest |
+
+**`label` joins recordings to anatomy.** A file named
+`…_photometry-dHPC.doric` takes its brain location and indicator from the
+procedure labelled `dHPC`; `…_ephys-probeA` its probe and target from
+`probeA`. With one recording of a kind, the label is the modality (`ephys`,
+`ophys`, `photometry`).
+
+**Recordings are locked; describing files stay editable.** Dates of birth
+get corrected, histology adds a verified target, a note is added later. So
+ingest locks the recordings but leaves the `.yaml` files writable by data
+managers (and the mouse's owner **(open)**). Every edit is kept, by git
+over the `.yaml` files (a repository over `data/` that ignores everything
+else) or by the server's snapshots **(open)**. Each processed session's
+provenance records the checksums of the describing files it read, so a
+later correction shows which processed files are out of date **(planned)**.
+
 **Why not one folder per person or per project?** A mouse can serve two
 projects, projects get renamed and people leave, but raw data is written
 once: a path that encodes the project would end up wrong, or need moving.
-Recording who and what in the metadata keeps the raw tree stable, and lets
-anyone find every session of a project, a task or a person with one filter
-on `sessions.csv`.
+Writing who and what in the describing files keeps the tree stable, and
+`index/sessions.tsv` finds every session of a project, task or person in
+one filter.
 
 ### processed/
 
-The tree Raphael's stages write, one folder per session, at the same path
-as the raw session (cohort included):
+**The same structure as `raw/`**: the same cohort, mouse, day and session
+folders, so a session's outputs sit at the same path as its recordings.
+Outputs that span a mouse's days (cells or units matched across sessions,
+probe tracks registered to the atlas) go in its mouse folder **(planned)**.
+`raw/`'s describing files are not copied here: the NWB files carry what
+they need from them, and the provenance records which were read.
 
 ```
 processed/{cohort}/M{mouse}/D{day}/{type}/
@@ -158,33 +196,41 @@ processed/{cohort}/M{mouse}/D{day}/{type}/
   re-run with another sorter or pipeline sits beside the first instead of
   replacing it.
 
-### metadata/
+### lab/
+
+Lists that aren't about any one animal, and the blank templates:
 
 ```
-metadata/
-├── cohorts.csv       cohort, project, start date, owner, description
-├── subjects.csv      mouse, cohort, alias, owner, sex, date_of_birth, species, strain,
-│                     genotype, surgeries, lab
-├── sessions.csv      mouse, day, type, start, task, experimenter, project, rig,
-│                     modalities, notes
-├── tasks.csv         task code, name, description, rig, protocol, owner
-├── projects.csv      project, owner, members, description
-└── rigs/             probe maps, microscope and photometry settings per rig
+lab/
+├── lab.yaml           lab, institution, PI, timezone, default licence      NWB lab, institution
+├── people.yaml        username: full name ("Last, First"), email, ORCID,   NWB experimenter;
+│                      affiliation, DANDI roles, joined, left                DANDI contributors
+├── projects.yaml      code: name, owner, members, description, keywords,   NWB experiment_description,
+│                      animal licence, funding, publications, dandiset       keywords, protocol, publications
+├── tasks.yaml         code: name, description, rig, protocol, stimulus      NWB session_description,
+│                      notes, what a session records, owner                  stimulus_notes
+├── rigs/{rig}.yaml    devices, cameras, photometry, microscope, TTL wiring  NWB devices; sync
+└── templates/         cohort, subject, procedures, session, rig
 ```
 
-- `start` is the session's start as ISO 8601 local time
-  (`2026-11-03T10:00:00`). Raphael uses it for recordings whose files
-  don't carry their own (`raphael-jobs plan` and `make` read these tables
-  themselves, [processing.md](processing.md)).
-- `project` in `sessions.csv` is per session: one cohort can serve more
-  than one project. `cohorts.csv` says what a cohort was run for.
-- `task` is the task code of `type` (`OF` for `OF2`), so sessions of a task
-  can be selected without parsing names.
+Everywhere else in the tree people are named by username and projects,
+tasks and rigs by code, looked up here, so each is described once. People
+who leave stay in `people.yaml` (with `left:`), so old sessions still
+resolve.
 
-The NWB files take their subject and session fields from these tables, so
-they need to be complete before processing. These files are small and
-change often. Keeping them under git (with Leonardo holding a checkout)
-gives a history of every edit **(open)**.
+### index/
+
+`cohorts.tsv`, `subjects.tsv`, `procedures.tsv` and `sessions.tsv`: one row
+per cohort, mouse, procedure and session, **generated from the describing
+files** by ingest and nightly, for searching and filtering (BIDS's
+`participants.tsv` and `sessions.tsv` among them). Never edited: correct
+the `.yaml` file and the tables follow, so they can't disagree with the
+tree. The script that builds them is still to be written **(open)**.
+
+Raphael reads the describing files directly: `raphael-jobs plan` and
+`make` take a session's start time from its session file when the
+recording's own files don't carry it, and the subject fields from the
+subject file ([processing.md](processing.md)).
 
 ### Provenance
 
@@ -212,9 +258,11 @@ permissions, not left to good intentions:
 | Folder | Read | Write | How data gets in |
 |---|---|---|---|
 | `incoming/{person}/` | acquisition group | that person | experimenters copy new recordings here |
-| `raw/` | lab members | **nobody** (admin only) | ingest moves files in and locks them |
+| `raw/` recordings | lab members | **nobody** (admin only) | ingest moves files in and locks them |
+| `raw/` describing `.yaml` files | lab members | data managers (owners? **(open)**) | ingest, then corrections; every edit kept |
 | `processed/` | lab members | **pipeline account** only | Raphael runs on the cluster |
-| `metadata/` | lab members | data managers | edited through git **(open)** |
+| `lab/` | lab members | data managers; people add themselves to `people.yaml` | edited through git **(open)** |
+| `index/` | lab members | ingest only | generated |
 
 Lab members means members of both labs, unless a lab wants its tree
 private **(open)**.
@@ -222,24 +270,25 @@ private **(open)**.
 **Ingest** turns a recording in `incoming/{person}/` into locked raw data, in one
 step run by a data-manager account (a small script, to be written):
 
-1. Check the session is in `metadata/sessions.csv`, its mouse in
-   `subjects.csv` (which gives its cohort) and its task code in `tasks.csv`.
+1. Check the session has its session file with the required fields, its
+   mouse a subject file and its cohort a cohort file (here or already in
+   `raw/`), and that its task, project, rig and people exist in `lab/`.
 2. Rename single files, and wrap acquisition folders, to the BIDS-style
    names above. Write the manifest (sha256 and original name of every file).
-3. Move the session into `raw/{cohort}/M…/D…/{type}/`, and make it owned
-   by the data account and read-only to everyone else.
-4. Remove it from `incoming/{person}/`.
+3. Move the session into `raw/{cohort}/M…/D…/{type}/`, and make its
+   recordings owned by the data account and read-only to everyone else.
+4. Rebuild `index/`, and remove the session from `incoming/{person}/`.
 
 From then on, nobody without admin rights can modify or delete it. If a
 recording really must be corrected (wrong session name, say), an admin does
-it and notes it in the session table.
+it and notes it in the session file.
 
 **Permissions protect against accidents, not against everything.** A
 mistake by an admin, a failed disk or ransomware gets past them. So the
 server also needs:
 
 - **snapshots**, so yesterday's state can be restored, and
-- **a backup in another building** of `raw/` and `metadata/`. Everything in
+- **a backup in another building** of `raw/` and `lab/`. Everything in
   `processed/` can be regenerated from those, but a backup saves weeks of
   cluster time **(open)**.
 
@@ -300,7 +349,7 @@ They are written to `qc/…_sync.json` (numbers and pass or fail) and
 - **A failed check stops alignment for that session.** `_beh.nwb` and
   anything else that depends on the alignment is not written, and the
   session is listed as failed with the reason, until someone looks at it.
-  A check can be waived only by a note in `metadata/sessions.csv` saying
+  A check can be waived only by a note in the session file saying
   why, and the waiver is recorded in the provenance.
 - **Photometry:** Doric stores digital lines at its decimated rate (about
   60 Hz with the lab's settings: 12,166 Hz / 200), so pulses shorter or
@@ -348,13 +397,13 @@ on the server would double the largest files (Neuropixels runs at about
 - **Backup:** where the off-site copy lives, and whether `processed/` is
   included.
 - **Sharing:** whether each lab's tree is readable by the other lab.
-- **Metadata:** whether to keep `metadata/` under git, and the session
-  table's exact columns. NWB needs subject age or date of birth, sex,
-  species and strain.
+- **Describing files:** who may edit them (data managers only, or owners
+  too); git or snapshots for their history.
 - **Mouse IDs:** the animal facility's IDs, or IDs the lab hands out at
   registration; and how existing datasets (M20–M29, M5592, M8472, …) map
   onto them.
-- **Task codes:** who keeps `tasks.csv`, and the first list of codes.
+- **Task codes:** who keeps `lab/tasks.yaml`, and the first list of codes.
+- **Index:** writing the script that builds `index/` (with ingest).
 - **Cohort names:** renaming existing cohorts (`May_2024` →
   `2024-05_…`) when they are ingested.
 - **Video:** how long raw video is kept once pose estimation has run.

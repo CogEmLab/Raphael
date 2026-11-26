@@ -1,0 +1,17 @@
+# raw/{cohort}/M{mouse}/sub-M{mouse}_subject.yaml: one per mouse, written
+# when the mouse joins the cohort. Fields marked * are required: DANDI
+# refuses NWB files without them.
+#   NWB Subject: subject_id, species, sex, date_of_birth, strain, genotype, description
+#   BIDS participants.tsv (built in index/)
+
+mouse:                  # * lab-wide unique ID, digits only (the folder adds the M)
+alias:                  # your own short name for the mouse, if you use one
+owner:                  # username (lab/people.yaml)
+sex:                    # * M, F, U (unknown) or O (other)
+date_of_birth:          # * YYYY-MM-DD (NWB works out the age at each session)
+species: Mus musculus   # * Latin binomial
+strain:                 # e.g. C57BL/6J
+genotype:               # e.g. wild type; Pvalb-IRES-Cre +/-
+source:                 # vendor or colony, e.g. Charles River; in-house colony
+facility_id:            # the animal facility's ID, if different from `mouse`
+description:            # anything else about the animal

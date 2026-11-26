@@ -1,0 +1,33 @@
+# raw/{cohort}/M{mouse}/sub-M{mouse}_procedures.yaml: every surgery or
+# procedure on the mouse, one list entry each, added as they happen.
+#   NWBFile.surgery, NWBFile.virus (written from these entries)
+#   NWB electrode, optical fibre and imaging plane locations, and the
+#   imaging indicator, via `label`
+#
+# `label` joins a procedure to the recordings that use it: a file named
+# ..._photometry-dHPC.doric takes its location and indicator from the
+# entry labelled dHPC; ..._ephys-probeA from probeA. With one recording of
+# a kind, use the modality as the label (ephys, ophys, photometry).
+#
+# Coordinates in mm from bregma; DV from the brain surface unless
+# `reference` says otherwise. Targets as Allen CCF acronyms where possible.
+
+- date:                 # YYYY-MM-DD
+  procedure:            # injection, probe implant, fibre implant, lens implant, window,
+                        # headplate, craniotomy, lesion, perfusion, ...
+  label:                # e.g. dHPC, probeA, ophys
+  target:               # e.g. CA1
+  hemisphere:           # left, right, both
+  coordinates_mm: {AP: , ML: , DV: }
+  reference: bregma; DV from brain surface
+  angle_deg:            # if angled, and in which plane
+  item:                 # what went in, e.g.:
+                        #   AAV9-hSyn-jGCaMP8m, 1e13 vg/ml, 300 nl at 50 nl/min
+                        #   Neuropixels 2.0, serial 18194
+                        #   400 um fibre, NA 0.5, serial F12
+  indicator:            # for imaging/photometry: e.g. jGCaMP8m (NWB ImagingPlane.indicator)
+  anaesthesia:          # e.g. isoflurane 1.5-2 %
+  analgesia:            # e.g. meloxicam 5 mg/kg s.c.
+  surgeon:              # username
+  verified_target:      # filled in after histology, e.g. CA1 (track in subject/histology/)
+  notes:

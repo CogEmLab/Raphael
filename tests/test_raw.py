@@ -35,12 +35,16 @@ def tree(tmp_path_factory):
     probe.mkdir(parents=True)
     (probe / 'run_g0_t0.imec0.ap.meta').write_text('fileCreateTime=2026-11-03T10:00:05\n')
     (probe / 'run_g0_t0.imec0.ap.bin').write_bytes(b'\0' * 64)
-    (root / 'metadata').mkdir()
-    pd.DataFrame({'mouse': ['1', '1'], 'day': [1, 3], 'type': ['OF1', 'VR'],
-                  'start': ['2026-11-01T09:30:00', '2026-11-03T10:00:00']}).to_csv(
-        root / 'metadata/sessions.csv', index=False)
-    pd.DataFrame({'mouse': ['1'], 'sex': ['F'], 'date_of_birth': ['2026-06-01'],
-                  'strain': ['C57BL/6J']}).to_csv(root / 'metadata/subjects.csv', index=False)
+    # The describing files at each level (docs/data_server.md).
+    (root / 'raw/M1/D1/OF1/sub-M1_ses-D1_typ-OF1_session.yaml').write_text(
+        'start: 2026-11-01T09:30:00\ntask: OF\nexperimenter: [hclark]\n')
+    (root / 'raw/M1/D3/VR/sub-M1_ses-D3_typ-VR_session.yaml').write_text(
+        'start: 2026-11-03T10:00:00\ntask: VR\n')
+    (root / 'raw/M1/sub-M1_subject.yaml').write_text(
+        'mouse: 1\nsex: F\ndate_of_birth: 2026-06-01\nspecies: Mus musculus\n'
+        'strain: C57BL/6J\ngenotype: wild type\n')
+    (root / 'raw/M1/sub-M1_procedures.yaml').write_text(
+        '- {date: 2026-09-01, procedure: probe implant, label: ephys, target: CA1}\n')
     return root
 
 
@@ -98,8 +102,7 @@ def test_openephys_start_from_sync_messages(tmp_path):
 
 def test_plan_files_and_jobs(tree, tmp_path):
     root = tree / 'raw'
-    sessions, subjects = batch.metadata_tables(root)
-    table, skipped = batch.plan(raw.scan(root), root, sessions, subjects, batch_size=2)
+    table, skipped = batch.plan(raw.scan(root), root, batch_size=2)
     assert skipped == []
     by_id = table.set_index('job_id')
     assert list(table['job_id']) == [
@@ -107,7 +110,7 @@ def test_plan_files_and_jobs(tree, tmp_path):
         'photometry-b02-M1-D1-OF1', 'cnmfe-b02-M1-D2-HBT', 'kilosort4-b03-M1-D3',
         'lfp-b03-M1-D3']
     ks = by_id.loc['kilosort4-b01-M1-D1']
-    assert ks['session_start'] == '2026-11-01T09:30:00'         # from metadata/sessions.csv
+    assert ks['session_start'] == '2026-11-01T09:30:00'         # from the session file
     assert ks['gpu'] and ks['gpu_type'] == 'a16' and ks['ready']
     assert by_id.loc['kilosort4-b03-M1-D3', 'session_start'] == '2026-11-03T10:00:05'  # file
     s2p = by_id.loc['suite2p-b01-M1-D1-OF1']
@@ -137,7 +140,8 @@ def test_plan_files_and_jobs(tree, tmp_path):
     assert spec['params'] == {'mouse': '1', 'day': 1, 'session_type': 'OF1',
                               'session_start': '2026-11-01T09:30:00',
                               'subject': {'sex': 'F', 'date_of_birth': '2026-06-01',
-                                          'strain': 'C57BL/6J'}}
+                                          'strain': 'C57BL/6J', 'genotype': 'wild type',
+                                          'species': 'Mus musculus'}}
     assert spec['resources']['gpu_type'] == 'a16'
     assert (made[0] / 'config' / 'ephys.yaml').exists()
     assert (made[2] / 'config' / 'imaging.yaml').exists()
@@ -147,10 +151,24 @@ def test_plan_files_and_jobs(tree, tmp_path):
     assert again[0] == [] and len(again[1]) == 3                  # made once only
 
 
-def test_plan_without_start_times_marks_jobs_not_ready(tree):
-    table, _ = batch.plan(raw.scan(tree / 'raw'), tree / 'raw')    # no metadata tables
+def test_plan_without_start_times_marks_jobs_not_ready(tree, tmp_path):
+    """A session with no start time in its files or its session file."""
+    import shutil
+    copy = tmp_path / 'raw'
+    shutil.copytree(tree / 'raw' / 'M1' / 'D1', copy / 'M1' / 'D1')
+    (copy / 'M1/D1/OF1/sub-M1_ses-D1_typ-OF1_session.yaml').unlink()
+    table, _ = batch.plan(raw.scan(copy), copy)
     ks = table.set_index('job_id').loc['kilosort4-b01-M1-D1']
     assert not ks['ready'] and 'needs session_start' in ks['note']
+
+
+def test_describing_files_at_each_level(tree):
+    rec = raw.detect(tree / 'raw/M1/D1/OF1/sub-M1_ses-D1_typ-OF1_ephys', tree / 'raw')
+    info = raw.describing(tree / 'raw' / rec.path, rec)
+    assert info['session']['task'] == 'OF' and info['subject']['sex'] == 'F'
+    assert info['procedures'][0]['label'] == 'ephys' and info['cohort'] is None
+    assert set(info['paths']) == {'session', 'subject', 'procedures'}
+    assert raw.describing(tree / 'raw/M1/D1/OF1/sub-M1_ses-D1_typ-OF1_beh-rig.csv') == {}
 
 
 def test_session_table_names_recordings_outside_the_layout(tmp_path):
@@ -210,3 +228,27 @@ def test_cohort_level_and_collecting_outputs(tmp_path):
     assert command == ['rsync', '-a', (outputs / 'M7').as_posix(), f'{dest.as_posix()}/']
     [(_, _, remote)] = batch.collect_commands(table, 1, 'me@host:jobs', tmp_path / 'processed')
     assert remote[2] == f'me@host:jobs/{job_id}/outputs/M*'
+
+
+def test_the_data_template_matches_the_code():
+    """templates/data (the tree to copy onto the server): its example is
+    found and named as the docs say, its describing files are read, and the
+    templates hold every field Raphael reads."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / 'templates' / 'data'
+    for path in root.rglob('*.yaml'):
+        yaml.safe_load(path.read_text())                       # every file parses
+    [rec] = raw.scan(root / 'raw')
+    assert (rec.cohort, rec.mouse, rec.day, rec.session_type) == ('2027-01_2P-Testing', '1', 1,
+                                                                   'OF1')
+    assert rec.modality == 'two_photon' and 'no movie' in rec.note   # an empty example folder
+    info = raw.describing(root / 'raw' / rec.path, rec)
+    assert info['cohort']['cohort'] == rec.cohort
+    assert info['session']['start'] and info['subject']['sex']
+    assert [p['label'] for p in info['procedures'] if p.get('label')] == ['ophys', 'ophys']
+    templates = root / 'lab' / 'templates'
+    subject = yaml.safe_load((templates / 'subject.yaml').read_text())
+    assert set(batch.SUBJECT_KEYS) <= set(subject)
+    session = yaml.safe_load((templates / 'session.yaml').read_text())
+    assert {'start', 'task', 'experimenter', 'project'} <= set(session)

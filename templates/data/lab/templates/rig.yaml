@@ -1,0 +1,14 @@
+# lab/rigs/{rig}.yaml: one per rig. Devices and wiring, for syncing and for
+# the NWB device descriptions.
+
+rig:                    # the name used in session files, e.g. ephys-rig-1
+room:
+owner:                  # username
+acquisition:            # e.g. Open Ephys GUI 0.6.7 + Neuropixels PXI; Doric FP; Inscopix nVista3
+cameras:                # one entry each: label (as in video-{label}), model, fps, position
+  - {label: top, model: , fps: , position: }
+photometry:             # system, LEDs (nm), detectors
+microscope:             # model, objective, excitation_nm, emission_nm
+ttl:                    # which device sends pulses on which line, rate, width
+  - {line: 1, from: , to: , pulses: }
+notes:

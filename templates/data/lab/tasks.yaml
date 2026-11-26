@@ -1,0 +1,18 @@
+# Task codes: the letters of every session type (OF in OF1, HBT in HBT3).
+# One code means one task, for everyone. Add a code before its first
+# session; never reuse a code for something else.
+#   NWBFile.session_description starts from `description`
+#   NWBFile.stimulus_notes from `stimulus_notes`
+#
+# Example:
+#
+# OF:
+#   name: open field
+#   description: Free exploration of a 1 m x 1 m arena, 20 min.
+#   rig: ephys-rig-1                # usual rig (rigs/)
+#   protocol: protocols/open_field_v2.pdf
+#   stimulus_notes: No stimuli; distal cues on two walls.
+#   behaviour_files: [beh-rig, video-top]   # what a session of this task records
+#   owner: hclark
+
+{}
