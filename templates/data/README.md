@@ -50,7 +50,7 @@ example.
    which project, is written in the files, so one mouse can serve several
    projects and mistakes are fixed without moving recordings.
 5. **One code, one task.** Session types start with a task code from
-   `metadata/tasks.yaml`, so `OF` means the same thing for everyone.
+   `metadata/sessions.yaml`, so `OF` means the same thing for everyone.
 
 ## Adding data
 
@@ -65,7 +65,7 @@ it should look.**
 1. **Add yourself** to `metadata/people.yaml`: username, full name ("Last,
    First"), position, email, ORCID.
 2. **Check the codes you will use exist** in `metadata/`: your task in
-   `tasks.yaml` (e.g. `OF`), your project in `projects.yaml`, your rig in
+   `sessions.yaml` (e.g. `OF`), your project in `projects.yaml`, your rig in
    `rigs/`. If one is missing, ask its owner or the data manager to add it.
 
 ### What a hand-in contains
@@ -244,12 +244,12 @@ its outputs appear at the same path in `processed/`.
 
 Browse `raw/` and `processed/` by cohort, mouse, day and session, or open
 **`metadata/catalogue.csv`**: one row per session, with what it is (cohort,
-mouse, day, session, task, start, experimenter, project, rig, quality),
-what it recorded and how big it is, when it was added, and for each
-processing stage it needs (kilosort4, lfp, suite2p, cnmfe, photometry)
-when it was processed and by which Raphael version, or `to do`.
-`needs_processing` and `outdated` (its describing files changed since it
-was processed) flag what to run. Filter it in Excel or pandas
+mouse, day, session, start, task, project, experimenter), what it
+recorded (`modalities`) and how big it is, when it was added, its
+processing `status` (`processed`, `partly`, `to do`, `n/a`), when it was
+processed, with which `software` (e.g. `kilosort 4.0.16`, `suite2p 1.1.0`,
+`CaImAn 1.13.2`) and which `raphael` release, and whether it is
+`outdated` (its describing files changed since). Filter it in Excel or pandas
 (`pd.read_csv(path, comment='#')`) to find every session of a project, a
 task or a person. It is rebuilt whenever data is added or processed;
 never edit it.

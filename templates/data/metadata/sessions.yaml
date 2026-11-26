@@ -1,0 +1,23 @@
+# The kinds of session the lab runs, by code: the letters of every session
+# type (OF in ses-OF1, HBT in ses-HBT3). One code means one kind of session,
+# for everyone. Add a code before its first session; never reuse a code for
+# something else. Use `discussion` for anything worth knowing about this
+# kind of session: how it changed, what to watch out for, open questions.
+#   NWBFile.session_description starts from `description`
+#   NWBFile.stimulus_notes from `stimulus_notes`
+#
+# Example:
+#
+# OF:
+#   name: open field
+#   description: Free exploration of a 1 m x 1 m arena, 20 min.
+#   rig: ephys-rig-1                # usual rig (rigs/)
+#   protocol: protocols/open_field_v2.pdf
+#   stimulus_notes: No stimuli; distal cues on two walls.
+#   records: [ephys, video-top, beh-rig]   # what a session of this kind records
+#   owner: hclark
+#   discussion: >
+#     From 2026-04 the arena floor is cleaned with 70 % ethanol between mice
+#     (before: water). Sessions under 15 min are marked quality: usable.
+
+{}

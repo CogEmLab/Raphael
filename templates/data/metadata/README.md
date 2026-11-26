@@ -6,11 +6,11 @@ session's own folder under `raw/` (see `raw/README.md`).
 
 | file | what | edited by |
 |---|---|---|
-| `catalogue.csv` | **every session in `raw/`, one row each**: what it is, what it recorded, when it was added, and for each processing stage it needs, when it was processed and by which Raphael version (or `to do`); `needs_processing`, `outdated` | **generated**: rebuilt by ingest and `raphael-jobs collect` (or `raphael-data catalogue`); never edit |
+| `catalogue.csv` | **every session in `raw/`, one row each**: what it is, what it recorded, when it was added, its processing status, when it was processed, with which software and Raphael release, and whether it is outdated | **generated**: rebuilt by ingest and `raphael-jobs collect` (or `raphael-data catalogue`); never edit |
 | `lab.yaml` | lab name, institution, PI, timezone, default licence | data managers |
 | `people.yaml` | everyone named in the tree: full name, email, ORCID, roles | each person adds themselves |
 | `projects.yaml` | projects: description, members, animal licence, funding, publications | project owners |
-| `tasks.yaml` | task codes (`OF`, `VR`, `HBT`): what each task is | task owners; a code before its first session |
+| `sessions.yaml` | the kinds of session, by code (`OF`, `VR`, `HBT`): what each is, its protocol, and a `discussion` of anything worth knowing about it | their owners; a code before its first session |
 | `rigs/{rig}.yaml` | each rig's devices, cameras, probes, TTL wiring | rig owners |
 | `templates/` | blank files to copy when adding a cohort, mouse, procedure, session or rig | |
 

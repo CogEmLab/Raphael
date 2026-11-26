@@ -43,7 +43,7 @@ and renames the recordings. If something doesn't match, it tells you.
   has day 1, so a session on a new date is day 2. Two sessions on the same
   date share the day.
 - **Run** (`ses-OF1`): the first open field of that day is `OF1`, a second
-  one `OF2`. Task codes (`OF`, `HAB`) must be in `metadata/tasks.yaml`.
+  one `OF2`. Task codes (`OF`, `HAB`) must be in `metadata/sessions.yaml`.
 
 The cohort, subject and procedures files are the same ones each time: keep
 your copies and hand them in again. Change them when something changes

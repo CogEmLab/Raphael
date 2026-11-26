@@ -12,10 +12,14 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 ### Added
 - `data/` holds four folders: `incoming/`, `raw/`, `processed/` and
   `metadata/` (the lab's lists, templates and the catalogue; `lab/` and
-  `index/` are gone). `metadata/catalogue.csv` lists every raw session, one
-  row each: what it is, what it recorded, when it was added, and for each
-  default stage when it was processed and by which Raphael version, or
-  `to do`, with `needs_processing` and `outdated` flags. Built by
+  `index/` are gone; `tasks.yaml` is now `sessions.yaml`, describing each
+  kind of session, with a `discussion` field). `metadata/catalogue.csv`
+  lists every raw session, one row each: what it is, its modalities, when
+  it was added, its processing `status`, when it was processed, the main
+  `software` and version (kilosort, suite2p, CaImAn, spikeinterface), the
+  `raphael` release (or version+commit when run from a checkout), and
+  whether it is `outdated`. The cnmfe stage records CaImAn's version in its
+  summary. Built by
   `raphael.dataserver.catalogue` (`raphael-data catalogue`, a new command)
   and rebuilt by `raphael-jobs collect` on the data server.
 - New names for every session folder and file, raw and processed:

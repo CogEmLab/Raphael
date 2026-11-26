@@ -29,10 +29,12 @@ SESSION_DIRS = (
      True),
 )
 VIDEO = ('.mp4', '.avi', '.mov', '.mkv')
-COLUMNS = (['cohort', 'mouse', 'day', 'session', 'task', 'start', 'experimenter', 'project',
-            'rig', 'quality', 'modalities', 'raw_gb', 'ingested']
-           + [c for s in STAGES for c in (s, f'{s}_version')]
-           + ['needs_processing', 'outdated', 'raw_path', 'notes'])
+#: Each stage's main software: the package whose version the catalogue shows.
+SOFTWARE = {'kilosort4': 'kilosort', 'lfp': 'spikeinterface', 'suite2p': 'suite2p',
+            'cnmfe': 'CaImAn', 'photometry': 'raphael'}
+COLUMNS = ['cohort', 'mouse', 'day', 'session', 'start', 'task', 'project', 'experimenter',
+           'modalities', 'raw_gb', 'ingested', 'status', 'processed_on', 'software', 'raphael',
+           'outdated', 'quality', 'notes', 'raw_path']
 
 
 def sessions(raw_root):
@@ -84,19 +86,55 @@ def _modalities(folder):
     return sorted(found)
 
 
+def _raphael(record):
+    """The Raphael that made a run: its release (`0.5.0`), or, when it ran
+    from a code checkout, the version and commit (`0.5.0+3d947b6`, with
+    `-dirty` for uncommitted changes)."""
+    info = record.get('raphael') or {}
+    version, git = info.get('version') or '?', info.get('git') or {}
+    if git.get('tag') or not git.get('commit'):
+        return version
+    return f"{version}+{git['commit'][:7]}" + ('-dirty' if git.get('dirty') else '')
+
+
+def _software(stage, record, folder):
+    """'kilosort 4.0.16': a run's main software and its version."""
+    name = SOFTWARE.get(stage, stage)
+    if stage == 'photometry':
+        return 'Raphael photometry'
+    if stage == 'cnmfe':                 # CaImAn runs in its own environment: its summary
+        summary = _json(Path(folder) / 'cnmfe_summary.json')
+        version = (summary or {}).get('caiman')
+    else:
+        version = ((record.get('environment') or {}).get('packages') or {}).get(name)
+    label = f'{name} {version}' if version else f'{name} (version not recorded)'
+    return f'{label} ({stage})' if stage == 'lfp' else label
+
+
+def _json(path):
+    try:
+        return json.loads(Path(path).read_text())
+    except (OSError, ValueError):
+        return None
+
+
 def _runs(processed_folder):
-    """{stage: (finished, raphael version)} of the latest run of each stage,
-    from a processed session folder's provenance records."""
-    runs = {}
-    for record in sorted(Path(processed_folder, 'provenance').glob('*.json')):
-        try:
-            p = json.loads(record.read_text())
-        except (OSError, ValueError):
-            continue
-        stage, finished = p.get('stage'), p.get('finished') or ''
-        if stage and finished >= runs.get(stage, ('', ''))[0]:
-            runs[stage] = (finished, (p.get('raphael') or {}).get('version') or '')
+    """{stage: {'finished', 'raphael', 'software'}} of the latest run of each
+    stage, from a processed session folder's provenance records."""
+    runs, folder = {}, Path(processed_folder, 'provenance')
+    for path in sorted(folder.glob('*.json')):
+        p = _json(path)
+        if not p or not p.get('stage') or not p.get('finished'):
+            continue                      # a stage's summary, not a provenance record
+        stage = p['stage']
+        if p['finished'] >= runs.get(stage, {}).get('finished', ''):
+            runs[stage] = {'finished': p['finished'], 'raphael': _raphael(p),
+                           'software': _software(stage, p, folder)}
     return runs
+
+
+def _unique(values):
+    return '; '.join(dict.fromkeys(v for v in values if v))
 
 
 def _row(root, cohort, session, folder):
@@ -113,23 +151,28 @@ def _row(root, cohort, session, folder):
     ingested = _text(described.get('ingested')) or (
         datetime.fromtimestamp(manifest.stat().st_mtime).date().isoformat()
         if manifest.is_file() else '')
+    ran = [s for s in STAGES if s in done]
+    if not expected:
+        status = 'n/a'
+    elif expected <= set(done):
+        status = 'processed'
+    else:
+        status = 'partly' if expected & set(done) else 'to do'
+    last = max((done[s]['finished'] for s in ran), default='')
     row = {
         'cohort': cohort or '', 'mouse': session.mouse, 'day': int(session.day),
-        'session': session.session_type, 'task': _text(described.get('task')),
-        'start': _text(described.get('start')),
+        'session': session.session_type,
+        'start': _text(described.get('start')).replace('T', ' ')[:16],
+        'task': _text(described.get('task')), 'project': _text(described.get('project')),
         'experimenter': _text(described.get('experimenter')),
-        'project': _text(described.get('project')), 'rig': _text(described.get('rig')),
-        'quality': _text(described.get('quality')), 'modalities': ' '.join(modalities),
-        'raw_gb': round(_size(folder) / 1e9, 2), 'ingested': ingested,
-        'raw_path': folder.relative_to(root).as_posix(),
+        'modalities': ' '.join(modalities), 'raw_gb': round(_size(folder) / 1e9, 2),
+        'ingested': ingested, 'status': status, 'processed_on': last[:10],
+        'software': _unique(done[s]['software'] for s in ran),
+        'raphael': _unique(done[s]['raphael'] for s in ran),
+        'quality': _text(described.get('quality')),
         'notes': _text(described.get('notes')).replace('\n', ' '),
+        'raw_path': folder.relative_to(root).as_posix(),
     }
-    for stage in STAGES:
-        finished, version = done.get(stage, ('', ''))
-        row[stage] = finished[:10] if finished else ('to do' if stage in expected else '')
-        row[f'{stage}_version'] = version
-    row['needs_processing'] = 'yes' if any(row[s] == 'to do' for s in STAGES) else ''
-    last = max((f for f, _ in done.values()), default='')
     if last:
         last_run = datetime.fromisoformat(last)
         changed = [datetime.fromtimestamp(Path(p).stat().st_mtime, UTC)

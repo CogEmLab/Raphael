@@ -7,7 +7,7 @@
 #   BIDS sub-*_sessions.tsv (listed in metadata/catalogue.csv)
 
 start:                  # * local start time, e.g. 2026-03-14T10:05:00 (NWB session_start_time)
-task:                   # * task code (metadata/tasks.yaml), e.g. OF for session type OF1
+task:                   # * task code (metadata/sessions.yaml), e.g. OF for session type OF1
 experimenter: []        # * usernames, e.g. [hclark]
 project:                # * project code (metadata/projects.yaml)
 rig:                    # rig (metadata/rigs/), e.g. ephys-rig-1

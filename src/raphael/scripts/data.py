@@ -28,8 +28,8 @@ def main():
         if root is None:
             raise SystemExit(f'{args.root} is not inside a data/ folder (with raw/ and metadata/)')
         rows = dataserver.catalogue(root)
-        todo = sum(r['needs_processing'] == 'yes' for r in rows)
-        print(f'{len(rows)} sessions ({todo} need processing) -> '
+        todo = sum(r['status'] in ('to do', 'partly') for r in rows)
+        print(f'{len(rows)} sessions ({todo} to process) -> '
               f'{root / "metadata" / dataserver.CATALOGUE}')
 
 

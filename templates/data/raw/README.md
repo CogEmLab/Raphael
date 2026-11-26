@@ -30,7 +30,7 @@ raw/{cohort}/
 | `{cohort}` | the animals run together: `YYYY-MM_{label}` (month it started, short label) | `2026-03_dHPC-place` |
 | `sub-M{mouse}` | the mouse's lab-wide ID | `sub-M10432` |
 | `day-{dd}` | day of experiment for that mouse, two digits: day-01 = its first recorded day, in any project | `day-04` |
-| `ses-{type}` | task code (`metadata/tasks.yaml`) + run number that day | `ses-OF1`, `ses-OF2`, `ses-VR1` |
+| `ses-{type}` | task code (`metadata/sessions.yaml`) + run number that day | `ses-OF1`, `ses-OF2`, `ses-VR1` |
 | `-{label}` | which one, when a session has several of a kind | `video-top`, `photometry-dHPC`, `ephys-probeA` |
 
 The describing files are written from `metadata/templates/`; each template says
@@ -46,7 +46,7 @@ worked example.
   procedure labelled `dHPC`. With one recording of a kind, the label is the
   modality (`ephys`, `ophys`, `photometry`).
 - Nothing is written twice: the mouse's sex is in its subject file only,
-  the task's description in `metadata/tasks.yaml` only.
+  the task's description in `metadata/sessions.yaml` only.
 
 ## Naming rules
 

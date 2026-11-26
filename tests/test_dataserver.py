@@ -42,24 +42,38 @@ def test_catalogue(tmp_path):
     done.mkdir(parents=True)
     (done / 'photometry-b01.json').write_text(json.dumps(
         {'stage': 'photometry', 'finished': '2026-03-20T09:00:00+00:00',
-         'raphael': {'version': '0.5.0'}}))
+         'raphael': {'version': '0.5.0', 'git': {'tag': 'v0.5.0'}}}))
+    ks = root / 'processed/2026-03_dHPC/sub-M2/day-01/ses-OF1'          # an ephys session
+    ephys = root / 'raw/2026-03_dHPC/sub-M2/day-01/ses-OF1/sub-M2_day-01_ses-OF1_ephys'
+    (ephys / 'Record Node 101').mkdir(parents=True)
+    (ks / 'provenance').mkdir(parents=True)
+    (ks / 'provenance' / 'kilosort4-b01.json').write_text(json.dumps(
+        {'stage': 'kilosort4', 'finished': '2026-03-21T12:00:00+00:00',
+         'raphael': {'version': '0.5.0', 'git': {'commit': '3d947b6abc', 'dirty': False}},
+         'environment': {'packages': {'kilosort': '4.0.16'}}}))
+    (ks / 'provenance' / 'kilosort4_summary.json').write_text('{"units": 3}')   # not a record
 
     rows = dataserver.catalogue(root)
     table = read(root / 'metadata' / 'catalogue.csv')
-    assert len(rows) == len(table) == 3
+    assert len(rows) == len(table) == 4
+    assert list(table[0]) == dataserver.COLUMNS
     by = {(r['cohort'], r['mouse'], r['day'], r['session']): r for r in table}
     of1 = by['2026-03_dHPC', '1', '1', 'OF1']
     assert of1['modalities'] == 'photometry video' and of1['task'] == 'OF'
-    assert of1['experimenter'] == 'jsmith' and of1['notes'] == 'cable twisted'
-    assert of1['photometry'] == '2026-03-20' and of1['photometry_version'] == '0.5.0'
-    assert of1['kilosort4'] == '' and of1['needs_processing'] == ''
+    assert of1['start'] == '2026-03-14 10:05' and of1['experimenter'] == 'jsmith'
+    assert of1['notes'] == 'cable twisted' and of1['status'] == 'processed'
+    assert of1['processed_on'] == '2026-03-20' and of1['software'] == 'Raphael photometry'
+    assert of1['raphael'] == '0.5.0'                   # an installed release
+    m2 = by['2026-03_dHPC', '2', '1', 'OF1']
+    assert m2['status'] == 'partly'                    # kilosort4 ran, lfp hasn't
+    assert m2['software'] == 'kilosort 4.0.16' and m2['raphael'] == '0.5.0+3d947b6'
     assert of1['outdated'] == 'yes'                    # the describing files are newer
     assert of1['raw_path'] == 'raw/2026-03_dHPC/sub-M1/day-01/ses-OF1'
     hab = by['2026-03_dHPC', '1', '2', 'HAB1']
-    assert hab['modalities'] == 'video' and hab['needs_processing'] == ''
+    assert hab['modalities'] == 'video' and hab['status'] == 'n/a'
     old = by['2024-05_old', '7', '3', 'HBT1']
-    assert old['modalities'] == 'one_photon' and old['cnmfe'] == 'to do'
-    assert old['needs_processing'] == 'yes'
+    assert old['modalities'] == 'one_photon' and old['status'] == 'to do'
+    assert old['software'] == '' and old['processed_on'] == ''
 
     old_time = 1700000000                              # 2023: before the processing run
     for f in (s1 / 'sub-M1_day-01_ses-OF1_session.yaml', mouse / 'sub-M1_subject.yaml'):

@@ -103,7 +103,7 @@ raw/{cohort}/
   file.
 - **`ses-{type}`** is a **registered task code plus a run number** (`OF1`,
   `OF2`, `VR1`, `HBT3`). Every task code is defined once in
-  `metadata/tasks.yaml`, so `OF` means the same arena and protocol for everyone;
+  `metadata/sessions.yaml`, so `OF` means the same arena and protocol for everyone;
   ingest refuses codes that aren't registered. Two runs of a task on one
   day are `OF1`, `OF2`. A task's own progression (day 3 of the helping
   test) goes in the run number, not in the day.
@@ -137,7 +137,7 @@ raw/{cohort}/
 YAML, one per level, written from the blank templates in `metadata/templates/`
 (each field's comment says where it goes in NWB). **Each fact is written
 once, at the level it belongs to**: the mouse's sex in its subject file
-only, a task's description in `metadata/tasks.yaml` only.
+only, a task's description in `metadata/sessions.yaml` only.
 
 | file | written | holds | becomes |
 |---|---|---|---|
@@ -214,8 +214,9 @@ metadata/
 │                      affiliation, DANDI roles, joined, left                DANDI contributors
 ├── projects.yaml      code: name, owner, members, description, keywords,   NWB experiment_description,
 │                      animal licence, funding, publications, dandiset       keywords, protocol, publications
-├── tasks.yaml         code: name, description, rig, protocol, stimulus      NWB session_description,
-│                      notes, what a session records, owner                  stimulus_notes
+├── sessions.yaml      the kinds of session, by code: name, description,     NWB session_description,
+│                      rig, protocol, stimulus notes, what it records,       stimulus_notes
+│                      owner, discussion
 ├── rigs/{rig}.yaml    devices, cameras, photometry, microscope, TTL wiring  NWB devices; sync
 └── templates/         cohort, subject, procedures, session, rig
 ```
@@ -233,15 +234,19 @@ resolve.
 files, the manifests in `raw/` and the provenance records in `processed/`,
 so it can't disagree with the data. Its first line says when it was built.
 
-| columns | from |
-|---|---|
-| `cohort`, `mouse`, `day`, `session`, `raw_path` | the session's folder |
-| `task`, `start`, `experimenter`, `project`, `rig`, `quality`, `notes` | its session file |
-| `modalities`, `raw_gb` | detection, and file sizes (recordings are not read) |
-| `ingested` | the session file (written by ingest), else the manifest's date |
-| `kilosort4`, `lfp`, `suite2p`, `cnmfe`, `photometry`, each with `_version` | the provenance in `processed/`: the date of the latest run and the Raphael version; `to do` when the session's modalities need the stage and it hasn't run; blank when it doesn't apply |
-| `needs_processing` | any stage `to do` |
-| `outdated` | a describing file changed after the latest processing run |
+| column | example | from |
+|---|---|---|
+| `cohort`, `mouse`, `day`, `session` | `2026-03_dHPC`, `10432`, `4`, `OF1` | the session's folder |
+| `start` | `2026-03-14 10:05` | its session file |
+| `task`, `project`, `experimenter` | `OF`, `place-cells`, `jsmith` | its session file |
+| `modalities` | `neuropixels video` | detection |
+| `raw_gb`, `ingested` | `86.4`, `2026-03-15` | file sizes (recordings are not read); ingest |
+| `status` | `processed`, `partly`, `to do`, `n/a` | which of the stages its modalities need have run |
+| `processed_on` | `2026-03-20` | the latest run (provenance in `processed/`) |
+| `software` | `kilosort 4.0.16; spikeinterface 0.104.9 (lfp)` | each stage's main software and version: kilosort, suite2p, CaImAn, spikeinterface (lfp), Raphael (photometry) |
+| `raphael` | `0.5.0`, or `0.5.0+3d947b6` | the Raphael release that made it, or the version and commit when it ran from a code checkout instead of a release |
+| `outdated` | `yes` | a describing file changed after the latest run |
+| `quality`, `notes`, `raw_path` | | its session file, its folder |
 
 It is where to look for what has been recorded, what is waiting to be
 processed, and what was processed with an older Raphael. Filter it in
@@ -445,7 +450,7 @@ on the server would double the largest files (Neuropixels runs at about
 - **Mouse IDs:** the animal facility's IDs, or IDs the lab hands out at
   registration; and how existing datasets (M20–M29, M5592, M8472, …) map
   onto them.
-- **Task codes:** who keeps `metadata/tasks.yaml`, and the first list of codes.
+- **Task codes:** who keeps `metadata/sessions.yaml`, and the first list of codes.
 - **Ingest:** writing `raphael-data ingest`, which also rebuilds the catalogue.
 - **Cohort names:** renaming existing cohorts (`May_2024` →
   `2024-05_…`) when they are ingested.
