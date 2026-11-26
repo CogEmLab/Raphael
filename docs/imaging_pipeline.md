@@ -1,5 +1,8 @@
 # In vivo two-photon imaging pipeline
 
+The default pipeline for these recordings; how to run it on your data is in
+[processing.md](processing.md).
+
 Raw two-photon movies go in. Out comes one processed, publishable NWB file
 per session, laid out like the clark2025 ephys dataset, with pynapple files
 alongside for fast analysis.

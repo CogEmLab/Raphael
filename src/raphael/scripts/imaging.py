@@ -10,14 +10,6 @@ Usage:
     raphael-imaging validate ROOT_OR_FILES...
     raphael-imaging inscopix-sessions RAW_ROOT --out sessions.csv
     raphael-imaging port-helping-behaviour --analysis DIR --raw-table T.csv... --out OUT
-    raphael-imaging cnmfe-plan --sessions S.csv [--subjects SUBJ.csv] --data-root RAW --out plan.csv
-    raphael-imaging cnmfe-files plan.csv --batch N [--data-root RAW] > batchN.txt
-    raphael-imaging cnmfe-jobs plan.csv --batch N --data-root DATA --jobs JOBS
-
-`cnmfe-plan`, `cnmfe-files` and `cnmfe-jobs` run many Inscopix sessions
-through the `cnmfe` job stage in batches (docs/msc_cluster.md section 11):
-plan every session's job, copy one batch's movies, make its jobs on the
-cluster.
 
 `port-helping-behaviour` is TEMPORARY: it ports the earlier helping-behaviour
 analysis's CaImAn models and tracking into the processed tree
@@ -133,46 +125,6 @@ def inscopix_sessions(root, out, settings, raw_only=True):
     return table
 
 
-def cnmfe_plan(sessions, subjects, data_root, out, settings, batch_size, batch_gb, cpus):
-    import pandas as pd
-
-    from raphael.imaging import cnmfe_batch
-
-    table, skipped = cnmfe_batch.plan(
-        pd.read_csv(sessions, dtype={'mouse': str}), data_root, settings,
-        subjects=pd.read_csv(subjects, dtype={'mouse': str}) if subjects else None,
-        batch_size=batch_size, batch_gb=batch_gb, cpus=cpus)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    table.to_csv(out, index=False)
-    for mouse, day, kind, why in skipped:
-        print(f'  skipped M{mouse} D{day} {kind}: {why}')
-    by_batch = table.groupby('batch').agg(sessions=('job_id', 'size'), raw_gb=('raw_gb', 'sum'),
-                                          max_mem_gb=('mem_gb', 'max'))
-    print(by_batch.to_string())
-    for note in sorted(set(table['note']) - {''}):
-        print(f'  {(table["note"] == note).sum()} sessions: {note}')
-    print(f'{len(table)} sessions in {table["batch"].nunique()} batches, '
-          f'{table["raw_gb"].sum() / 1000:.2f} TB of movies -> {out}')
-
-
-def cnmfe_jobs(plan_path, batch, data_root, jobs_root, config, cpus, hash_inputs):
-    from raphael.cluster import jobs
-    from raphael.imaging import cnmfe_batch
-
-    plan = cnmfe_batch.read_plan(plan_path)
-    try:
-        made, existing = cnmfe_batch.make_jobs(plan, batch, data_root, jobs_root, config,
-                                               cpus=cpus, hash_inputs=hash_inputs)
-    except jobs.JobError as e:
-        raise SystemExit(f'NOT MADE: {e}') from e
-    for job in made:
-        print(f'-> {job}')
-    for job in existing:
-        print(f'   {job} (already made)')
-    if not made and not existing:
-        raise SystemExit(f'batch {batch} is not in {plan_path}')
-
-
 def validate(paths):
     from nwbinspector import inspect_nwbfile
 
@@ -217,35 +169,7 @@ def main():
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--all', action='store_true',
                    help='include .isxd files written after acquisition (no session.json)')
-    p = sub.add_parser('cnmfe-plan', help='plan cnmfe jobs for many Inscopix sessions')
-    p.add_argument('--sessions', type=Path, required=True,
-                   help='one row per session: input (path under --data-root), mouse, day, '
-                        'session_type; optional sex, date_of_birth, strain')
-    p.add_argument('--subjects', type=Path, default=None,
-                   help='mouse, sex, date_of_birth, strain (fills those per session)')
-    p.add_argument('--data-root', type=Path, required=True)
-    p.add_argument('--out', type=Path, required=True)
-    p.add_argument('--batch-size', type=int, default=12,
-                   help='most sessions per batch (12: MSC runs 12 CPU jobs at a time)')
-    p.add_argument('--batch-gb', type=float, default=400,
-                   help='most GB of movies per batch (what the cluster disk holds at once)')
-    p.add_argument('--cpus', type=int, default=16)
-    p = sub.add_parser('cnmfe-files', help="the files to copy for one batch of a plan")
-    p.add_argument('plan', type=Path)
-    p.add_argument('--batch', type=int, required=True)
-    p.add_argument('--data-root', type=Path, default=None,
-                   help='add the small files beside each movie (.gpio, .imu, session.json)')
-    p = sub.add_parser('cnmfe-jobs', help="make one batch's cnmfe job bundles")
-    p.add_argument('plan', type=Path)
-    p.add_argument('--batch', type=int, required=True)
-    p.add_argument('--data-root', type=Path, required=True)
-    p.add_argument('--jobs', type=Path, required=True, help='folder the job bundles go in')
-    p.add_argument('--cpus', type=int, default=16)
-    p.add_argument('--no-hash', action='store_true',
-                   help='record input sizes only (checksums read every movie)')
     args = parser.parse_args()
-    if args.command.startswith('cnmfe-') and args.config == DEFAULT_CONFIG:
-        args.config = DEFAULT_CONFIG.with_name('imaging_1p.yaml')    # one-photon settings
 
     settings = load_settings(args.config)
     if args.command == 'inspect':
@@ -261,17 +185,6 @@ def main():
                                sessions={tuple(s) for s in args.session} if args.session else None)
     elif args.command == 'inscopix-sessions':
         inscopix_sessions(args.root, args.out, settings, raw_only=not args.all)
-    elif args.command == 'cnmfe-plan':
-        cnmfe_plan(args.sessions, args.subjects, args.data_root, args.out, settings,
-                   args.batch_size, args.batch_gb, args.cpus)
-    elif args.command == 'cnmfe-files':
-        from raphael.imaging import cnmfe_batch
-
-        print('\n'.join(cnmfe_batch.batch_files(cnmfe_batch.read_plan(args.plan), args.batch,
-                                               args.data_root)))
-    elif args.command == 'cnmfe-jobs':
-        cnmfe_jobs(args.plan, args.batch, args.data_root, args.jobs, args.config, args.cpus,
-                   not args.no_hash)
 
 
 if __name__ == '__main__':

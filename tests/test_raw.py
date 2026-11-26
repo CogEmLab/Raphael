@@ -1,0 +1,184 @@
+"""Raw recordings recognised from their files, and the plan, file lists and
+job bundles made from them (raphael.raw, raphael.cluster.batch). The raw
+tree is the toy dataset's (docs/data_server.md layout) plus small
+hand-written Inscopix and SpikeGLX recordings."""
+
+import json
+
+import numpy as np
+import pandas as pd
+import pytest
+import yaml
+from test_imaging_1p import write_isxd
+
+from raphael import raw, toy
+from raphael.cluster import batch, jobs
+from raphael.ephys.layout import Session
+
+
+@pytest.fixture(scope='module')
+def tree(tmp_path_factory):
+    """raw/ and metadata/ of one mouse: day 1 with Neuropixels (Open Ephys),
+    two-photon and photometry; day 2 a miniscope session; day 3 a SpikeGLX
+    session."""
+    root = tmp_path_factory.mktemp('lab')
+    toy.raw(root / 'raw', Session('1', '1', 'OF1'), duration=40.0, recording_duration_s=5.0,
+            imaging_duration_s=2.0, n_place=2, n_hd=1, n_speed=1, n_theta=1, n_event=1,
+            n_untuned=1, n_rois=2)
+    ophys = root / 'raw/M1/D2/HBT/sub-M1_ses-D2_typ-HBT_ophys'
+    ophys.mkdir(parents=True)
+    movie = np.random.default_rng(0).integers(0, 4000, (12, 8, 8)).astype(np.uint16)
+    write_isxd(ophys / 'video.isxd', movie)                        # 59.99 Hz
+    (ophys / 'video.gpio').write_bytes(b'g')
+    (ophys / 'session.json').write_text('{}')
+    probe = root / 'raw/M1/D3/VR/sub-M1_ses-D3_typ-VR_ephys/run_g0/run_g0_imec0'
+    probe.mkdir(parents=True)
+    (probe / 'run_g0_t0.imec0.ap.meta').write_text('fileCreateTime=2026-11-03T10:00:05\n')
+    (probe / 'run_g0_t0.imec0.ap.bin').write_bytes(b'\0' * 64)
+    (root / 'metadata').mkdir()
+    pd.DataFrame({'mouse': ['1', '1'], 'day': [1, 3], 'type': ['OF1', 'VR'],
+                  'start': ['2026-11-01T09:30:00', '2026-11-03T10:00:00']}).to_csv(
+        root / 'metadata/sessions.csv', index=False)
+    pd.DataFrame({'mouse': ['1'], 'sex': ['F'], 'date_of_birth': ['2026-06-01'],
+                  'strain': ['C57BL/6J']}).to_csv(root / 'metadata/subjects.csv', index=False)
+    return root
+
+
+def test_scan_recognises_every_modality(tree):
+    found = {(r.modality, r.format): r for r in raw.scan(tree / 'raw')}
+    assert set(found) == {('neuropixels', 'openephys'), ('neuropixels', 'spikeglx'),
+                          ('two_photon', 'tiff'), ('photometry', 'doric'),
+                          ('one_photon', 'inscopix')}
+    ephys = found['neuropixels', 'openephys']
+    assert ephys.path == 'M1/D1/OF1/sub-M1_ses-D1_typ-OF1_ephys'     # the wrapping folder
+    assert (ephys.mouse, ephys.day, ephys.session_type) == ('1', 1, 'OF1')
+    assert ephys.stages == ('kilosort4', 'lfp') and ephys.start is None   # toy: no date
+    assert found['neuropixels', 'spikeglx'].start == '2026-11-03T10:00:05'
+    tif = found['two_photon', 'tiff']
+    assert tif.path.endswith('_ophys/sub-M1_ses-D1_typ-OF1_ophys_00001.tif')
+    assert tif.rate_hz == 30.0 and tif.session_type == 'OF1'
+    assert found['photometry', 'doric'].start.startswith('2025-08-28T14:08:22')
+    one = found['one_photon', 'inscopix']
+    assert one.path == 'M1/D2/HBT/sub-M1_ses-D2_typ-HBT_ophys/video.isxd'
+    assert one.session_type == 'HBT' and one.rate_hz == pytest.approx(59.988, abs=0.01)
+    assert one.start.startswith('2024-06-05T17:13:10')
+
+
+def test_what_is_not_a_recording(tmp_path):
+    """Inscopix movies without nVista's session.json (conversions, IMU as
+    .isxd), Inscopix TIFF exports and stray TIFFs outside _ophys folders."""
+    movie = np.zeros((3, 4, 4), np.uint16)
+    write_isxd(tmp_path / 'converted_video.isxd', movie)
+    import tifffile
+    tifffile.imwrite(tmp_path / 'image.tif', movie)
+    assert raw.scan(tmp_path) == []
+    (tmp_path / 'session.json').write_text('{}')
+    tifffile.imwrite(tmp_path / 'converted_video.tif', movie)    # Inscopix's export
+    assert [r.format for r in raw.scan(tmp_path)] == ['inscopix']
+
+
+def test_unclosed_inscopix_movie_uses_its_recovered_copy(tmp_path):
+    (tmp_path / 'session.json').write_text('{}')
+    (tmp_path / 'a_video.isxd').write_bytes(b'\0' * 100)          # never closed
+    write_isxd(tmp_path / 'a_video_recovered.isxd', np.zeros((3, 4, 4), np.uint16))
+    [rec] = raw.scan(tmp_path)
+    assert rec.path == 'a_video_recovered.isxd' and rec.start
+    assert 'using a_video_recovered.isxd' in rec.note
+
+
+def test_openephys_start_from_sync_messages(tmp_path):
+    node = tmp_path / 'rec' / 'Record Node 101'
+    node.mkdir(parents=True)
+    (node / 'sync_messages.txt').write_text(
+        'Software Time (milliseconds since midnight Jan 1st 1970 UTC): 1762162205000\n')
+    rec = raw.detect(tmp_path / 'rec', tmp_path)
+    assert rec.format == 'openephys' and rec.start == '2025-11-03T10:30:05+01:00'
+
+
+def test_plan_files_and_jobs(tree, tmp_path):
+    root = tree / 'raw'
+    sessions, subjects = batch.metadata_tables(root)
+    table, skipped = batch.plan(raw.scan(root), root, sessions, subjects, batch_size=2)
+    assert skipped == []
+    by_id = table.set_index('job_id')
+    assert list(table['job_id']) == [
+        'kilosort4-b01-M1-D1', 'lfp-b01-M1-D1', 'suite2p-b01-M1-D1-OF1',
+        'photometry-b02-M1-D1-OF1', 'cnmfe-b02-M1-D2-HBT', 'kilosort4-b03-M1-D3',
+        'lfp-b03-M1-D3']
+    ks = by_id.loc['kilosort4-b01-M1-D1']
+    assert ks['session_start'] == '2026-11-01T09:30:00'         # from metadata/sessions.csv
+    assert ks['gpu'] and ks['gpu_type'] == 'a16' and ks['ready']
+    assert by_id.loc['kilosort4-b03-M1-D3', 'session_start'] == '2026-11-03T10:00:05'  # file
+    s2p = by_id.loc['suite2p-b01-M1-D1-OF1']
+    assert s2p['fs'] == 30.0 and s2p['ready']
+    cn = by_id.loc['cnmfe-b02-M1-D2-HBT']
+    assert not cn['gpu'] and cn['mem_gb'] == 16 and cn['sex'] == 'F'
+
+    path = tmp_path / 'plan.csv'
+    table.to_csv(path, index=False)
+    plan = batch.read_plan(path)
+    files = batch.batch_files(plan, 2, root)
+    assert 'M1/D2/HBT/sub-M1_ses-D2_typ-HBT_ophys/video.gpio' in files
+    assert 'M1/D2/HBT/sub-M1_ses-D2_typ-HBT_ophys/session.json' in files
+    ephys_files = batch.batch_files(plan, 3, root)
+    probe = 'M1/D3/VR/sub-M1_ses-D3_typ-VR_ephys/run_g0/run_g0_imec0'
+    assert ephys_files == [f'{probe}/run_g0_t0.imec0.ap.bin', f'{probe}/run_g0_t0.imec0.ap.meta']
+
+    site = yaml.safe_load(jobs.SITE_CONFIG.read_text())
+    site['paths'].update(repo='/cluster/repo', data='/cluster/data', jobs='/cluster/jobs')
+    (tmp_path / 'cluster.yaml').write_text(yaml.safe_dump(site))
+    made, _, not_ready = batch.make_jobs(plan, 1, root, tmp_path / 'jobs',
+                                         hash_inputs=False, site=tmp_path / 'cluster.yaml')
+    assert [j.name for j in made] == ['kilosort4-b01-M1-D1', 'lfp-b01-M1-D1',
+                                      'suite2p-b01-M1-D1-OF1'] and not not_ready
+    spec = jobs.load(made[0])
+    assert spec['stage'] == 'kilosort4'
+    assert spec['params'] == {'mouse': '1', 'day': 1, 'session_type': 'OF1',
+                              'session_start': '2026-11-01T09:30:00',
+                              'subject': {'sex': 'F', 'date_of_birth': '2026-06-01',
+                                          'strain': 'C57BL/6J'}}
+    assert spec['resources']['gpu_type'] == 'a16'
+    assert (made[0] / 'config' / 'ephys.yaml').exists()
+    assert (made[2] / 'config' / 'imaging.yaml').exists()
+    assert jobs.load(made[2])['params']['fs'] == 30.0
+    again = batch.make_jobs(plan, 1, root, tmp_path / 'jobs', hash_inputs=False,
+                            site=tmp_path / 'cluster.yaml')
+    assert again[0] == [] and len(again[1]) == 3                  # made once only
+
+
+def test_plan_without_start_times_marks_jobs_not_ready(tree):
+    table, _ = batch.plan(raw.scan(tree / 'raw'), tree / 'raw')    # no metadata tables
+    ks = table.set_index('job_id').loc['kilosort4-b01-M1-D1']
+    assert not ks['ready'] and 'needs session_start' in ks['note']
+
+
+def test_session_table_names_recordings_outside_the_layout(tmp_path):
+    """The helping-behaviour case: raw folders as recorded, names from a
+    table (the port's: cohort + raw_recording, type)."""
+    folder = tmp_path / 'May_2024' / 'some_session'
+    folder.mkdir(parents=True)
+    write_isxd(folder / 'm_video.isxd', np.zeros((6, 4, 4), np.uint16),
+               period=(25000, 1000000))                              # 40 Hz
+    (folder / 'session.json').write_text('{}')
+    found = raw.scan(tmp_path)
+    assert found[0].mouse is None
+    sessions = pd.DataFrame({'cohort': ['May_2024'], 'raw_recording': ['some_session/m_video.isxd'],
+                             'mouse': ['8472'], 'day': [6], 'type': ['HBTD3']})
+    table, skipped = batch.plan(found, tmp_path, sessions)
+    assert skipped == [] and list(table['job_id']) == ['cnmfe-b01-M8472-D6-HBTD3']
+    assert json.loads(table['params'][0]) == {'cnmfe': {'temporal_downsample': 1}}
+    assert '40.00 Hz kept at its own rate' in table['note'][0]
+    assert batch.plan(found, tmp_path)[1][0][0] == 'May_2024/some_session/m_video.isxd'
+
+
+def test_make_without_a_stage_reads_the_inputs(tree):
+    stage, params, resources, config, _ = batch.auto_job(
+        ['M1/D1/OF1/sub-M1_ses-D1_typ-OF1_photometry.doric'], tree / 'raw')
+    assert stage == 'photometry' and config.name == 'photometry.yaml'
+    assert params['session_type'] == 'OF1' and params['subject']['sex'] == 'F'
+    assert resources['gpu'] is False
+    stage, params, *_ = batch.auto_job(['M1/D1/OF1/sub-M1_ses-D1_typ-OF1_ephys'], tree / 'raw')
+    assert stage == 'kilosort4' and params['session_start'] == '2026-11-01T09:30:00'
+    assert batch.auto_job(['M1/D1/OF1/sub-M1_ses-D1_typ-OF1_ephys'], tree / 'raw',
+                          stage='lfp')[0] == 'lfp'
+    assert batch.auto_job(['M1/D1/OF1/sub-M1_ses-D1_typ-OF1_beh-rig.csv'], tree / 'raw') is None

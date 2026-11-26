@@ -1,5 +1,8 @@
 # In vivo Neuropixels pipeline
 
+The default pipeline for these recordings; how to run it on your data is in
+[processing.md](processing.md).
+
 Raw Neuropixels 2.0 recordings go in. Out comes one processed, publishable
 NWB file per session, plus the files mecpy and our analysis code load. The
 layout is the clark2025 tree, the same one the
@@ -67,6 +70,7 @@ as you need: behaviour, spikes, and (optionally, the heavy one) the LFP.
 {root}/M{mouse}/D{day}/{type}/
     sub-M{mouse}_ses-D{day}_typ-{type}_beh.nwb              all behaviour (as clark2025; planned)
     sub-..._typ-{type}_srt-kilosort4_clusters.npz           spike times, curation, waveforms, metrics
+    sub-..._typ-{type}_srt-kilosort4_bombcell_curation.json bombcell labels (spikeinterface curation file)
     sub-..._typ-{type}_lfp.nwb                              LFP and theta phase (lfp stage)
     qc/units.png
 ```
@@ -75,6 +79,7 @@ as you need: behaviour, spikes, and (optionally, the heavy one) the LFP.
 |---|---|---|
 | `_beh.nwb` | behaviour/sync step (planned) | tens of MB |
 | `_clusters.npz` | `kilosort4` stage (GPU) | tens of MB |
+| `_bombcell_curation.json` | `kilosort4` stage | tens of kB |
 | `_lfp.nwb` | `lfp` stage (CPU), optional | ~0.2–0.7 GB at the defaults; set by `lfp` settings |
 
 No raw voltage is in the processed dataset; it stays with the acquisition
@@ -125,9 +130,9 @@ mean = np.stack(good['waveform_mean'])                  # units x samples x 16, 
 
 ### What is not in the processed tree
 
-- **Sorting analysers (`.zarr`) and bombcell curation files** are working
-  files. Everything analysis needs from them is copied into
-  `_clusters.npz`. By default they are deleted after the run. With
+- **Sorting analysers (`.zarr`)** are working files. Everything analysis
+  needs from them is copied into `_clusters.npz`. By default they are
+  deleted after the run. With
   `postprocessing.keep_analyzer: true` they are kept in the job's
   `outputs/kilosort4/analyzers/`, outside the processed tree, e.g. to
   recompute metrics or recurate.

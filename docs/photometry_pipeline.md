@@ -1,5 +1,8 @@
 # Fibre photometry pipeline
 
+The default pipeline for these recordings; how to run it on your data is in
+[processing.md](processing.md).
+
 Doric recordings (`.doric`) to dF/F per fibre channel, in the same processed
 tree as ephys and imaging.
 

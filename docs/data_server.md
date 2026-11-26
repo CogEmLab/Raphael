@@ -48,7 +48,8 @@ trees:
 raw/M{mouse}/D{day}/{type}/
 ├── sub-M{m}_ses-D{d}_typ-{t}_ephys/                Open Ephys (Record Node …/) or
 │                                                   SpikeGLX (*_g0/), inside untouched
-├── sub-M{m}_ses-D{d}_typ-{t}_ophys/                ScanImage TIFF / Bruker, inside untouched
+├── sub-M{m}_ses-D{d}_typ-{t}_ophys/                ScanImage TIFF / Bruker, or an Inscopix .isxd
+│                                                   with its session.json, inside untouched
 ├── sub-M{m}_ses-D{d}_typ-{t}_photometry.doric
 ├── sub-M{m}_ses-D{d}_typ-{t}_video-{camera}.mp4    one per camera, e.g. video-top
 ├── sub-M{m}_ses-D{d}_typ-{t}_video-{camera}_timestamps.csv
@@ -108,12 +109,15 @@ processed/M{mouse}/D{day}/{type}/
 ```
 metadata/
 ├── subjects.csv      mouse, sex, date of birth, strain/genotype, surgeries, lab
-├── sessions.csv      mouse, day, type, date/time, rig, experimenter, modalities, notes
+├── sessions.csv      mouse, day, type, start, rig, experimenter, modalities, notes
 └── rigs/             probe maps, microscope and photometry settings per rig
 ```
 
 The NWB files take their subject and session fields from these tables, so
-they need to be complete before processing. These files are small and
+they need to be complete before processing. `start` is the session's start
+as ISO 8601 local time (`2026-11-03T10:00:00`); Raphael uses it for
+recordings whose files don't carry their own (`raphael-jobs plan` and
+`make` read these tables themselves, [processing.md](processing.md)). These files are small and
 change often. Keeping them under git (with Leonardo holding a checkout)
 gives a history of every edit **(open)**.
 

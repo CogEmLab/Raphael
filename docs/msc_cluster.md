@@ -303,6 +303,9 @@ with a relative error around 1e-6. Copy finished jobs back with
 
 ## 9. Process a movie with suite2p
 
+For processing data, follow [processing.md](processing.md); this section
+is the by-hand detail for this stage on MSC.
+
 Copy the movie to the cluster's data folder, keeping its path relative to
 your local data root. The `./` marks where the relative part starts:
 
@@ -340,6 +343,9 @@ size of the raw one), is deleted after the run to save space; pass
 `--param keep_binary=true` to keep it.
 
 ## 10. Process an Inscopix recording with CNMF-E
+
+For processing data, follow [processing.md](processing.md); this section
+is the by-hand detail for this stage on MSC.
 
 The `cnmfe` stage runs on the CPU partition. CaImAn is not in the main
 environment: it has its own, locked in Raphael
@@ -427,146 +433,33 @@ described in [imaging_1p_pipeline.md](imaging_1p_pipeline.md).
 
 ## 11. Process every session of a project, in batches
 
-For more sessions than one, three `raphael-imaging` commands do what
-section 10 does by hand. Each project's raw movies are far bigger than the
-free space on the shared filesystem (helping behaviour: 98 sessions, 6.7 TB),
-so the sessions go through in **batches**: copy a batch's movies, run its
-jobs, bring the outputs back, delete the movies, then the next batch.
+**[processing.md](processing.md) is the walkthrough**: `raphael-jobs
+detect`, `plan`, `files` and `make-batch` work out each recording's
+modality, stage, names, start time and resources, and run a project in
+batches. What matters on MSC:
 
-**Status (2026-11-26):** the plan, the file lists and the job bundles have
-been made and checked for the helping-behaviour sessions; one session has
-run on MSC (section 10). A whole batch has not been run yet: check the
-first batch's results before starting the second.
+- **Disk.** There is no scratch by default and home sits on the shared
+  filesystem, about 97% full (7.9 TB free for everyone, 2026-11-26). A
+  project's raw data is usually far larger (helping behaviour's miniscope
+  sessions: 6.7 TB), so keep to batches (`--batch-gb`, default 400 GB) and
+  delete each batch's raw copy once its outputs are back. With scratch
+  (section 4), set `paths.scratch` and `paths.data` in your personal
+  cluster config.
+- **Running jobs.** 12 CPU jobs and 6 GPU jobs run at a time; the rest
+  wait (`PD`). A batch of 12 recordings fills the CPU slots.
+- **Code.** Jobs run the cluster's checkout (`~/Raphael`, or your
+  project's): update it (section 6) before making jobs with new code, and
+  run commands there with `uv run --frozen --no-sync`.
+- **Copying** goes through the laptop (the share is not reachable from
+  MSC): time the first batch.
 
-The commands below use these names; set them once in each shell:
-
-```bash
-# on the laptop
-RAW=/Volumes/bigsharesanja/CogEm/Projects/helping_behavior/data/raw/dHPC_miniscope
-OUT=/Volumes/TEMP/helping_behavior_raphael        # the processed tree being built
-PLAN=$OUT/metadata/cnmfe_plan.csv
-```
-
-### Once: the plan (laptop)
-
-The plan is a table with one row per session: its job name and batch, the
-movie, the output names (mouse, day, session type), the subject, and the
-memory and hours its job asks for, worked out from each movie's own
-description (only the end of each file is read, so this takes seconds).
-
-```bash
-uv run raphael-imaging cnmfe-plan \
-    --sessions /Volumes/TEMP/helping_behavior/metadata/sessions.csv \
-    --subjects /Volumes/TEMP/helping_behavior/metadata/subjects.csv \
-    --data-root $RAW --out $PLAN
-```
-
-It prints each batch's number of sessions, GB of movies and largest
-memory request. A batch holds at most 12 sessions (MSC runs 12 CPU jobs at
-a time) and 400 GB of movies (`--batch-size`, `--batch-gb`). Open the CSV
-and check it: it is the one place to change a session's settings before
-its job is made (`mem_gb`, `hours`, or `cnmfe`, a JSON object of
-imaging_1p.yaml overrides). Sessions recorded at 40 Hz can't be binned to
-30 Hz, so the plan keeps them at their own rate (`note` says so).
-
-`--sessions` takes any table with columns `input` (the movie, relative to
-`--data-root`), `mouse`, `day` and `session_type`, and optionally `sex`,
-`date_of_birth`, `strain`. The helping-behaviour table above comes from the
-port (`cohort` + `raw_recording` stand in for `input`, `type` for
-`session_type`).
-
-Copy the plan to the cluster, and update the cluster's checkout of the
-code (section 6) if it is older than the plan commands:
-
-```bash
-rsync -a $PLAN <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:jobs/
-```
-
-### For each batch
-
-Batch 1 is shown; change `--batch 1`, `batch01` and `b01` for the others.
-
-**1. Copy the batch's movies (laptop).** `cnmfe-files` lists each movie and
-the small files recorded beside it (`.gpio`, `.imu`, `session.json`), not
-the folder, which may hold other large files (Inscopix TIFF exports).
-
-```bash
-uv run raphael-imaging cnmfe-files $PLAN --batch 1 --data-root $RAW > batch01.txt
-rsync -a --progress --files-from=batch01.txt $RAW/ \
-    <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:data/
-```
-
-The paths stay relative to `$RAW`, under `~/data` on the cluster, which is
-where jobs look (`paths.data`). Time the first batch: the copy (up to
-400 GB through the laptop) is likely the slowest part. If it is
-interrupted, run the same `rsync` again; it carries on.
-
-**2. Make the batch's jobs (cluster).** Making them here checksums the
-movies in seconds (on the laptop it would read each one over the share).
-On the cluster, `uv run` always gets `--frozen --no-sync`, as in the job
-scripts, so it uses the installed environment as it is.
-
-```bash
-cd ~/Raphael
-uv run --frozen --no-sync raphael-imaging cnmfe-jobs ~/jobs/cnmfe_plan.csv --batch 1 \
-    --data-root ~/data --jobs ~/jobs
-```
-
-This makes one bundle per session, `~/jobs/cnmfe-b01-M{mouse}-D{day}-{type}`.
-A job already made is left alone, so running it twice is harmless.
-
-**3. Submit them (cluster).**
-
-```bash
-for job in ~/jobs/cnmfe-b01-*/; do sbatch "$job/submit.slurm"; done
-squeue --me                          # PD = waiting, R = running
-```
-
-**4. Check them (cluster).** When they have left `squeue`:
-
-```bash
-uv run --frozen --no-sync raphael-jobs status ~/jobs | grep b01          # DONE or FAILED for each
-sacct -S today -u $USER -o JobName%40,State,Elapsed,MaxRSS,ReqMem | grep b01
-```
-
-For a FAILED job, read `~/jobs/JOB/status.json` and
-`~/jobs/JOB/logs/scheduler-*.out`. If it ran out of memory (or the stage
-stopped it, naming the `--mem-gb` to use): raise `mem_gb` for that session
-in the plan, copy the plan across again, delete the job folder
-(`rm -r ~/jobs/JOB`), and repeat steps 2 and 3 for the batch; only the
-missing job is made again. Note `MaxRSS` against `ReqMem`: if a long
-session used far less than it asked for, lower `MEMORY_FACTOR` (section 10)
-before the next plan.
-
-**5. Bring the outputs back (laptop).** Each job's `outputs/` holds its
-session's `M{mouse}/D{day}/{type}/` folder, so they merge into one tree:
-
-```bash
-rsync -a '<MUW-ID>@s0-l02.hpc.meduniwien.ac.at:jobs/cnmfe-b01-*/outputs/' $OUT/processed/
-ls $OUT/processed/M*/D*/*/*_src-cnmfe_ophys.nwb | wc -l      # sessions so far
-```
-
-Look at a few `qc/plane1_rois.png` (ROIs on the mean and correlation
-images) before deleting anything.
-
-**6. Delete the batch's movies (cluster).** Only once the outputs are on
-the laptop:
-
-```bash
-cd ~/Raphael
-uv run --frozen --no-sync raphael-imaging cnmfe-files ~/jobs/cnmfe_plan.csv --batch 1 --data-root ~/data \
-    | (cd ~/data && xargs -d '\n' rm -v)
-df -h ~                                                    # space back
-```
-
-The binned and motion-corrected movies are deleted by each job; the CaImAn
-model, its arrays and log stay in each job's `work/caiman/` (tens of MB).
-
-Then start the next batch at step 1. Steps 1 (copying batch 2) and 3-4
-(batch 1 running) can overlap, as long as both batches fit on the disk
-together (2 x 400 GB at most).
+The sections above and below show each stage's job made by hand, with every
+option; `raphael-jobs make` now fills most of them in from the inputs.
 
 ## 12. Spike-sort Neuropixels recordings with Kilosort 4
+
+For processing data, follow [processing.md](processing.md); this section
+is the by-hand detail for this stage on MSC.
 
 Kilosort 4.0.16 (the version in the Methods) is part of the environment
 installed in section 6 (`uv sync --frozen --extra gpu`).

@@ -67,6 +67,7 @@ project. To move something into Raphael, open a pull request with its tests.
 | | |
 |---|---|
 | [Getting started](docs/getting_started.md) | new laptop to running the examples |
+| **[Processing raw data](docs/processing.md)** | **start here to process recordings**: what Raphael recognises, planning and running every session on the cluster |
 | [Using Raphael from a project](docs/using_raphael.md) | imports, processing stages, project stages, settings, command reference |
 | [Neuropixels pipeline](docs/ephys_pipeline.md) · [walkthrough](docs/ephys_walkthrough.md) | spike sorting and LFP, file formats |
 | [Imaging pipeline](docs/imaging_pipeline.md) · [walkthrough](docs/imaging_walkthrough.md) | suite2p, file formats |

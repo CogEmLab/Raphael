@@ -1,5 +1,8 @@
 # One-photon (miniscope) imaging pipeline
 
+The default pipeline for these recordings; how to run it on your data is in
+[processing.md](processing.md).
+
 Raw Inscopix recordings go in. Out comes one processed, publishable NWB
 file per session, in the same tree and with the same names as the
 two-photon pipeline ([imaging_pipeline.md](imaging_pipeline.md)) and the
@@ -92,9 +95,10 @@ raphael-jobs make jobs/cnmfe-M8472-D6 --stage cnmfe --cpu --cpus 16 --mem-gb 64 
     --param 'subject={sex: M, date_of_birth: 2024-01-23, strain: C57BL/6J}'
 ```
 
-For a whole project, `raphael-imaging cnmfe-plan`, `cnmfe-files` and
-`cnmfe-jobs` make every session's job and run them in batches that fit the
-cluster's disk: [msc_cluster.md section 11](msc_cluster.md#11-process-every-session-of-a-project-in-batches).
+For a whole project, `raphael-jobs plan`, `files` and `make-batch` make
+every session's job and run them in batches that fit the cluster's disk:
+[processing.md](processing.md). `raphael-jobs make` without `--stage`
+fills in all of the above from the `.isxd`.
 
 The start time comes from the `.isxd`. The work folder is the site's
 scratch (`paths.scratch/{job_id}` in cluster.yaml), which is where the
@@ -169,6 +173,11 @@ behaviour clock (below) are next.
   (0.45 s more), so frame-for-frame matching can be off by up to that.
 - **An unclosed recording**: May_2024 HAB2, M8476 (41 GB) ends in zeros,
   with no Inscopix description; `inscopix-sessions` lists it with an error.
+- **Recovered copies.** Four other unclosed originals have a copy written by
+  Inscopix's recovery tool (`_recovered.isxd`, `_fixed.isxd`) beside them;
+  detection uses the copy and says so. Three of those copies report
+  62.5 Hz, not nVista's 59.99 Hz: check their frame times against the
+  behaviour before trusting them.
 
 ## The earlier analysis's outputs, ported (temporary)
 

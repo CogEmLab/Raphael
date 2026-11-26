@@ -47,15 +47,24 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
   Runs on CUDA, Apple GPUs and the CPU. New `cebra` extra (CEBRA 0.6.1,
   torch). Example notebook examples/ml_unified_cebra.ipynb; see docs/ml.md.
 
-- Many one-photon sessions through the cluster in batches that fit its
-  disk: `raphael-imaging cnmfe-plan` (one row per session: job, batch,
-  output names, subject, memory and hours from each movie's description;
-  40 Hz recordings kept at their own rate), `cnmfe-files` (a batch's movies
-  and the small files beside them, for `rsync --files-from`) and
-  `cnmfe-jobs` (the batch's bundles). Walkthrough in docs/msc_cluster.md
-  section 11.
+- Processing without naming the modality. `raphael.raw` recognises a
+  recording from its files (Open Ephys or SpikeGLX: Neuropixels; ScanImage
+  TIFF or a movie in `_ophys/`: two-photon; Inscopix `.isxd` with its
+  `session.json`: one-photon; `.doric`: photometry), with its start time
+  and frame rate from the files, and the mouse, day and session type from
+  the raw layout's path. `raphael-jobs detect` lists a raw folder;
+  `raphael-jobs make` without `--stage` fills in the stage, names, start
+  times (else from the layout's `metadata/sessions.csv`), subject,
+  resources and config. `raphael-jobs plan`, `files` and `make-batch` run
+  every recording of a project in batches that fit the cluster's disk (a
+  Neuropixels day as one job; 40 Hz miniscope movies kept at their own
+  rate; recovered Inscopix copies used when the original is unreadable).
+  New main page docs/processing.md, linking each pipeline's page.
 
 ### Changed
+- The `kilosort4` stage writes `_srt-kilosort4_bombcell_curation.json`
+  (the bombcell labels, spikeinterface curation format) into the processed
+  tree beside `_clusters.npz`, as in clark2025, instead of deleting it.
 - The `cnmfe` stage writes `cnmfe_summary.json` into the session's
   `provenance/` folder, so many jobs' outputs merge into one tree.
 - The imaging QC picture (`qc/plane{i}_rois.png`) shows the ROIs on both

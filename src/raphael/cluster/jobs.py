@@ -794,8 +794,9 @@ def kilosort4_stage(ctx):
 
     The processed tree gets, per session: _ecephys.nwb (units with spike
     times, waveforms, metrics, curation; electrodes), _clusters.npz,
-    _units.csv and qc/. Sorting analysers and bombcell curation files stay
-    out of it: deleted, or kept in outputs/kilosort4/analyzers/.
+    _units.csv, _bombcell_curation.json (spikeinterface curation format)
+    and qc/. Sorting analysers stay out of it: deleted, or kept in
+    outputs/kilosort4/analyzers/.
     """
     import os
     import time
@@ -854,7 +855,9 @@ def kilosort4_stage(ctx):
         analyzers[session_type] = srt.analyze(part, recording,
                                               session.analyzer(working, sorter), post)
         labels = srt.label(analyzers[session_type])
-        srt.write_curation(labels, session.curation(working, sorter))
+        # The bombcell labels as a spikeinterface curation file, in the processed
+        # tree beside _clusters.npz (as clark2025).
+        srt.write_curation(labels, session.curation(ctx.outputs, sorter))
         tables[session_type] = srt.units_table(analyzers[session_type], labels, part,
                                                 channels)
     srt.curate(tables, curation)
