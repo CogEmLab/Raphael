@@ -10,6 +10,7 @@
 #
 # hclark:
 #   name: "Lastname, Firstname"     # NWB/DANDI order: "Last, First"
+#   position: PhD student           # PI, postdoc, PhD student, technician, master's student, ...
 #   email: first.last@meduniwien.ac.at
 #   orcid: 0000-0000-0000-0000      # https://orcid.org
 #   affiliation: Medical University of Vienna
