@@ -1,5 +1,6 @@
-# EXAMPLE hand-in: a new mouse.
+# EXAMPLE
 mouse: 2
+cohort: 2027-01_2P-Testing
 alias:
 owner: hclark
 sex: M

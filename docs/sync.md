@@ -58,7 +58,7 @@ spike_clock = result.to_recording(beh['time'])
 ## What it writes
 
 ```
-{root}/M{mouse}/D{day}/{type}/
+{root}/sub-M{mouse}/day-{dd}/ses-{type}/
     sub-..._beh.csv          behaviour rows: `time` on the recording clock (s from
                              its first sample, as spike times), `time_behaviour`
                              the rig's own time, then the CSV's other columns

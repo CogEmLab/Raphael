@@ -218,10 +218,10 @@ From here on, arrays are **frames x ROIs** (the transpose of suite2p's).
 
 ```
 outputs/                                                  size (2000 frames)
-├── M17797/D7/scan4/                                      ← clark2025 layout
-│   ├── sub-M17797_ses-D7_typ-scan4_src-suite2p_ophys.nwb    81 MB
-│   ├── sub-M17797_ses-D7_typ-scan4_src-suite2p_traces.npz   27 MB
-│   ├── sub-M17797_ses-D7_typ-scan4_src-suite2p_rois.csv    0.5 MB
+├── sub-M17797/day-07/ses-scan4/                          ← the processed tree
+│   ├── sub-M17797_day-07_ses-scan4_src-suite2p_ophys.nwb    81 MB
+│   ├── sub-M17797_day-07_ses-scan4_src-suite2p_traces.npz   27 MB
+│   ├── sub-M17797_day-07_ses-scan4_src-suite2p_rois.csv    0.5 MB
 │   └── qc/plane1_rois.png
 ├── suite2p/plane0/            suite2p's own files (F, stat, iscell, ...)
 │                              for its GUI; 140 MB
@@ -311,7 +311,7 @@ the re-export step does not exist.
 import pandas as pd
 import pynapple as nap
 
-base = '~/jobs/M17797-D7-scan4/outputs/M17797/D7/scan4/sub-M17797_ses-D7_typ-scan4_src-suite2p'
+base = '~/jobs/M17797-D7-scan4/outputs/sub-M17797/day-07/ses-scan4/sub-M17797_day-07_ses-scan4_src-suite2p'
 dff = nap.load_file(f'{base}_traces.npz')            # TsdFrame, frames x ROIs
 rois = pd.read_csv(f'{base}_rois.csv')
 cells = dff[:, rois.roi[rois.accepted].to_numpy()]   # accepted cells only

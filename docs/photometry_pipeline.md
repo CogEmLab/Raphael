@@ -62,7 +62,7 @@ parameter is in `_photometry.csv` and in the NWB file.
 ## Output
 
 ```
-{root}/M{mouse}/D{day}/{type}/
+{root}/sub-M{mouse}/day-{dd}/ses-{type}/
     sub-..._photometry.nwb   raw channels (acquisition, V); {ch}_dff (%) and {ch}_zscore
                              (processing/photometry), fit parameters in comments
     sub-..._photometry.npz   TsdFrame: {ch}_dff, {ch}_zscore
@@ -73,7 +73,7 @@ parameter is in `_photometry.csv` and in the NWB file.
 
 ```python
 from raphael.photometry.nwb import load
-fp = load('/data/processed/M9418/D7/HBT4T2/sub-M9418_ses-D7_typ-HBT4T2')
+fp = load('/data/processed/sub-M9418/day-07/ses-HBT4T2/sub-M9418_day-07_ses-HBT4T2')
 fp.dff('green')            # pynapple Tsd, %
 fp.channels                # the table
 ```

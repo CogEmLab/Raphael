@@ -41,10 +41,22 @@ def test_baseline_tracks_slow_drift():
     assert np.nanmax(np.abs(dff(F, RATE))) < 0.02
 
 
-def test_session_paths_follow_clark2025():
+def test_session_paths_current_and_legacy(tmp_path):
     s = Session('17797', '7', 'scan4')
-    assert s.beh('/r').as_posix() == '/r/M17797/D7/scan4/sub-M17797_ses-D7_typ-scan4_beh.nwb'
-    assert s.ophys('/r', 'suite2p').name == 'sub-M17797_ses-D7_typ-scan4_src-suite2p_ophys.nwb'
+    assert s.beh('/r').as_posix() == (
+        '/r/sub-M17797/day-07/ses-scan4/sub-M17797_day-07_ses-scan4_beh.nwb')
+    assert s.ophys('/r', 'suite2p').name == 'sub-M17797_day-07_ses-scan4_src-suite2p_ophys.nwb'
+    assert Session('1', '100', 'VR1').stem == 'sub-M1_day-100_ses-VR1'
+    # The names used before 2026-11 (clark2025, mecpy) still resolve.
+    old = Session('17797', '7', 'scan4', legacy=True)
+    assert old.beh('/r').as_posix() == '/r/M17797/D7/scan4/sub-M17797_ses-D7_typ-scan4_beh.nwb'
+    assert Session.find(tmp_path, '17797', 7, 'scan4') == s            # nothing there: current
+    old.folder(tmp_path).mkdir(parents=True)
+    assert Session.find(tmp_path, '17797', 7, 'scan4') == old          # only legacy exists
+    assert Session.parse('/x/sub-M25_ses-D18_typ-OF1_srt-kilosort4_clusters.npz') == Session(
+        '25', '18', 'OF1', legacy=True)
+    assert Session.parse('sub-M1_day-04_ses-OF2_session.yaml') == Session('1', '4', 'OF2')
+    assert Session.parse('notes.txt') is None
 
 
 @pytest.fixture

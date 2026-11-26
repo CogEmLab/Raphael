@@ -220,8 +220,8 @@ into the processed tree, as an end-to-end test of the imaging output, and
 Every output lands in one tree, the same for every modality and project:
 
 ```
-{root}/M{mouse}/D{day}/{session_type}/
-    sub-M{mouse}_ses-D{day}_typ-{type}_beh.nwb            behaviour (project-written)
+{root}/sub-M{mouse}/day-{dd}/ses-{session_type}/
+    sub-M{mouse}_day-{dd}_ses-{type}_beh.nwb            behaviour (project-written)
     sub-..._srt-kilosort4_clusters.npz                    spikes, TsGroup + unit table
     sub-..._lfp.nwb                                       LFP and theta phase
     sub-..._src-suite2p_ophys.nwb / _traces.npz / _rois.csv

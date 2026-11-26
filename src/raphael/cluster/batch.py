@@ -328,21 +328,28 @@ def batch_files(plan_table, batch, data_root=None):
     return list(dict.fromkeys(files))
 
 
+#: rsync filters for a job's session folders (current and legacy names), and
+#: nothing else of outputs/ (stage working files, summaries).
+SESSION_FILTERS = ['--include=sub-M*/***', '--include=M*/***', '--exclude=*']
+
+
 def collect_commands(plan_table, batch, source, processed):
     """The `rsync` commands that copy one batch's outputs into the processed
-    tree: each job's `outputs/M*` (its sessions' folders) into
+    tree: each job's session folders (`outputs/sub-M…/`) into
     `processed/{cohort}/` (`processed/` when the plan has no cohort).
-    `source` is the jobs folder, local or remote (`user@host:jobs`)."""
+    `source` is the jobs folder, local or remote (`user@host:jobs`). Each
+    command lists what it copied (`--out-format`), so a job with nothing to
+    copy shows."""
     commands = []
     for row in plan_table[plan_table['batch'].astype(int) == int(batch)].to_dict('records'):
         dest = Path(processed) / _text(row.get('cohort')) if _text(row.get('cohort')) \
             else Path(processed)
-        if ':' in str(source) and not Path(source).exists():   # remote; its shell expands M*
-            sources = [f'{str(source).rstrip("/")}/{row["job_id"]}/outputs/M*']
+        if ':' in str(source) and not Path(source).exists():          # remote
+            src = f'{str(source).rstrip("/")}/{row["job_id"]}/outputs/'
         else:                                  # local ('/' paths: rsync's form everywhere)
-            outputs = Path(source) / row['job_id'] / 'outputs'
-            sources = [p.as_posix() for p in sorted(outputs.glob('M*'))]
-        commands.append((row['job_id'], dest, ['rsync', '-a', *sources, f'{dest.as_posix()}/']))
+            src = (Path(source) / row['job_id'] / 'outputs').as_posix() + '/'
+        commands.append((row['job_id'], dest, ['rsync', '-a', '--out-format=%n',
+                                               *SESSION_FILTERS, src, f'{dest.as_posix()}/']))
     return commands
 
 

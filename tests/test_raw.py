@@ -25,25 +25,25 @@ def tree(tmp_path_factory):
     toy.raw(root / 'raw', Session('1', '1', 'OF1'), duration=40.0, recording_duration_s=5.0,
             imaging_duration_s=2.0, n_place=2, n_hd=1, n_speed=1, n_theta=1, n_event=1,
             n_untuned=1, n_rois=2)
-    ophys = root / 'raw/M1/D2/HBT/sub-M1_ses-D2_typ-HBT_ophys'
+    ophys = root / 'raw/sub-M1/day-02/ses-HBT/sub-M1_day-02_ses-HBT_ophys'
     ophys.mkdir(parents=True)
     movie = np.random.default_rng(0).integers(0, 4000, (12, 8, 8)).astype(np.uint16)
     write_isxd(ophys / 'video.isxd', movie)                        # 59.99 Hz
     (ophys / 'video.gpio').write_bytes(b'g')
     (ophys / 'session.json').write_text('{}')
-    probe = root / 'raw/M1/D3/VR/sub-M1_ses-D3_typ-VR_ephys/run_g0/run_g0_imec0'
+    probe = root / 'raw/sub-M1/day-03/ses-VR/sub-M1_day-03_ses-VR_ephys/run_g0/run_g0_imec0'
     probe.mkdir(parents=True)
     (probe / 'run_g0_t0.imec0.ap.meta').write_text('fileCreateTime=2026-11-03T10:00:05\n')
     (probe / 'run_g0_t0.imec0.ap.bin').write_bytes(b'\0' * 64)
     # The describing files at each level (docs/data_server.md).
-    (root / 'raw/M1/D1/OF1/sub-M1_ses-D1_typ-OF1_session.yaml').write_text(
+    (root / 'raw/sub-M1/day-01/ses-OF1/sub-M1_day-01_ses-OF1_session.yaml').write_text(
         'start: 2026-11-01T09:30:00\ntask: OF\nexperimenter: [hclark]\n')
-    (root / 'raw/M1/D3/VR/sub-M1_ses-D3_typ-VR_session.yaml').write_text(
+    (root / 'raw/sub-M1/day-03/ses-VR/sub-M1_day-03_ses-VR_session.yaml').write_text(
         'start: 2026-11-03T10:00:00\ntask: VR\n')
-    (root / 'raw/M1/sub-M1_subject.yaml').write_text(
+    (root / 'raw/sub-M1/sub-M1_subject.yaml').write_text(
         'mouse: 1\nsex: F\ndate_of_birth: 2026-06-01\nspecies: Mus musculus\n'
         'strain: C57BL/6J\ngenotype: wild type\n')
-    (root / 'raw/M1/sub-M1_procedures.yaml').write_text(
+    (root / 'raw/sub-M1/sub-M1_procedures.yaml').write_text(
         '- {date: 2026-09-01, procedure: probe implant, label: ephys, target: CA1}\n')
     return root
 
@@ -54,17 +54,17 @@ def test_scan_recognises_every_modality(tree):
                           ('two_photon', 'tiff'), ('photometry', 'doric'),
                           ('one_photon', 'inscopix')}
     ephys = found['neuropixels', 'openephys']
-    assert ephys.path == 'M1/D1/OF1/sub-M1_ses-D1_typ-OF1_ephys'     # the wrapping folder
+    assert ephys.path == 'sub-M1/day-01/ses-OF1/sub-M1_day-01_ses-OF1_ephys'     # the wrapping folder
     assert (ephys.mouse, ephys.day, ephys.session_type) == ('1', 1, 'OF1')
-    assert ephys.cohort is None                       # raw/M1/...: no cohort level
+    assert ephys.cohort is None                       # raw/sub-M1/...: no cohort level
     assert ephys.stages == ('kilosort4', 'lfp') and ephys.start is None   # toy: no date
     assert found['neuropixels', 'spikeglx'].start == '2026-11-03T10:00:05'
     tif = found['two_photon', 'tiff']
-    assert tif.path.endswith('_ophys/sub-M1_ses-D1_typ-OF1_ophys_00001.tif')
+    assert tif.path.endswith('_ophys/sub-M1_day-01_ses-OF1_ophys_00001.tif')
     assert tif.rate_hz == 30.0 and tif.session_type == 'OF1'
     assert found['photometry', 'doric'].start.startswith('2025-08-28T14:08:22')
     one = found['one_photon', 'inscopix']
-    assert one.path == 'M1/D2/HBT/sub-M1_ses-D2_typ-HBT_ophys/video.isxd'
+    assert one.path == 'sub-M1/day-02/ses-HBT/sub-M1_day-02_ses-HBT_ophys/video.isxd'
     assert one.session_type == 'HBT' and one.rate_hz == pytest.approx(59.988, abs=0.01)
     assert one.start.startswith('2024-06-05T17:13:10')
 
@@ -122,10 +122,10 @@ def test_plan_files_and_jobs(tree, tmp_path):
     table.to_csv(path, index=False)
     plan = batch.read_plan(path)
     files = batch.batch_files(plan, 2, root)
-    assert 'M1/D2/HBT/sub-M1_ses-D2_typ-HBT_ophys/video.gpio' in files
-    assert 'M1/D2/HBT/sub-M1_ses-D2_typ-HBT_ophys/session.json' in files
+    assert 'sub-M1/day-02/ses-HBT/sub-M1_day-02_ses-HBT_ophys/video.gpio' in files
+    assert 'sub-M1/day-02/ses-HBT/sub-M1_day-02_ses-HBT_ophys/session.json' in files
     ephys_files = batch.batch_files(plan, 3, root)
-    probe = 'M1/D3/VR/sub-M1_ses-D3_typ-VR_ephys/run_g0/run_g0_imec0'
+    probe = 'sub-M1/day-03/ses-VR/sub-M1_day-03_ses-VR_ephys/run_g0/run_g0_imec0'
     assert ephys_files == [f'{probe}/run_g0_t0.imec0.ap.bin', f'{probe}/run_g0_t0.imec0.ap.meta']
 
     site = yaml.safe_load(jobs.SITE_CONFIG.read_text())
@@ -155,20 +155,20 @@ def test_plan_without_start_times_marks_jobs_not_ready(tree, tmp_path):
     """A session with no start time in its files or its session file."""
     import shutil
     copy = tmp_path / 'raw'
-    shutil.copytree(tree / 'raw' / 'M1' / 'D1', copy / 'M1' / 'D1')
-    (copy / 'M1/D1/OF1/sub-M1_ses-D1_typ-OF1_session.yaml').unlink()
+    shutil.copytree(tree / 'raw' / 'sub-M1' / 'day-01', copy / 'sub-M1' / 'day-01')
+    (copy / 'sub-M1/day-01/ses-OF1/sub-M1_day-01_ses-OF1_session.yaml').unlink()
     table, _ = batch.plan(raw.scan(copy), copy)
     ks = table.set_index('job_id').loc['kilosort4-b01-M1-D1']
     assert not ks['ready'] and 'needs session_start' in ks['note']
 
 
 def test_describing_files_at_each_level(tree):
-    rec = raw.detect(tree / 'raw/M1/D1/OF1/sub-M1_ses-D1_typ-OF1_ephys', tree / 'raw')
+    rec = raw.detect(tree / 'raw/sub-M1/day-01/ses-OF1/sub-M1_day-01_ses-OF1_ephys', tree / 'raw')
     info = raw.describing(tree / 'raw' / rec.path, rec)
     assert info['session']['task'] == 'OF' and info['subject']['sex'] == 'F'
     assert info['procedures'][0]['label'] == 'ephys' and info['cohort'] is None
     assert set(info['paths']) == {'session', 'subject', 'procedures'}
-    assert raw.describing(tree / 'raw/M1/D1/OF1/sub-M1_ses-D1_typ-OF1_beh-rig.csv') == {}
+    assert raw.describing(tree / 'raw/sub-M1/day-01/ses-OF1/sub-M1_day-01_ses-OF1_beh-rig.csv') == {}
 
 
 def test_session_table_names_recordings_outside_the_layout(tmp_path):
@@ -193,22 +193,22 @@ def test_session_table_names_recordings_outside_the_layout(tmp_path):
 
 def test_make_without_a_stage_reads_the_inputs(tree):
     stage, params, resources, config, _ = batch.auto_job(
-        ['M1/D1/OF1/sub-M1_ses-D1_typ-OF1_photometry.doric'], tree / 'raw')
+        ['sub-M1/day-01/ses-OF1/sub-M1_day-01_ses-OF1_photometry.doric'], tree / 'raw')
     assert stage == 'photometry' and config.name == 'photometry.yaml'
     assert params['session_type'] == 'OF1' and params['subject']['sex'] == 'F'
     assert resources['gpu'] is False
-    stage, params, *_ = batch.auto_job(['M1/D1/OF1/sub-M1_ses-D1_typ-OF1_ephys'], tree / 'raw')
+    stage, params, *_ = batch.auto_job(['sub-M1/day-01/ses-OF1/sub-M1_day-01_ses-OF1_ephys'], tree / 'raw')
     assert stage == 'kilosort4' and params['session_start'] == '2026-11-01T09:30:00'
-    assert batch.auto_job(['M1/D1/OF1/sub-M1_ses-D1_typ-OF1_ephys'], tree / 'raw',
+    assert batch.auto_job(['sub-M1/day-01/ses-OF1/sub-M1_day-01_ses-OF1_ephys'], tree / 'raw',
                           stage='lfp')[0] == 'lfp'
-    assert batch.auto_job(['M1/D1/OF1/sub-M1_ses-D1_typ-OF1_beh-rig.csv'], tree / 'raw') is None
+    assert batch.auto_job(['sub-M1/day-01/ses-OF1/sub-M1_day-01_ses-OF1_beh-rig.csv'], tree / 'raw') is None
 
 
 def test_cohort_level_and_collecting_outputs(tmp_path):
-    """raw/{cohort}/M{mouse}/D{day}/{type}/: the cohort comes from the path,
+    """raw/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/: the cohort comes from the path,
     goes into the plan, and a batch's outputs are copied into
     processed/{cohort}/."""
-    ophys = tmp_path / 'raw/2024-05_dHPC/M7/D1/HBT1/sub-M7_ses-D1_typ-HBT1_ophys'
+    ophys = tmp_path / 'raw/2024-05_dHPC/sub-M7/day-01/ses-HBT1/sub-M7_day-01_ses-HBT1_ophys'
     ophys.mkdir(parents=True)
     write_isxd(ophys / 'v.isxd', np.zeros((6, 4, 4), np.uint16))
     (ophys / 'session.json').write_text('{}')
@@ -220,14 +220,39 @@ def test_cohort_level_and_collecting_outputs(tmp_path):
     assert table['cohort'][0] == '2024-05_dHPC'
 
     outputs = tmp_path / 'jobs' / table['job_id'][0] / 'outputs'
-    (outputs / 'M7' / 'D1' / 'HBT1').mkdir(parents=True)
+    (outputs / 'sub-M7' / 'day-01' / 'ses-HBT1').mkdir(parents=True)
     (outputs / 'cnmfe_summary.json').write_text('{}')            # not part of the tree
     [(job_id, dest, command)] = batch.collect_commands(table, 1, tmp_path / 'jobs',
                                                         tmp_path / 'processed')
     assert dest == tmp_path / 'processed' / '2024-05_dHPC'
-    assert command == ['rsync', '-a', (outputs / 'M7').as_posix(), f'{dest.as_posix()}/']
+    assert command[-2:] == [outputs.as_posix() + '/', f'{dest.as_posix()}/']
+    assert '--include=sub-M*/***' in command and command[-3] == '--exclude=*'
     [(_, _, remote)] = batch.collect_commands(table, 1, 'me@host:jobs', tmp_path / 'processed')
-    assert remote[2] == f'me@host:jobs/{job_id}/outputs/M*'
+    assert remote[-2] == f'me@host:jobs/{job_id}/outputs/'
+    import shutil
+    import subprocess
+    if shutil.which('rsync'):                         # the filters copy the session folders only
+        (outputs / 'sub-M7' / 'day-01' / 'ses-HBT1' / 'x.npz').write_bytes(b'x')
+        dest.mkdir(parents=True)
+        subprocess.run(command, check=True, capture_output=True)
+        assert (dest / 'sub-M7' / 'day-01' / 'ses-HBT1' / 'x.npz').exists()
+        assert not (dest / 'cnmfe_summary.json').exists()
+
+
+def test_legacy_names_still_read(tmp_path):
+    """Raw data named before 2026-11 (M{mouse}/D{day}/{type}/sub-M…_ses-D…_typ-…)
+    is recognised, named and described as before."""
+    session = tmp_path / 'raw/2024-05_dHPC/M7/D3/HBT1'
+    ophys = session / 'sub-M7_ses-D3_typ-HBT1_ophys'
+    ophys.mkdir(parents=True)
+    write_isxd(ophys / 'v.isxd', np.zeros((6, 4, 4), np.uint16))
+    (ophys / 'session.json').write_text('{}')
+    (session / 'sub-M7_ses-D3_typ-HBT1_session.yaml').write_text('task: HBT\n')
+    (session.parent.parent / 'sub-M7_subject.yaml').write_text('sex: M\n')
+    [rec] = raw.scan(tmp_path / 'raw')
+    assert (rec.cohort, rec.mouse, rec.day, rec.session_type) == ('2024-05_dHPC', '7', 3, 'HBT1')
+    info = raw.describing(tmp_path / 'raw' / rec.path, rec)
+    assert info['session'] == {'task': 'HBT'} and info['subject'] == {'sex': 'M'}
 
 
 def test_the_data_template_matches_the_code():

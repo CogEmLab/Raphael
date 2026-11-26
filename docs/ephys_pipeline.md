@@ -5,9 +5,10 @@ The default pipeline for these recordings; how to run it on your data is in
 
 Raw Neuropixels 2.0 recordings go in. Out comes one processed, publishable
 NWB file per session, plus the files mecpy and our analysis code load. The
-layout is the clark2025 tree, the same one the
-[imaging pipeline](imaging_pipeline.md) fills, so analysis code treats the
-two modalities alike.
+layout is the processed tree ([data_server.md](data_server.md)), the same
+one the [imaging pipeline](imaging_pipeline.md) fills, so analysis code
+treats the two modalities alike. clark2025's files, named before November
+2026 (`M25/D18/OF1/sub-M25_ses-D18_typ-OF1_…`), are read the same way.
 
 The processing reproduces the paper's Methods ("Offline spike sorting")
 and the lab's sorting code: protocol `kilosort4A` in
@@ -67,11 +68,11 @@ The processed dataset is three files per session, so you can take as much
 as you need: behaviour, spikes, and (optionally, the heavy one) the LFP.
 
 ```
-{root}/M{mouse}/D{day}/{type}/
-    sub-M{mouse}_ses-D{day}_typ-{type}_beh.nwb              all behaviour (as clark2025; planned)
-    sub-..._typ-{type}_srt-kilosort4_clusters.npz           spike times, curation, waveforms, metrics
-    sub-..._typ-{type}_srt-kilosort4_bombcell_curation.json bombcell labels (spikeinterface curation file)
-    sub-..._typ-{type}_lfp.nwb                              LFP and theta phase (lfp stage)
+{root}/sub-M{mouse}/day-{dd}/ses-{type}/
+    sub-M{mouse}_day-{dd}_ses-{type}_beh.nwb              all behaviour (as clark2025; planned)
+    sub-..._ses-{type}_srt-kilosort4_clusters.npz           spike times, curation, waveforms, metrics
+    sub-..._ses-{type}_srt-kilosort4_bombcell_curation.json bombcell labels (spikeinterface curation file)
+    sub-..._ses-{type}_lfp.nwb                              LFP and theta phase (lfp stage)
     qc/units.png
 ```
 
@@ -122,7 +123,7 @@ files. `srt-kilosort4` names the sorter. Every unit is in every session's
 import numpy as np
 import pynapple as nap
 
-units = nap.load_file('.../sub-M25_ses-D18_typ-VR_srt-kilosort4_clusters.npz')
+units = nap.load_file('.../sub-M25_day-18_ses-VR_srt-kilosort4_clusters.npz')
 good = units[units['accepted'].astype(bool)]
 good['peak_to_trough_duration'], good['firing_rate']     # waveform measures
 mean = np.stack(good['waveform_mean'])                  # units x samples x 16, µV
@@ -200,8 +201,8 @@ arrays:
 ```python
 from raphael import population
 
-pop = population.load('.../sub-M25_ses-D18_typ-OF1_srt-kilosort4').accepted()
-# or population.load('.../sub-M17797_ses-D7_typ-scan4_src-suite2p')
+pop = population.load('.../sub-M25_day-18_ses-OF1_srt-kilosort4').accepted()
+# or population.load('.../sub-M17797_day-07_ses-scan4_src-suite2p')
 pop.table             # one row per neuron
 pop.data              # TsGroup (spikes) or TsdFrame (dF/F)
 pop.binned(0.1)       # TsdFrame, time x neuron: rate (Hz) or mean dF/F

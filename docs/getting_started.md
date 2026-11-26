@@ -151,7 +151,7 @@ the analysis:
 
 ```bash
 uv run python scripts/make_demo_data.py
-uv run python scripts/analyse_tuning.py           # writes figures/sub-M1_ses-D1_typ-OF1_tuning.pdf
+uv run python scripts/analyse_tuning.py           # writes figures/sub-M1_day-01_ses-OF1_tuning.pdf
 uv run python scripts/process_raw_ephys.py lfp --demo
 ```
 

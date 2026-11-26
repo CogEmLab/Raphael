@@ -2,7 +2,7 @@
 
     from raphael import plots, population, style
     style.use()
-    pop = population.load('.../sub-M25_ses-D18_typ-OF1_srt-kilosort4').accepted()
+    pop = population.load('.../sub-M25_day-18_ses-OF1_srt-kilosort4').accepted()
     plots.rate_map(ax, pop.data[7], beh, bounds=(0, 100, 0, 100))
 
 Every function takes the axes to draw on and processed data as pynapple

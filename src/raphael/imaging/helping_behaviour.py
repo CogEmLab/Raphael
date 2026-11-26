@@ -8,7 +8,7 @@ then, this reads what the earlier analysis
 (CogEmLab/helping-behaviour-calcium-imaging) produced and writes it in the
 layout of docs/data_server.md, tagged `src-cnmfehb` so the two never mix:
 
-    {out}/processed/M{mouse}/D{day}/{type}/
+    {out}/processed/sub-M{mouse}/day-{dd}/ses-{type}/
         sub-…_src-cnmfehb_ophys.nwb     every CaImAn component (accepted and
                                         rejected), C, C + YrA, S, detrended
         sub-…_src-cnmfehb_traces.npz    C of every component (TsdFrame)

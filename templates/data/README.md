@@ -9,7 +9,7 @@ work.
 | folder | what | who writes it |
 |---|---|---|
 | `incoming/` | new sessions waiting to be added | you, in `incoming/{your username}/` |
-| `raw/` | recordings as acquired, with the files that describe each cohort, mouse and session | the data manager adds them; recordings are then locked |
+| `raw/` | recordings as acquired, with the files that describe each cohort, mouse and session | the data manager's ingest; recordings are then locked |
 | `processed/` | spikes, ROIs, traces, NWB files, and how each was made | the pipeline only |
 | `lab/` | lists not about one animal: people, projects, task codes, rigs; blank templates | see `lab/README.md` |
 | `index/` | tables of every cohort, mouse, procedure and session, built from `raw/` | generated; never edited |
@@ -21,20 +21,21 @@ work.
 ## The layout
 
 ```
-data/raw/{cohort}/                                   cohort.yaml
-data/raw/{cohort}/M{mouse}/                          sub-M{mouse}_subject.yaml, sub-M{mouse}_procedures.yaml
-data/raw/{cohort}/M{mouse}/D{day}/{type}/            sub-M…_ses-D…_typ-…_session.yaml, and the recordings
-data/processed/{cohort}/M{mouse}/D{day}/{type}/      what was made from them, and how
+data/raw/{cohort}/                                     cohort.yaml
+data/raw/{cohort}/sub-M{mouse}/                        sub-M{mouse}_subject.yaml, sub-M{mouse}_procedures.yaml
+data/raw/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/    sub-M…_day-…_ses-…_session.yaml, and the recordings
+data/processed/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/   what was made from them, and how
 ```
 
+Every file is named for its session: `sub-M1_day-01_ses-OF1_…`.
 `processed/` has the same structure as `raw/`: a session's outputs sit at
 the same path as its recordings, and outputs that span a mouse's days sit
 in its mouse folder.
 
 **Information lives at the level it describes**: what is true of the whole
 cohort in the cohort folder, of the mouse in the mouse folder, of the
-session in the session folder. Everything about a session is in, or
-above, its folder. `raw/2027-01_2P-Testing/` is a worked example.
+session in the session folder. `raw/2027-01_2P-Testing/` is a worked
+example.
 
 ## Rules
 
@@ -42,7 +43,7 @@ above, its folder. `raw/2027-01_2P-Testing/` is a worked example.
    edited, renamed or deleted. If something is wrong, ask the data manager.
 2. **Describing files stay editable.** The `.yaml` files (cohort, subject,
    procedures, session) can be corrected and added to later, e.g. a
-   histology result or a note; every change is kept (open: how).
+   surgery or a note; the old versions are kept.
 3. **Processed data is made only by the pipeline.** To change it, the data
    is processed again. Every processed session has a `provenance/` record
    of exactly how it was made.
@@ -54,121 +55,91 @@ above, its folder. `raw/2027-01_2P-Testing/` is a worked example.
 
 ## Adding data
 
-How to get a recording from the rig into `raw/`. The examples use cohort
-`2026-03_dHPC-place`, mouse `10432` and username `jsmith`.
-
-**The short version:** describe it, name it, copy it into
-`incoming/{your username}/`, tell the data manager. You never write in
-`raw/` yourself. **`incoming/_example/` shows a hand-in exactly as it should
-look.**
-
-### What to write, and when
-
-| when | write | from |
-|---|---|---|
-| first time | your entry in `lab/people.yaml` | |
-| new project, task or rig | an entry in `lab/projects.yaml`, `lab/tasks.yaml`, or `lab/rigs/{rig}.yaml` | `lab/templates/rig.yaml` |
-| new cohort | `cohort.yaml` | `lab/templates/cohort.yaml` |
-| new mouse | `sub-M{mouse}_subject.yaml` | `lab/templates/subject.yaml` |
-| each surgery | an entry in `sub-M{mouse}_procedures.yaml` | `lab/templates/procedures.yaml` |
-| each session | `sub-M…_ses-D…_typ-…_session.yaml`, beside the recordings | `lab/templates/session.yaml` |
-
-> **Coming:** a command (`raphael-data add`) that does the naming and fills
-> in the session file for you from what the rig wrote. Until then, follow
-> the steps below by hand.
+**Drop your session into `incoming/{your username}/` and tell the data
+manager.** You don't rename the recordings or build any folders: the data
+manager's ingest works out where everything goes, renames it, checks it
+and files it in `raw/`. **`incoming/_example/` shows a hand-in exactly as
+it should look.**
 
 ### Before your first recording (once)
 
 1. **Add yourself** to `lab/people.yaml`: username, full name ("Last,
-   First"), email, ORCID.
+   First"), position, email, ORCID.
 2. **Check the codes you will use exist** in `lab/`: your task in
    `tasks.yaml` (e.g. `OF`), your project in `projects.yaml`, your rig in
-   `rigs/`. If one is missing, ask its owner (or the data manager) to add
-   it. Never invent a new code in a file name.
+   `rigs/`. If one is missing, ask its owner or the data manager to add it.
 
-### The three numbers in every name
+### What a hand-in contains
 
-```
-sub-M10432_ses-D4_typ-OF1_…
-     │         │      └── task code + run number that day (OF1, then OF2 if you run it again)
-     │         └───────── day of experiment for this mouse
-     └─────────────────── the mouse's lab-wide ID
-```
-
-**Which day number?** Look in `raw/{cohort}/M{mouse}/`. If the mouse
-already has `D1`–`D3` and today is a new date for it, today is `D4`. Every
-recorded date counts, whatever the project or task. Two sessions on the
-same date share the day number.
-
-
-### Case 1: a new cohort, a new mouse, its surgery
-
-Before the first recording of a new cohort or mouse, its describing files
-go in. Copy each from `lab/templates/` and fill it in.
+Every hand-in has **four describing files** and **one folder per session**:
 
 ```
-incoming/jsmith/2026-03_dHPC-place/
-├── cohort.yaml                          from lab/templates/cohort.yaml (new cohort only)
-└── M10432/
-    ├── sub-M10432_subject.yaml          from lab/templates/subject.yaml
-    └── sub-M10432_procedures.yaml       from lab/templates/procedures.yaml
+incoming/jsmith/
+├── 2026-03_dHPC-place_cohort.yaml                         the cohort
+├── sub-M10432_subject.yaml                                the mouse
+├── sub-M10432_procedures.yaml                             its surgeries ([] until the first)
+└── sub-M10432_day-04_ses-OF1_2026-03-14_10-05-12/         the session
+    ├── sub-M10432_day-04_ses-OF1_session.yaml             its describing file
+    ├── 2026-03-14_10-05-12/                               what the rig wrote, not renamed
+    ├── cam0_2026-03-14.mp4
+    └── rig_log_2026-03-14.csv
 ```
 
-- The cohort name is the month it started and a short label:
-  `2026-03_dHPC-place`.
-- In `sub-M10432_subject.yaml`, `sex`, `date_of_birth` and `species` are
-  required; they go into every NWB file of this mouse.
-- In `sub-M10432_procedures.yaml`, add one entry per procedure (injection,
-  implant, headplate, …) with coordinates and what went in. Give each
-  implant a `label`: `ephys` for the probe if there is one; `dHPC`, `mPFC`
-  if there are two fibres. **Recordings use the same label**, which is how
-  they get their brain location.
+| file | from | when it changes |
+|---|---|---|
+| `{cohort}_cohort.yaml` | `lab/templates/cohort.yaml` | rarely: written when the cohort starts |
+| `sub-M{mouse}_subject.yaml` | `lab/templates/subject.yaml` | rarely: written when the mouse joins (it names the mouse's cohort) |
+| `sub-M{mouse}_procedures.yaml` | `lab/templates/procedures.yaml` | after each surgery: add an entry. Just `[]` before the first |
+| `sub-M…_day-…_ses-…_session.yaml` | `lab/templates/session.yaml` | every session: written on the day |
 
-Copy it to the server and tell the data manager (see the end). These files
-can be edited later: the data manager adds new procedures and histology
-results for you, or you hand them in the same way.
+Keep your copies of the cohort, subject and procedures files and hand them
+in again each time. When one changes (a surgery, a correction), ingest
+updates the server's copy and keeps the old one.
 
-### Case 2: a normal recording day
-
-Neuropixels and a top camera in the open field. The rig wrote:
+### Naming the session folder
 
 ```
-~/Desktop/2026-03-14_10-05-12/Record Node 101/…      Open Ephys
-~/Desktop/cam0_2026-03-14.mp4                        camera
-~/Desktop/rig_log_2026-03-14.csv                     task log
+sub-M10432_day-04_ses-OF1_2026-03-14_10-05-12
+     │        │      │    └── when the session started (date_time)
+     │        │      └─────── task code + run number that day: OF1, then OF2 if you run it again
+     │        └────────────── day of experiment for this mouse, two digits
+     └─────────────────────── the mouse's lab-wide ID
 ```
 
-Build the session folder in `incoming/jsmith/`:
+- **Day:** the mouse's recording days in date order. If the mouse already
+  has days 1–3 and today is a new date for it, today is `day-04`. Every
+  recorded date counts, whatever the project or task; two sessions on the
+  same date share the day.
+- **Run:** the first open field of the day is `ses-OF1`, a second one
+  `ses-OF2`.
+- **Start:** the time the recording started, as the rig writes it
+  (`2026-03-14_10-05-12`). Open Ephys and most acquisition software can be
+  set to prefix their folder name with `sub-M10432_day-04_ses-OF1_`, so the
+  rig names the folder for you.
 
-```
-incoming/jsmith/2026-03_dHPC-place/M10432/D4/OF1/
-├── sub-M10432_ses-D4_typ-OF1_session.yaml
-├── sub-M10432_ses-D4_typ-OF1_ephys/                 ← the folder 2026-03-14_10-05-12, renamed
-│   └── Record Node 101/…                               (nothing inside renamed)
-├── sub-M10432_ses-D4_typ-OF1_video-top.mp4          ← cam0_2026-03-14.mp4, renamed
-└── sub-M10432_ses-D4_typ-OF1_beh-rig.csv            ← rig_log_2026-03-14.csv, renamed
-```
+The name carries everything that says where the session goes, and ingest
+checks it against the recording's own start time, the session file and the
+mouse's earlier days. If something doesn't match, it tells you rather than
+filing it in the wrong place.
 
-- **Rename the outer folder only** for anything acquisition software wrote
-  (Open Ephys, SpikeGLX, ScanImage, Inscopix). Their insides must stay
-  exactly as recorded.
-- **Single files are renamed** to the session's name plus what they are:
-  `_video-{camera}`, `_beh-{source}`, `_sync-{device}`.
+### The session file
 
-Write the session file from `lab/templates/session.yaml`:
+Copy `lab/templates/session.yaml` into the session folder, name it like
+the folder without the time (`sub-M10432_day-04_ses-OF1_session.yaml`) and
+fill in what only you know: at least the notes, and the weight. Fields you
+leave blank that can be worked out are filled in for you (start time, task,
+experimenter, and project and rig from the mouse's last session).
 
 ```yaml
-start: 2026-03-14T10:05:00          # required: local time
-task: OF                            # required
-experimenter: [jsmith]              # required
-project: place-cells                # required
+start:                              # blank: taken from the recording
+task: OF
+experimenter: [jsmith]
+project: place-cells
 rig: ephys-rig-1
 weight_g: 24.1
-description:
 recordings:
   ephys: probe in CA1, 384 channels, bank 0
-  video-top: Basler top camera, 30 fps
-  beh-rig: position and TTL log
+  video: top camera, 30 fps
 quality: good
 notes: cable twisted at 12 min, untwisted at 13 min
 ```
@@ -176,155 +147,96 @@ notes: cable twisted at 12 min, untwisted at 13 min
 Write the notes on the day. Months later they are the only record of what
 went wrong.
 
-### Case 3: more than one session on a day
+### Examples
 
-Each session has its own folder; they share the day.
-
-```
-incoming/jsmith/2026-03_dHPC-place/M10432/D4/
-├── OF1/   sub-M10432_ses-D4_typ-OF1_session.yaml, …_ephys/, …     open field, morning
-├── VR1/   sub-M10432_ses-D4_typ-VR1_session.yaml, …_ephys/, …     VR, after
-└── OF2/   sub-M10432_ses-D4_typ-OF2_session.yaml, …_ephys/, …     open field again
-```
-
-The number after the task code counts runs of that task that day: the
-second open field is `OF2`. Each Open Ephys recording goes in its own
-session. Neuropixels sessions from one day are spike-sorted together, so a
-unit keeps its number across them.
-
-### Case 4: several of one kind
-
-Two photometry sites and two cameras in one session: a `-{label}` says
-which.
+**Several sessions in a day:** one folder each, sharing the day.
 
 ```
-incoming/jsmith/2026-03_dHPC-place/M10432/D5/OF1/
-├── sub-M10432_ses-D5_typ-OF1_session.yaml
-├── sub-M10432_ses-D5_typ-OF1_photometry-dHPC.doric
-├── sub-M10432_ses-D5_typ-OF1_photometry-mPFC.doric
-├── sub-M10432_ses-D5_typ-OF1_video-top.mp4
-└── sub-M10432_ses-D5_typ-OF1_video-side.mp4
+sub-M10432_day-04_ses-OF1_2026-03-14_10-05-12/      open field, morning
+sub-M10432_day-04_ses-VR1_2026-03-14_11-30-40/      VR
+sub-M10432_day-04_ses-OF2_2026-03-14_14-02-03/      open field again
 ```
 
-The photometry labels (`dHPC`, `mPFC`) must match the fibre implants'
-labels in `sub-M10432_procedures.yaml`. That is where each recording's
-brain region and indicator come from. Camera labels match the rig file
-(`lab/rigs/{rig}.yaml`).
+Neuropixels sessions from one day are spike-sorted together, so a unit
+keeps its number across them.
 
-### Case 5: imaging
-
-**Two-photon (ScanImage):** the folder of TIFFs ScanImage wrote, renamed
-outside only.
-
-```
-incoming/jsmith/2026-03_dHPC-place/M10432/D6/OF1/
-├── sub-M10432_ses-D6_typ-OF1_session.yaml
-└── sub-M10432_ses-D6_typ-OF1_ophys/
-    └── file_00001.tif …
-```
-
-**Miniscope (Inscopix):** the session folder nVista wrote, with its
-`.isxd`, `.gpio`, `.imu` and `session.json` together, renamed outside only.
-Leave out TIFF exports and anything made afterwards; they can be made again
-from the `.isxd`.
+**Several of one kind** (two photometry sites, two cameras): ingest tells
+them apart by name. A file whose name contains a procedure's `label`
+(`dHPC`, `mPFC`) or a rig camera's label (`top`, `side`) is matched to it,
+which is where each recording's brain region and indicator come from. If
+the names don't say, ingest asks you to rename them.
 
 ```
-incoming/jsmith/2026-03_dHPC-place/M10432/D6/HBT1/
-├── sub-M10432_ses-D6_typ-HBT1_session.yaml
-├── sub-M10432_ses-D6_typ-HBT1_ophys/
-│   ├── 2026-03-16-11-02-40_video.isxd
-│   ├── 2026-03-16-11-02-40_video.gpio
-│   ├── 2026-03-16-11-02-40_video.imu
-│   └── session.json
-└── sub-M10432_ses-D6_typ-HBT1_video-bottom.mp4
+sub-M10432_day-05_ses-OF1_2026-03-15_09-40-00/
+├── sub-M10432_day-05_ses-OF1_session.yaml
+├── fibre_dHPC_2026-03-15.doric
+├── fibre_mPFC_2026-03-15.doric
+├── top_2026-03-15.mp4
+└── side_2026-03-15.mp4
 ```
 
-For one imaging recording per session, the label is `ophys`: the
-injection and window or lens entries in the procedures file use
-`label: ophys`. In the session file, note the depth, laser power or LED
-power.
-
-### Case 6: behaviour only
-
-No neural recording: just the session file, the video and the logs.
-
-```
-incoming/jsmith/2026-03_dHPC-place/M10432/D2/HAB1/
-├── sub-M10432_ses-D2_typ-HAB1_session.yaml
-└── sub-M10432_ses-D2_typ-HAB1_video-top.mp4
-```
-
-Habituation days that are recorded count as days, so they take day
-numbers like any other session.
-
-### Case 7: adding to a mouse later
-
-- **Another surgery:** add an entry to `sub-M10432_procedures.yaml`.
-- **Histology:** images and track reconstructions go in
-  `M10432/subject/histology/`; fill in `verified_target` for the matching
-  procedure.
-- **A note or correction to a session** (it turned out the probe moved, the
-  weight was wrong): change its session file.
-
-Hand these in the same way, in `incoming/jsmith/` at the same path:
-
-```
-incoming/jsmith/2026-03_dHPC-place/M10432/
-├── sub-M10432_procedures.yaml          the whole file, with the new entry
-└── subject/histology/M10432_slice07.tif
-```
-
-Describing files (`.yaml`) can always be corrected. Recordings can't.
-
-### Case 8: something already in `raw/` is wrong
-
-A recording filed under the wrong mouse, day or task can't be fixed by
-you: recordings in `raw/` are locked. Tell the data manager what is wrong
-and what it should be. They move it, and note the change in the session
+**Miniscope (Inscopix):** the folder nVista wrote, with its `.isxd`,
+`.gpio`, `.imu` and `session.json` together. Leave out TIFF exports and
+anything made afterwards; they can be made again from the `.isxd`.
+**Two-photon (ScanImage):** the folder of TIFFs ScanImage wrote. For one
+imaging recording, the procedures' injection and window or lens entries
+use `label: ophys`; note the depth and laser or LED power in the session
 file.
 
+**Behaviour only:** just the session file and the video and logs.
+Recorded habituation days count as days like any other.
+
+**A surgery, without a session:** hand in the updated
+`sub-M{mouse}_procedures.yaml` (with the cohort and subject files) on its
+own. Histology images go in a folder `sub-M{mouse}_histology/`.
+
+**Something already in `raw/` is wrong** (wrong mouse, day or task):
+recordings in `raw/` are locked, so tell the data manager what it should
+be. Describing files can be corrected by handing in a new version.
 
 ### Before you hand it in
 
-- [ ] Your username, the task code, project and rig exist in `lab/`.
-- [ ] The cohort folder has `cohort.yaml`, and the mouse folder has
-      `sub-M…_subject.yaml`, either in `raw/` already or in your
-      `incoming/`.
-- [ ] Every session folder has its `_session.yaml`, with `start`, `task`,
-      `experimenter` and `project` filled in.
-- [ ] The day number is right (next new date for this mouse), and runs of
-      a task that day are numbered `OF1`, `OF2`.
-- [ ] Every name starts `sub-M{mouse}_ses-D{day}_typ-{type}_`, matching its
-      folders.
-- [ ] Acquisition folders are renamed outside only; nothing inside them
-      changed.
-- [ ] Labels (`photometry-dHPC`, `ephys-probeA`, `video-top`) match the
-      procedures file and the rig file.
+- [ ] Your username, task code, project and rig exist in `lab/`.
+- [ ] The cohort, subject and procedures files are there, named for their
+      cohort and mouse.
+- [ ] Each session folder is named `sub-M…_day-…_ses-…_{date}_{time}` and
+      has its session file, named the same without the time.
+- [ ] The day number is right (the next new date for this mouse), and runs
+      of a task that day are numbered `OF1`, `OF2`.
+- [ ] Nothing the rig wrote has been renamed or changed.
 - [ ] You still have your own copy.
 
 ### Copying to the server
 
-With the server mounted, drag the folder into `incoming/{your username}/`,
+With the server mounted, drag the files into `incoming/{your username}/`,
 or from a terminal (Mac or Linux):
 
 ```bash
 rsync -a --progress --exclude '._*' --exclude '.DS_Store' \
-    2026-03_dHPC-place /path/to/server/data/incoming/jsmith/
+    ./ /path/to/server/data/incoming/jsmith/
 ```
 
 `rsync` can be run again if it is interrupted; it carries on. Then **tell
-the data manager** which sessions you added.
+the data manager** what you added.
 
 ### What the data manager does
 
-1. Checks the list above: required fields filled in, codes and people in
-   `lab/`, names consistent with their folders.
-2. Writes each session's manifest (`…_manifest.tsv`: every file's size,
-   sha256 and original name).
-3. Moves the session into `raw/{cohort}/M{mouse}/D{day}/{type}/` (and new
-   cohort, subject and procedure files into place), and locks the
-   recordings. The describing files stay editable.
-4. Rebuilds `index/`, and empties the session from `incoming/`.
+Runs ingest (`raphael-data ingest`; `--dry-run` shows what it would do).
+For each session it:
+
+1. Checks the session folder's name against the recording's own start
+   time, the session file and the mouse's earlier days; that the task,
+   project, rig and people exist in `lab/`; and that the cohort, subject
+   and procedures files are there.
+2. Renames the recordings by what they are (`_ephys`, `_ophys`,
+   `_photometry`, `_video`, `_beh`), keeping each original name in the
+   session's manifest with its checksum, and fills in blank fields of the
+   session file.
+3. Moves the session into `raw/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/`,
+   adds or updates the cohort, subject and procedures files (keeping old
+   versions), locks the recordings and rebuilds `index/`.
+4. Tells you and the data managers what was added, or exactly what is
+   wrong and how to fix it.
 
 From then on the session is found by processing (`raphael-jobs plan`), and
 its outputs appear at the same path in `processed/`.
@@ -334,6 +246,9 @@ its outputs appear at the same path in `processed/`.
 Browse `raw/` and `processed/` by cohort, mouse, day and session. To find
 every session of a project, a task or a person, filter
 `index/sessions.tsv`.
+
+Data named before November 2026 (`M{mouse}/D{day}/{type}/`,
+`sub-M…_ses-D…_typ-…`) is still read by Raphael.
 
 Full description: Raphael's
 [docs/data_server.md](https://github.com/CogEmLab/Raphael/blob/main/docs/data_server.md).

@@ -258,11 +258,11 @@ combines:
 
 ```
 outputs/                                                    size (2 x 3 min)
-├── Msim/D1/OF1/                                            ← the processed dataset
-│   ├── sub-Msim_ses-D1_typ-OF1_srt-kilosort4_clusters.npz       4.4 MB
-│   ├── sub-Msim_ses-D1_typ-OF1_lfp.nwb   (from the lfp job)       31 MB
+├── sub-Msim/day-01/ses-OF1/                                 ← the processed dataset
+│   ├── sub-Msim_day-01_ses-OF1_srt-kilosort4_clusters.npz       4.4 MB
+│   ├── sub-Msim_day-01_ses-OF1_lfp.nwb   (from the lfp job)       31 MB
 │   └── qc/units.png
-├── Msim/D1/OF2/        the same for the second session
+├── sub-Msim/day-01/ses-OF2/   the same for the second session
 ├── kilosort4/          working files, not part of the dataset:
 │   ├── 0/ ... 3/       Kilosort's own files per shank, for phy
 │   ├── analyzers/      only with keep_analyzer: true: per session the
@@ -338,7 +338,7 @@ uv run raphael-jobs make ~/jobs/M25-D18-lfp --stage lfp --cpu \
 # richer:  --param 'lfp={channels: {block_size: 1}}'          (every contact)
 ```
 
-Per recording it writes `M25/D18/{type}/sub-M25_ses-D18_typ-{type}_lfp.nwb`
+Per recording it writes `sub-M25/day-18/ses-{type}/sub-M25_day-18_ses-{type}_lfp.nwb`
 and a row in `lfp_summary.json` (channels, rate, file size, time). With
 the defaults the file has the lab's layout:
 
@@ -397,14 +397,14 @@ bombcell and the two rules only, so this is optional.
 ```python
 from raphael import population
 
-base = '~/jobs/M25-D18/outputs/M25/D18/OF1/sub-M25_ses-D18_typ-OF1_srt-kilosort4'
+base = '~/jobs/M25-D18/outputs/sub-M25/day-18/ses-OF1/sub-M25_day-18_ses-OF1_srt-kilosort4'
 pop = population.load(base).accepted()   # TsGroup + its unit table, accepted units only
 rates = pop.binned(0.1)                   # TsdFrame, time x unit, Hz
 
 import numpy as np, pynapple as nap, pynwb
 units = nap.load_file(f'{base}_clusters.npz')            # clark2025's form
 mean = np.stack(units['waveform_mean'])                   # units x 90 x 16, µV
-with pynwb.NWBHDF5IO('.../sub-M25_ses-D18_typ-OF1_lfp.nwb') as io:
+with pynwb.NWBHDF5IO('.../sub-M25_day-18_ses-OF1_lfp.nwb') as io:
     lfp = io.read().processing['ecephys']['LFP']['lfp']   # samples x 48, ×1e-6 for V
 ```
 

@@ -17,8 +17,8 @@ yet. Points still to decide are marked **(open)** and listed at the end.
    any NWB tool and ready for DANDI. Raw data stays in the acquisition
    software's own format (see [Raw data and NWB](#raw-data-and-nwb)).
 4. **One naming scheme everywhere.** Raw and processed trees use the same
-   `{cohort}/M{mouse}/D{day}/{session type}` folders and the BIDS-style
-   `sub-…_ses-…_typ-…` file names that Raphael's `Session` class builds,
+   `{cohort}/sub-M{mouse}/day-{dd}/{session type}` folders and the BIDS-style
+   `sub-…_day-…_ses-…` file names that Raphael's `Session` class builds,
    so code finds files without per-project path logic.
 5. **Organised by animal; described where it happens.** The tree is
    cohorts, mice, days and sessions, the same for every person and project.
@@ -63,28 +63,28 @@ copy it to the server to start.
 
 Cohort, then mouse, then day, then session, with the BIDS-style names of
 `processed/`, so a raw recording and the files made from it share a name
-stem (`sub-M{mouse}_ses-D{day}_typ-{type}`) and sit at the same path in
+stem (`sub-M{mouse}_day-{dd}_ses-{type}`) and sit at the same path in
 both trees. Each level has the file that describes it:
 
 ```
 raw/{cohort}/
 ├── cohort.yaml                                          the cohort
-└── M{mouse}/
+└── sub-M{m}/
     ├── sub-M{m}_subject.yaml                            the mouse
     ├── sub-M{m}_procedures.yaml                         its surgeries and procedures
     ├── subject/                                         not tied to a session: histology/, surgery/, anatomy/
-    └── D{day}/{type}/
-        ├── sub-M{m}_ses-D{d}_typ-{t}_session.yaml       the session
-        ├── sub-M{m}_ses-D{d}_typ-{t}_ephys/             Open Ephys (Record Node …/) or SpikeGLX (*_g0/),
+    └── day-{dd}/ses-{t}/
+        ├── sub-M{m}_day-{dd}_ses-{t}_session.yaml       the session
+        ├── sub-M{m}_day-{dd}_ses-{t}_ephys/             Open Ephys (Record Node …/) or SpikeGLX (*_g0/),
         │                                                inside untouched
-        ├── sub-M{m}_ses-D{d}_typ-{t}_ophys/             ScanImage TIFF / Bruker, or an Inscopix .isxd
+        ├── sub-M{m}_day-{dd}_ses-{t}_ophys/             ScanImage TIFF / Bruker, or an Inscopix .isxd
         │                                                with its session.json, inside untouched
-        ├── sub-M{m}_ses-D{d}_typ-{t}_photometry.doric
-        ├── sub-M{m}_ses-D{d}_typ-{t}_video-{camera}.mp4      one per camera, e.g. video-top
-        ├── sub-M{m}_ses-D{d}_typ-{t}_video-{camera}_timestamps.csv
-        ├── sub-M{m}_ses-D{d}_typ-{t}_beh-{source}.{ext}      rig logs, task files, e.g. beh-unity.csv
-        ├── sub-M{m}_ses-D{d}_typ-{t}_sync-{device}.{ext}     TTL/sync files not inside another recording
-        └── sub-M{m}_ses-D{d}_typ-{t}_manifest.tsv            checksum and original name of every file
+        ├── sub-M{m}_day-{dd}_ses-{t}_photometry.doric
+        ├── sub-M{m}_day-{dd}_ses-{t}_video-{camera}.mp4      one per camera, e.g. video-top
+        ├── sub-M{m}_day-{dd}_ses-{t}_video-{camera}_timestamps.csv
+        ├── sub-M{m}_day-{dd}_ses-{t}_beh-{source}.{ext}      rig logs, task files, e.g. beh-unity.csv
+        ├── sub-M{m}_day-{dd}_ses-{t}_sync-{device}.{ext}     TTL/sync files not inside another recording
+        └── sub-M{m}_day-{dd}_ses-{t}_manifest.tsv            checksum and original name of every file
 ```
 
 - **`{cohort}`** is the group of animals that went through an experiment
@@ -92,19 +92,20 @@ raw/{cohort}/
   sort by date. A mouse belongs to one cohort, fixed when it is added. The
   cohort is a folder level only: file names don't carry it, because mouse
   IDs are already unique.
-- **`M{mouse}`** is a **lab-wide unique ID** (the animal facility's ID, or
+- **`sub-M{mouse}`** is a **lab-wide unique ID** (the animal facility's ID, or
   one the lab hands out) **(open)**, never a per-person number like M1,
   which would collide between people. Each person's own short name for the
   mouse is kept in its subject file (`alias`).
-- **`D{day}`** is the day of the experiment for that mouse: `D1` is its
-  first recorded day, whichever project that was for, so day numbers never
-  clash. The calendar date and time are in the session file.
-- **`{type}`** is a **registered task code plus a run number** (`OF1`,
+- **`day-{dd}`** is the day of the experiment for that mouse, two digits:
+  `day-01` is its first recorded day, whichever project that was for, so
+  day numbers never clash. The calendar date and time are in the session
+  file.
+- **`ses-{type}`** is a **registered task code plus a run number** (`OF1`,
   `OF2`, `VR1`, `HBT3`). Every task code is defined once in
   `lab/tasks.yaml`, so `OF` means the same arena and protocol for everyone;
   ingest refuses codes that aren't registered. Two runs of a task on one
   day are `OF1`, `OF2`. A task's own progression (day 3 of the helping
-  test) goes in the run number, not in `D`.
+  test) goes in the run number, not in the day.
 - **One session holds every modality recorded in it**, one file or folder
   each, named by suffix (`_ephys`, `_ophys`, `_photometry`, `_video`,
   `_beh`, `_sync`). When there are several of one kind, `-{label}` says
@@ -122,6 +123,10 @@ raw/{cohort}/
   each file's sha256 and **its original name**.
 - Each `_ephys`/`_ophys` folder and each `.doric` file holds **one
   continuous recording**, as Raphael's readers expect.
+- **Names before November 2026** were `M{mouse}/D{day}/{type}/` and
+  `sub-M{mouse}_ses-D{day}_typ-{type}_…` (clark2025, the toy dataset made
+  with Raphael 0.3). Raphael still reads them (`Session.find`,
+  `Session(..., legacy=True)`), and writes only the current names.
 - This is BIDS's split between `sourcedata/` (data as recorded) and
   derivatives, with our tree's folder levels. DANDI renames to its own
   scheme on upload either way.
@@ -172,8 +177,8 @@ probe tracks registered to the atlas) go in its mouse folder **(planned)**.
 they need from them, and the provenance records which were read.
 
 ```
-processed/{cohort}/M{mouse}/D{day}/{type}/
-├── sub-M{m}_ses-D{d}_typ-{t}_beh.nwb                     behaviour, synced (planned)
+processed/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/
+├── sub-M{m}_day-{dd}_ses-{t}_beh.nwb                     behaviour, synced (planned)
 ├── sub-…_srt-kilosort4_ecephys.nwb                       units, waveforms, electrodes
 ├── sub-…_srt-kilosort4_clusters.npz                      the same units, pynapple
 ├── sub-…_srt-kilosort4_bombcell_curation.json            bombcell labels (curation file)
@@ -271,17 +276,36 @@ How a person hands data in, with worked examples (a new mouse, a normal
 recording day, several sessions a day, several photometry sites, imaging,
 behaviour only, later additions): "Adding data" in [`templates/data/README.md`](../templates/data/README.md).
 
-**Ingest** turns a recording in `incoming/{person}/` into locked raw data, in one
-step run by a data-manager account (a small script, to be written):
+**A hand-in is flat.** A person drops into `incoming/{person}/` the four
+describing files (`{cohort}_cohort.yaml`, `sub-M{m}_subject.yaml`,
+`sub-M{m}_procedures.yaml`, every time; procedures `[]` until a surgery)
+and one folder per session named
+`sub-M{m}_day-{dd}_ses-{t}_{YYYY-MM-DD}_{HH-MM-SS}`, holding its
+`…_session.yaml` and what the rig wrote, not renamed. No folder tree: the
+names say where everything goes, and the subject file names the cohort.
 
-1. Check the session has its session file with the required fields, its
-   mouse a subject file and its cohort a cohort file (here or already in
-   `raw/`), and that its task, project, rig and people exist in `lab/`.
-2. Rename single files, and wrap acquisition folders, to the BIDS-style
-   names above. Write the manifest (sha256 and original name of every file).
-3. Move the session into `raw/{cohort}/M…/D…/{type}/`, and make its
-   recordings owned by the data account and read-only to everyone else.
-4. Rebuild `index/`, and remove the session from `incoming/{person}/`.
+**Ingest** turns a hand-in into locked raw data, in one command run by the
+data manager (`raphael-data ingest`, to be written; `--dry-run` first):
+
+1. **Check, without changing anything:** the session folder's name against
+   the recordings' own start time, the session file's start and the
+   mouse's earlier days (is `day-04` the right number for that date? is
+   `ses-OF1` free?); the cohort named in the subject file against the
+   cohort file; the required fields; and that the task, project, rig and
+   people exist in `lab/`. Anything that disagrees is reported, not filed.
+2. **Rename** the recordings to the BIDS-style names above by what they
+   are (several of one kind matched to labels by name), wrapping
+   acquisition folders without changing their insides, and fill blank
+   fields of the session file. Write the manifest (size, sha256 and
+   original name of every file).
+3. **Move** the session into `raw/{cohort}/sub-M{m}/day-{dd}/ses-{t}/`, make
+   its recordings owned by the data account and read-only to everyone else,
+   and add or update the cohort, subject and procedures files (keeping the
+   old version; changes to identity fields are left for the data manager).
+4. **Rebuild** `index/`, empty the hand-in from `incoming/{person}/`, and
+   **tell** the person and the data managers what was added or what is
+   wrong: by email when `lab.yaml` has mail settings, otherwise in
+   `PROBLEMS.md` in the person's folder.
 
 From then on, nobody without admin rights can modify or delete it. If a
 recording really must be corrected (wrong session name, say), an admin does

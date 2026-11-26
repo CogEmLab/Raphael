@@ -252,15 +252,19 @@ def _collect(args):
         print(' '.join(command))
         if args.dry_run:
             continue
-        if len(command) < 4:                    # local jobs folder, no outputs/M* to copy
-            missing.append(job_id)
-            continue
         dest.mkdir(parents=True, exist_ok=True)
-        if subprocess.run(command, check=False).returncode != 0:
+        done = subprocess.run(command, check=False, capture_output=True, text=True)
+        copied = [line for line in done.stdout.splitlines() if line and not line.endswith('/')]
+        if done.stderr.strip():
+            print(done.stderr.strip(), file=sys.stderr)
+        if done.returncode != 0 or not copied:
             missing.append(job_id)
+        else:
+            print(f'  {len(copied)} files')
     if missing:
-        print(f'no outputs copied for {len(missing)} jobs (not finished, or failed: '
-              f'raphael-jobs status on the cluster): {" ".join(missing)}', file=sys.stderr)
+        print(f'nothing new copied for {len(missing)} jobs: already copied, or not '
+              f'finished, or failed (raphael-jobs status on the cluster): {" ".join(missing)}',
+              file=sys.stderr)
         sys.exit(1)
 
 

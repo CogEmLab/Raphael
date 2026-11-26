@@ -50,7 +50,7 @@ fields and preferred directions, with a new walk and new spikes:
 pipelines produce, so Raphael's loaders read it like real data:
 
 ```
-{root}/M{mouse}/D{day}/{type}/
+{root}/sub-M{mouse}/day-{dd}/ses-{type}/
     sub-..._srt-toy_clusters.npz     spikes + units table (with `kind` etc.)  raphael.population.load
     sub-..._src-toy_traces.npz       dF/F                                      raphael.population.load
     sub-..._src-toy_rois.csv         ROI table (with `kind` etc.)
@@ -69,7 +69,7 @@ mistaken for a real sorter's or pipeline's output.
 [data_server.md](data_server.md):
 
 ```
-{root}/M{mouse}/D{day}/{type}/
+{root}/sub-M{mouse}/day-{dd}/ses-{type}/
     sub-..._beh-rig.csv          behaviour on the rig's clock, ~60 Hz rows, with a ttl column
     sub-..._ephys/Record Node 101/   light Neuropixels 2.0 recording, Open Ephys format
     sub-..._ophys/sub-..._ophys_00001.tif   two-photon movie (30 Hz, 96 x 96 px, first minute)

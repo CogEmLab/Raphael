@@ -15,7 +15,8 @@ for movies, the frame rate. Under the raw layout, the describing files at
 each level above a recording (`describing`) add what the recording files
 don't hold: the session's start time and notes, the mouse's sex, date of
 birth and strain, its procedures, the cohort. Under the raw layout of docs/data_server.md
-(`raw/{cohort}/M{mouse}/D{day}/{type}/sub-M…_ses-D…_typ-…_{ephys,ophys,photometry}`)
+(`raw/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/sub-M…_day-…_ses-…_{ephys,ophys,photometry}`,
+or the older `M{mouse}/D{day}/{type}/sub-M…_ses-D…_typ-…`)
 the path gives the cohort, mouse, day and session type too; elsewhere they
 come from a session table (`raphael-jobs plan --sessions`).
 
@@ -42,9 +43,27 @@ MODALITIES = {
 #: modality -> the stage config it reads (src/raphael/configs/).
 CONFIGS = {'neuropixels': 'ephys.yaml', 'two_photon': 'imaging.yaml',
            'one_photon': 'imaging_1p.yaml', 'photometry': 'photometry.yaml'}
-LAYOUT = re.compile(r'(?:^|/)M([^/]+)/D(\d+)/([^/]+)/sub-M\1_ses-D\2_typ-\3_[^/]+$')
-#: The cohort: the folder above M{mouse}, unless that is the `raw` folder itself.
-COHORT = re.compile(r'([^/]+)/M([^/]+)/D(\d+)/([^/]+)/sub-M\2_ses-D\3_typ-\4_[^/]+$')
+#: The raw layout, now and before 2026-11: {cohort}/sub-M{mouse}/day-{dd}/ses-{type}/
+#: sub-M…_day-…_ses-…_{what}, and {cohort}/M{mouse}/D{day}/{type}/sub-M…_ses-D…_typ-…_{what}.
+#: The cohort is the folder above the mouse's, unless that is the `raw` folder.
+LAYOUTS = (
+    (re.compile(r'(?:^|/)(?:(?P<cohort>[^/]+)/)?sub-M(?P<mouse>[^/]+)/day-(?P<day>\d+)/'
+                r'ses-(?P<type>[^/]+)/sub-M(?P=mouse)_day-(?P=day)_ses-(?P=type)_[^/]+$'), False),
+    (re.compile(r'(?:^|/)(?:(?P<cohort>[^/]+)/)?M(?P<mouse>[^/]+)/D(?P<day>\d+)/'
+                r'(?P<type>[^/]+)/sub-M(?P=mouse)_ses-D(?P=day)_typ-(?P=type)_[^/]+$'), True),
+)
+
+
+def _layout(path):
+    """(cohort, mouse, day, session type, legacy) from a path in the raw
+    layout (either scheme), or None."""
+    text = Path(path).as_posix()
+    for pattern, legacy in LAYOUTS:
+        m = pattern.search(text)
+        if m:
+            cohort = m['cohort'] if m['cohort'] not in (None, 'raw') else None
+            return cohort, m['mouse'], int(m['day']), m['type'], legacy
+    return None
 COPY = re.compile(r'_(recovered\d*|fixed)$')        # Inscopix copies made after acquisition
 MOVIE_SUFFIXES = ('.tif', '.tiff', '.h5', '.hdf5')
 
@@ -239,11 +258,9 @@ def detect(path, root=None, timezone='Europe/Vienna'):
         return None
     rec.bytes = _size(path)
     named = path if path.is_dir() or not path.parent.name.endswith('_ophys') else path.parent
-    m = LAYOUT.search(_rel(named, root))
-    if m:
-        rec.mouse, rec.day, rec.session_type = m.group(1), int(m.group(2)), m.group(3)
-        c = COHORT.search(Path(named).resolve().as_posix())
-        rec.cohort = c.group(1) if c and c.group(1) != 'raw' else None
+    found = _layout(Path(named).resolve())
+    if found:
+        rec.cohort, rec.mouse, rec.day, rec.session_type, _ = found
     if rec.modality == 'two_photon' and rec.format in ('tiff', 'hdf5', 'scanimage') \
             and rec.rate_hz is None:
         rec.note = '; '.join(filter(None, [rec.note, 'frame rate not in the file: give fs']))
@@ -296,9 +313,9 @@ def describing(path, recording=None):
     """The describing files above a recording in the raw layout, as dicts
     (None where a file is missing):
 
-        session      {type}/sub-M…_ses-D…_typ-…_session.yaml
-        subject      M{mouse}/sub-M{mouse}_subject.yaml
-        procedures   M{mouse}/sub-M{mouse}_procedures.yaml (a list)
+        session      ses-{type}/sub-M…_day-…_ses-…_session.yaml
+        subject      sub-M{mouse}/sub-M{mouse}_subject.yaml
+        procedures   sub-M{mouse}/sub-M{mouse}_procedures.yaml (a list)
         cohort       {cohort}/cohort.yaml
 
     plus `paths`, the files read. `path` is the recording (file or folder);
@@ -308,14 +325,22 @@ def describing(path, recording=None):
     rec = recording or detect(path)
     if rec is None or rec.mouse is None:
         return {}
-    mouse, day, kind = rec.mouse, rec.day, rec.session_type
-    session_dir = next((p for p in path.parents if p.name == kind and p.parent.name == f'D{day}'
-                        and p.parent.parent.name == f'M{mouse}'), None)
+    from raphael.imaging.layout import Session
+
+    session_dir, session = None, None
+    for legacy in (False, True):
+        candidate = Session(str(rec.mouse), str(rec.day), str(rec.session_type), legacy=legacy)
+        folder = candidate.folder('/').parts[-3:]          # (mouse, day, session) folder names
+        session_dir = next((p for p in path.parents if (p.parent.parent.name, p.parent.name,
+                                                         p.name) == folder), None)
+        if session_dir is not None:
+            session = candidate
+            break
     if session_dir is None:
         return {}
-    mouse_dir = session_dir.parent.parent
+    mouse, mouse_dir = rec.mouse, session_dir.parent.parent
     files = {
-        'session': session_dir / f'sub-M{mouse}_ses-D{day}_typ-{kind}_session.yaml',
+        'session': session_dir / f'{session.stem}_session.yaml',
         'subject': mouse_dir / f'sub-M{mouse}_subject.yaml',
         'procedures': mouse_dir / f'sub-M{mouse}_procedures.yaml',
         'cohort': mouse_dir.parent / 'cohort.yaml',
@@ -343,8 +368,9 @@ def describe(recordings):
     """One line per recording, for the terminal."""
     lines = []
     for r in recordings:
-        who = (f'{r.cohort + " " if r.cohort else ""}M{r.mouse} D{r.day} {r.session_type}'
-               if r.mouse is not None else '(no mouse/day/type in the path)')
+        who = (f'{r.cohort + " " if r.cohort else ""}sub-M{r.mouse} day-{int(r.day):02d} '
+               f'ses-{r.session_type}' if r.mouse is not None
+               else '(no mouse/day/session in the path)')
         rate = f', {r.rate_hz:g} Hz' if r.rate_hz else ''
         lines.append(f'{r.modality:<12} {r.format:<10} {who:<28} {r.bytes / 1e9:8.1f} GB'
                      f'{rate}  {r.path}' + (f'\n{"":13}! {r.note}' if r.note else ''))

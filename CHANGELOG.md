@@ -10,6 +10,16 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
 ### Added
+- New names for every session folder and file, raw and processed:
+  `{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/sub-M{mouse}_day-{dd}_ses-{type}_…`
+  (two-digit days; the session type keeps its run number, `ses-OF1`).
+  `Session` writes them; data named before (`M{mouse}/D{day}/{type}/`,
+  `sub-M…_ses-D…_typ-…`, e.g. clark2025) is still read: `Session.find`,
+  `Session.parse`, `Session(..., legacy=True)`, and raw detection accept
+  both. `raphael-jobs collect` copies session folders of either form.
+  Hand-ins are flat: the four describing files and one folder per session
+  named `sub-M…_day-…_ses-…_{date}_{time}`, with the rig's files not
+  renamed (`templates/data/incoming/_example`).
 - Describing files at each level of the raw tree (`cohort.yaml`,
   `sub-M…_subject.yaml`, `sub-M…_procedures.yaml`,
   `sub-M…_ses-…_session.yaml`), replacing the flat `metadata/` tables:

@@ -3,8 +3,8 @@ Kilosort 4 sorting (and LFP) -> processed per-session files.
 
 The processed dataset per session, in clark2025's tree:
 
-    {root}/M{mouse}/D{day}/{type}/
-        sub-M{mouse}_ses-D{day}_typ-{type}_beh.nwb      all behaviour (planned)
+    {root}/sub-M{mouse}/day-{dd}/ses-{type}/
+        sub-M{mouse}_day-{dd}_ses-{type}_beh.nwb      all behaviour (planned)
         sub-..._srt-{sorter}_clusters.npz               TsGroup: spike times, with
                                                         curation, metrics and
                                                         waveforms as unit metadata

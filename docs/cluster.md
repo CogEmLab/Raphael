@@ -107,7 +107,7 @@ The data root should mirror the laptop's, e.g.:
 
 ```
 {data}/
-    raw/M{mouse}/D{day}/{type}/...     raw movies, as acquired
+    raw/sub-M{mouse}/day-{dd}/ses-{type}/...     raw movies, as acquired
     dandi000402/...                    test bed
 ```
 
@@ -166,8 +166,8 @@ session folder it wrote**, so the record stays with the files wherever they
 are copied (to Leonardo, to a laptop, to DANDI's staging area):
 
 ```
-M1/D2/OF1/
-    sub-M1_ses-D2_typ-OF1_photometry.nwb
+sub-M1/day-02/ses-OF1/
+    sub-M1_day-02_ses-OF1_photometry.nwb
     ...
     provenance/{job_id}.json
 ```
@@ -205,9 +205,9 @@ laptop) get the NWB stamp but no record: run a job for anything you keep.
 | stage | does | key params |
 |---|---|---|
 | `smoke` | reads inputs, GPU matmul; tests a machine | `size` |
-| `kilosort4` | a day's Neuropixels recordings (one input folder each) -> bad channels, phase shift, Kilosort 4.0.16 per shank, analysers per session, bombcell and the ISI rule; writes `_clusters.npz` (spikes, curation, metrics, waveforms) and QC per session in the clark2025 tree, plus Kilosort's files for phy | `session_start` (one per recording, required), `session_type` (one per recording), `subject`, `mouse`, `day`, `location`, `format`, `stream`, `kilosort4`, `preprocessing`, `postprocessing`, `curation` (overrides).
+| `kilosort4` | a day's Neuropixels recordings (one input folder each) -> bad channels, phase shift, Kilosort 4.0.16 per shank, analysers per session, bombcell and the ISI rule; writes `_clusters.npz` (spikes, curation, metrics, waveforms) and QC per session in the processed tree, plus Kilosort's files for phy | `session_start` (one per recording, required), `session_type` (one per recording), `subject`, `mouse`, `day`, `location`, `format`, `stream`, `kilosort4`, `preprocessing`, `postprocessing`, `curation` (overrides).
 | `lfp` (CPU) | each Neuropixels recording -> LFP and theta phase, `_lfp.nwb` per session; size and detail set by `lfp` in configs/ephys.yaml | as `kilosort4` for the metadata; `lfp` (overrides). Make with `--cpu` Step by step: [ephys_walkthrough.md](ephys_walkthrough.md) |
-| `suite2p` | one movie -> registration, ROIs, traces, deconvolution; writes processed NWB, traces, ROI table and QC in the clark2025 tree, plus suite2p's own files for its GUI | `fs` and `session_start` (required), `subject`, `um_per_pixel`, `depth_um`, `mouse`, `day`, `session_type`, `suite2p` (setting overrides), `blank_fraction`, `keep_binary`. Step by step: [imaging_walkthrough.md](imaging_walkthrough.md) |
+| `suite2p` | one movie -> registration, ROIs, traces, deconvolution; writes processed NWB, traces, ROI table and QC in the processed tree, plus suite2p's own files for its GUI | `fs` and `session_start` (required), `subject`, `um_per_pixel`, `depth_um`, `mouse`, `day`, `session_type`, `suite2p` (setting overrides), `blank_fraction`, `keep_binary`. Step by step: [imaging_walkthrough.md](imaging_walkthrough.md) |
 | `photometry` (CPU) | Doric files -> `_photometry.nwb`, `.npz`, `.csv` and QC per session | `session_type` (one per input), `mouse`, `day`, `channels`, `processing`. See [photometry_pipeline.md](photometry_pipeline.md) |
 | `cnmfe` (CPU) | one Inscopix `.isxd` (or a binned TIFF) -> binning, NoRMCorre, CaImAn CNMF-E, component evaluation; writes `_src-cnmfe_ophys.nwb`, `_traces.npz` (C), `_rois.csv` and QC; the CaImAn model stays in `work/`. CaImAn runs in its own environment, built on first use | `mouse`, `day`, `session_type`, `subject`; `session_start` and `fs` for a TIFF; `cnmfe` (overrides of imaging_1p.yaml), `max_frames`, `keep_movies`, `skip_memory_check`. See [imaging_1p_pipeline.md](imaging_1p_pipeline.md) and [msc_cluster.md](msc_cluster.md#10-process-an-inscopix-recording-with-cnmf-e) |
 | `sync` (CPU) | behaviour CSV + Open Ephys recording -> behaviour on the recording clock (`_beh.csv`) and sync QC; fails if a sync check fails | `mouse`, `day`, `session_type`; `time_column`, `ttl_column`, `ttl_line`, `stream`; `sync` (limits); `waive`. See [sync.md](sync.md) |
@@ -258,5 +258,5 @@ Pass `check=f` to `stage` to validate params when the job is made:
 `f(params, inputs)` raises `JobError` on anything missing or malformed.
 
 Imaging and ephys stages should write their results into `ctx.outputs` in
-the clark2025 tree, through `imaging.nwb` or `ephys.nwb`, so a finished
+the processed tree, through `imaging.nwb` or `ephys.nwb`, so a finished
 bundle's `outputs/` can be merged into the processed dataset as it is.

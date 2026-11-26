@@ -18,7 +18,7 @@ analysis's CaImAn models and tracking into the processed tree
 `inscopix-sessions` lists every raw Inscopix recording under RAW_ROOT
 (animal ID, start time, frames, rate, microscope settings, from each
 .isxd's own description) with each mouse's recording day, which names the
-`D{day}` folders: day 1 is the mouse's first recording date, habituation
+`day-{dd}` folders: day 1 is the mouse's first recording date, habituation
 included.
 
 `from-dandi` re-exports the processed data inside a DANDI 000402 (MICrONS)

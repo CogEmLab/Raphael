@@ -94,7 +94,7 @@ class Photometry:
 
 def load(prefix):
     """`prefix`: the session's file path up to `_photometry`, e.g.
-    `.../sub-M25_ses-D18_typ-OF1`."""
+    `.../sub-M25_day-18_ses-OF1`."""
     prefix = str(Path(prefix).expanduser())
     return Photometry(nap.load_file(f'{prefix}_photometry.npz'),
                       pd.read_csv(f'{prefix}_photometry.csv'))

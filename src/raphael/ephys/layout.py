@@ -1,4 +1,5 @@
-"""Where processed ephys files go, named as in clark2025 and mecpy."""
+"""Where processed ephys files go: the shared session layout (imaging.layout)
+with the sorter as the `srt-` tag."""
 
 from pathlib import Path
 

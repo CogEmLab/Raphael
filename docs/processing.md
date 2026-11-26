@@ -47,7 +47,7 @@ recordings yet.
 - **The cluster**: an account, the code and its environment installed, your
   login saved: [msc_cluster.md](msc_cluster.md), sections 1–7.
 - **Raw data in the raw layout** ([data_server.md](data_server.md#raw)):
-  `raw/{cohort}/M{mouse}/D{day}/{type}/sub-M{mouse}_ses-D{day}_typ-{type}_{ephys,ophys,photometry}`.
+  `raw/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/sub-M{mouse}_day-{dd}_ses-{type}_{ephys,ophys,photometry}`.
   The path names the cohort, mouse, day and session type of every output,
   so Raphael needs nothing else to name them. (The cohort level can be
   left out; outputs then go straight into `processed/`.) Raw data in
@@ -213,8 +213,8 @@ For a single session (or one Neuropixels day), skip the plan:
 
 ```bash
 uv run raphael-jobs make ~/jobs/one-job --data-root $RAW \
-    --input M25/D18/OF1/sub-M25_ses-D18_typ-OF1_ephys \
-    --input M25/D18/OF2/sub-M25_ses-D18_typ-OF2_ephys
+    --input M25/D18/OF1/sub-M25_day-18_ses-OF1_ephys \
+    --input M25/D18/OF2/sub-M25_day-18_ses-OF2_ephys
 ```
 
 `make` reads the inputs and fills in the stage (here `kilosort4`), the
@@ -228,7 +228,7 @@ the job on the cluster.
 
 ## 6. Raw data in another layout *(laptop)*
 
-Recordings kept as they were recorded (no `M{mouse}/D{day}/{type}` in the
+Recordings kept as they were recorded (no `sub-M{mouse}/day-{dd}/{type}` in the
 path) are detected the same way, but have no names. A session table gives
 them, by path: columns `input` (path under the raw folder), `mouse`, `day`,
 `session_type`, and optionally `cohort`, `session_start` and `fs`.
@@ -260,7 +260,7 @@ folder per cohort (`May_2024`, … as the table names them).
 ## What you get
 
 ```
-processed/{cohort}/M{mouse}/D{day}/{type}/
+processed/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/
     sub-…_srt-kilosort4_clusters.npz            spikes, units, curation      ephys_pipeline.md
     sub-…_srt-kilosort4_bombcell_curation.json  bombcell labels
     sub-…_lfp.nwb                               LFP and theta phase

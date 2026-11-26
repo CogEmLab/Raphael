@@ -11,7 +11,7 @@ workstation or Colab and run there with `raphael-jobs run`:
         submit.sge
         status.json         PENDING -> RUNNING -> DONE | FAILED
         logs/               env.json, gpu.json, scheduler output, traceback
-        outputs/            results, in the clark2025 tree for imaging stages
+        outputs/            results, in the processed tree for imaging stages
 
 Data is not copied into the bundle. Inputs are files or folders (an ephys
 recording is a folder) given as paths relative to a data
@@ -504,7 +504,7 @@ def _suite2p_metadata(params, inputs=None, timezone='Europe/Vienna'):
 @stage('suite2p', check=_suite2p_metadata)
 def suite2p_stage(ctx):
     """suite2p on one movie -> processed NWB, traces, ROI table and QC in
-    ctx.outputs (clark2025 tree, `src-suite2p`).
+    ctx.outputs (processed tree, `src-suite2p`).
 
     params: fs (frame rate, required); session_start (recording start, ISO
     8601, required; no offset = imaging.yaml's timezone); subject (dict:
@@ -633,7 +633,7 @@ def _cpus():
 @stage('cnmfe', check=_cnmfe_check)
 def cnmfe_stage(ctx):
     """One-photon movie -> CaImAn CNMF-E -> processed NWB, traces, ROI table
-    and QC in ctx.outputs (clark2025 tree, `src-cnmfe`). CPU.
+    and QC in ctx.outputs (processed tree, `src-cnmfe`). CPU.
 
     input: an Inscopix .isxd (binned in space and time first, as
     imaging_1p.yaml's `cnmfe` section says), or a TIFF already binned for
@@ -778,7 +778,7 @@ def kilosort4_stage(ctx):
     """Kilosort 4.0.16 on a day's Neuropixels recordings, as in the Methods
     (see ephys/sorting.py) -> per session: processed NWB, spikes (TsGroup),
     units table, sorting analyser, bombcell curation and QC, in ctx.outputs
-    (clark2025 tree, `srt-kilosort4`).
+    (processed tree, `srt-kilosort4`).
 
     inputs: one recording folder per session, in recording order (SpikeGLX
     run folder, Open Ephys record node, or a spikeinterface folder).
@@ -945,7 +945,7 @@ def _lfp_check(params, inputs=(), timezone='Europe/Vienna'):
 @stage('lfp', check=_lfp_check)
 def lfp_stage(ctx):
     """LFP and theta phase of each Neuropixels recording -> one _lfp.nwb per
-    session in ctx.outputs (clark2025 tree). A CPU job: make --cpu.
+    session in ctx.outputs (processed tree). A CPU job: make --cpu.
 
     inputs: one recording folder per session (as for kilosort4).
     params: session_start, session_type, mouse, day, subject, format,

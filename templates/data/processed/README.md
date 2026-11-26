@@ -7,19 +7,19 @@ pipeline writes here. To change something, the data is processed again.
 
 ```
 processed/{cohort}/
-└── M{mouse}/
+└── sub-M{mouse}/
     ├── sub-M{mouse}_…                                       across this mouse's days, e.g. cells or
     │                                                        units matched between sessions (planned)
     ├── subject/                                             from raw subject/: e.g. probe tracks
     │                                                        registered to the Allen atlas (planned)
-    └── D{day}/{type}/
-        ├── sub-M…_ses-D…_typ-…_srt-kilosort4_clusters.npz   spikes and units
-        ├── sub-M…_ses-D…_typ-…_srt-kilosort4_bombcell_curation.json
-        ├── sub-M…_ses-D…_typ-…_lfp.nwb                      LFP and theta phase
-        ├── sub-M…_ses-D…_typ-…_src-suite2p_ophys.nwb        two-photon ROIs and traces (+ _traces.npz, _rois.csv)
-        ├── sub-M…_ses-D…_typ-…_src-cnmfe_ophys.nwb          one-photon ROIs and traces (+ _traces.npz, _rois.csv)
-        ├── sub-M…_ses-D…_typ-…_photometry.nwb               photometry dF/F (+ .npz, .csv)
-        ├── sub-M…_ses-D…_typ-…_beh.nwb                      behaviour, on the recording's clock
+    └── day-{dd}/ses-{type}/
+        ├── sub-M…_day-…_ses-…_srt-kilosort4_clusters.npz   spikes and units
+        ├── sub-M…_day-…_ses-…_srt-kilosort4_bombcell_curation.json
+        ├── sub-M…_day-…_ses-…_lfp.nwb                      LFP and theta phase
+        ├── sub-M…_day-…_ses-…_src-suite2p_ophys.nwb        two-photon ROIs and traces (+ _traces.npz, _rois.csv)
+        ├── sub-M…_day-…_ses-…_src-cnmfe_ophys.nwb          one-photon ROIs and traces (+ _traces.npz, _rois.csv)
+        ├── sub-M…_day-…_ses-…_photometry.nwb               photometry dF/F (+ .npz, .csv)
+        ├── sub-M…_day-…_ses-…_beh.nwb                      behaviour, on the recording's clock
         ├── qc/                                              figures to check by eye
         └── provenance/                                      exactly how these files were made (below)
 ```

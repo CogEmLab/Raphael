@@ -156,7 +156,7 @@ def _session_id(sess):
 
 def processed(root, sess=None, data=None, **kwargs):
     """Write `data` (default: session(**kwargs)) as session `sess` (a
-    raphael Session; default M1/D1/OF1) of the processed tree under `root`.
+    raphael Session; default mouse 1, day 1, OF1) of the processed tree under `root`.
     Returns {name: path}."""
     from raphael.ephys import nwb as ephys_nwb
 

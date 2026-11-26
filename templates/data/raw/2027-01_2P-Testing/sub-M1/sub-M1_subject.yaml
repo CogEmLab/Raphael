@@ -1,5 +1,6 @@
 # EXAMPLE: replace with the real mouse's details.
 mouse: 1
+cohort: 2027-01_2P-Testing
 alias:
 owner: hclark
 sex: F

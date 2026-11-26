@@ -1,5 +1,5 @@
-# EXAMPLE hand-in: the new mouse's surgeries.
-- date: 2026-12-02
+# EXAMPLE
+- date: 2026-12-01
   procedure: injection
   label: ophys
   target: CA1
@@ -11,7 +11,7 @@
   anaesthesia: isoflurane 1.5-2 %
   analgesia: meloxicam 5 mg/kg s.c.
   surgeon: hclark
-- date: 2026-12-16
+- date: 2026-12-15
   procedure: window
   label: ophys
   target: CA1
@@ -19,7 +19,7 @@
   coordinates_mm: {AP: -2.0, ML: -1.5}
   item: 3 mm glass window over CA1 (cortex aspirated)
   surgeon: hclark
-- date: 2026-12-16
+- date: 2026-12-15
   procedure: headplate
   item: titanium headplate
   surgeon: hclark

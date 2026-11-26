@@ -112,7 +112,7 @@ def test_photometry_stage(simulated, tmp_path):
                             'processing': {'lowpass_hz': 5.0}})
     jobs.run(job, data_root)
     assert jobs.read_status(job)['state'] == 'DONE'
-    assert (job / 'outputs' / 'M1' / 'D2' / 'OF1' / 'sub-M1_ses-D2_typ-OF1_photometry.nwb').exists()
+    assert (job / 'outputs' / 'sub-M1' / 'day-02' / 'ses-OF1' / 'sub-M1_day-02_ses-OF1_photometry.nwb').exists()
 
 
 def test_processed_files_carry_their_provenance(simulated, tmp_path):
@@ -130,7 +130,7 @@ def test_processed_files_carry_their_provenance(simulated, tmp_path):
                     data_root, resources={'gpu': False}, configs=[DEFAULT_CONFIG],
                     params={'mouse': 1, 'day': 2, 'session_type': 'OF1'})
     jobs.run(job, data_root)
-    folder = job / 'outputs' / 'M1' / 'D2' / 'OF1'
+    folder = job / 'outputs' / 'sub-M1' / 'day-02' / 'ses-OF1'
     record = json.loads((folder / 'provenance' / 'fp-prov.json').read_text())
 
     assert record['format'] == provenance.RECORD_FORMAT
@@ -141,7 +141,7 @@ def test_processed_files_carry_their_provenance(simulated, tmp_path):
     assert record['inputs'][0]['sha256'] == provenance.sha256(data_root / 'raw/M1_D2_OF1.doric')
     assert record['environment']['packages']['pynwb']
     outputs = {f['path']: f['sha256'] for f in record['outputs']}
-    nwb_file = 'sub-M1_ses-D2_typ-OF1_photometry.nwb'
+    nwb_file = 'sub-M1_day-02_ses-OF1_photometry.nwb'
     assert outputs[nwb_file] == provenance.sha256(folder / nwb_file)
     assert any(p.startswith('qc/') for p in outputs)
     assert not any(p.startswith('provenance/') for p in outputs)

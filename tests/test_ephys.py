@@ -207,17 +207,17 @@ def test_stage_end_to_end(tmp_path, day, monkeypatch):
     assert (out / 'kilosort4' / 'channels.csv').exists()
     assert not (job / 'work' / 'sorted').exists()
 
-    folder = out / 'M1' / 'D2' / 'OF2'
-    base = folder / 'sub-M1_ses-D2_typ-OF2_srt-kilosort4'
+    folder = out / 'sub-M1' / 'day-02' / 'ses-OF2'
+    base = folder / 'sub-M1_day-02_ses-OF2_srt-kilosort4'
     # The processed tree holds the bombcell curation file (as clark2025) but
     # no zarr; with keep_analyzer, that sits in outputs/kilosort4/analyzers/.
     # _ecephys.nwb is there only because this job asks for it (write_ecephys_nwb).
-    assert sorted(p.name.removeprefix('sub-M1_ses-D2_typ-OF2_srt-kilosort4')
+    assert sorted(p.name.removeprefix('sub-M1_day-02_ses-OF2_srt-kilosort4')
                   for p in folder.iterdir()) == ['_bombcell_curation.json', '_clusters.npz',
                                                  '_ecephys.nwb', 'provenance', 'qc']
-    kept = out / 'kilosort4' / 'analyzers' / 'M1' / 'D2' / 'OF2'
-    analyzer_path = kept / 'sub-M1_ses-D2_typ-OF2_srt-kilosort4_analyzer.zarr'
-    curation_path = folder / 'sub-M1_ses-D2_typ-OF2_srt-kilosort4_bombcell_curation.json'
+    kept = out / 'kilosort4' / 'analyzers' / 'sub-M1' / 'day-02' / 'ses-OF2'
+    analyzer_path = kept / 'sub-M1_day-02_ses-OF2_srt-kilosort4_analyzer.zarr'
+    curation_path = folder / 'sub-M1_day-02_ses-OF2_srt-kilosort4_bombcell_curation.json'
     import pynapple as nap
     group = nap.load_file(f'{base}_clusters.npz')
     units = group.metadata.rename_axis('unit').reset_index()
@@ -305,7 +305,7 @@ def test_stage_end_to_end(tmp_path, day, monkeypatch):
 def test_population_loads_imaging_tables(tmp_path):
     import pynapple as nap
 
-    base = tmp_path / 'sub-M1_ses-D2_typ-OF1_src-suite2p'
+    base = tmp_path / 'sub-M1_day-02_ses-OF1_src-suite2p'
     pd.DataFrame({'roi': [0, 1, 2], 'accepted': [True, False, True]}).to_csv(
         f'{base}_rois.csv', index=False)
     nap.TsdFrame(t=np.arange(100) / 10, d=np.ones((100, 3)), columns=[0, 1, 2]).save(
@@ -412,7 +412,7 @@ def test_lfp_stage_writes_the_lab_layout(tmp_path, day):
     out = lfp_job(tmp_path, folders[0].parent, 'lfp-default')
     summary = json.loads((out / 'lfp_summary.json').read_text())
     assert [s['lfp_channels'] for s in summary['sessions']] == [4, 4]
-    path = out / 'M1' / 'D2' / 'OF2' / 'sub-M1_ses-D2_typ-OF2_lfp.nwb'
+    path = out / 'sub-M1' / 'day-02' / 'ses-OF2' / 'sub-M1_day-02_ses-OF2_lfp.nwb'
     assert sorted(p.name for p in path.parent.iterdir()) == sorted([path.name, 'provenance'])
     assert (path.parent / 'provenance' / 'lfp-default.json').exists()
     with pynwb.NWBHDF5IO(str(path), 'r') as io:
@@ -438,7 +438,7 @@ def test_lfp_size_settings(tmp_path, day):
     out = lfp_job(tmp_path, folders[0].parent, 'lfp-light',
                   {'rate_hz': 500, 'band_hz': [1, 200], 'dtype': 'float16',
                    'channels': {'block_size': 1, 'every': 2}, 'theta': {'enabled': False}})
-    path = out / 'M1' / 'D2' / 'OF1' / 'sub-M1_ses-D2_typ-OF1_lfp.nwb'
+    path = out / 'sub-M1' / 'day-02' / 'ses-OF1' / 'sub-M1_day-02_ses-OF1_lfp.nwb'
     with pynwb.NWBHDF5IO(str(path), 'r') as io:
         f = io.read()
         lfp = f.processing['ecephys']['LFP']['lfp']

@@ -1,5 +1,6 @@
-# raw/{cohort}/cohort.yaml: one per cohort, written when the cohort starts.
-# The cohort folder is named YYYY-MM_{label}: the month it started and a short label.
+# {cohort}_cohort.yaml: one per cohort, written when the cohort starts, and
+# handed in with every session (in raw/ it is raw/{cohort}/cohort.yaml).
+# Cohorts are named YYYY-MM_{label}: the month it started and a short label.
 
 cohort:                 # the folder name, e.g. 2026-03_dHPC-place
 project:                # project code (lab/projects.yaml); sessions may name others

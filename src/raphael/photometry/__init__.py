@@ -1,8 +1,8 @@
 """Fibre photometry: Doric recordings -> dF/F per fibre channel, as NWB and
 a pynapple table in the processed tree.
 
-    {root}/M{mouse}/D{day}/{type}/
-        sub-M{mouse}_ses-D{day}_typ-{type}_photometry.nwb   raw channels (acquisition)
+    {root}/sub-M{mouse}/day-{dd}/ses-{type}/
+        sub-M{mouse}_day-{dd}_ses-{type}_photometry.nwb   raw channels (acquisition)
                                                              and dF/F, z-score (processing)
         sub-..._photometry.npz                               TsdFrame: {channel}_dff, {channel}_zscore
         sub-..._photometry.csv                               one row per channel: role, reference,

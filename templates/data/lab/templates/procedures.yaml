@@ -1,5 +1,6 @@
-# raw/{cohort}/M{mouse}/sub-M{mouse}_procedures.yaml: every surgery or
-# procedure on the mouse, one list entry each, added as they happen.
+# sub-M{mouse}_procedures.yaml: every surgery or procedure on the mouse, one
+# list entry each, added as they happen; handed in with every session
+# (raw/{cohort}/sub-M{mouse}/). Before the first surgery the file is just: []
 #   NWBFile.surgery, NWBFile.virus (written from these entries)
 #   NWB electrode, optical fibre and imaging plane locations, and the
 #   imaging indicator, via `label`

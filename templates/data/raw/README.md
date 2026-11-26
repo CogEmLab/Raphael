@@ -1,7 +1,8 @@
 # raw/
 
 Recordings as acquired, and the files that describe them. Added by the data
-manager from `incoming/`; never written here directly. **Recordings are
+manager's ingest from `incoming/`, which names and files everything; never
+written here directly. **Recordings are
 locked** once added; the describing `.yaml` files stay editable.
 
 ## Layout
@@ -9,27 +10,27 @@ locked** once added; the describing `.yaml` files stay editable.
 ```
 raw/{cohort}/
 ├── cohort.yaml                                        the cohort: project, owner, start, purpose
-└── M{mouse}/
+└── sub-M{mouse}/
     ├── sub-M{mouse}_subject.yaml                      the mouse: sex, date of birth, strain, genotype
     ├── sub-M{mouse}_procedures.yaml                   its surgeries: injections, implants, coordinates
     ├── subject/                                       not tied to a session: histology/, surgery/, anatomy/
-    └── D{day}/{type}/
-        ├── sub-M{mouse}_ses-D{day}_typ-{type}_session.yaml      the session: start, experimenter, task, notes
-        ├── sub-M{mouse}_ses-D{day}_typ-{type}_ephys/            Neuropixels: Open Ephys or SpikeGLX, inside untouched
-        ├── sub-M{mouse}_ses-D{day}_typ-{type}_ophys/            imaging: ScanImage, Bruker, or Inscopix .isxd + session.json
-        ├── sub-M{mouse}_ses-D{day}_typ-{type}_photometry.doric
-        ├── sub-M{mouse}_ses-D{day}_typ-{type}_video-{camera}.mp4
-        ├── sub-M{mouse}_ses-D{day}_typ-{type}_beh-{source}.{ext}    rig logs, task files
-        ├── sub-M{mouse}_ses-D{day}_typ-{type}_sync-{device}.{ext}   TTL files not inside another recording
-        └── sub-M{mouse}_ses-D{day}_typ-{type}_manifest.tsv          checksum and original name of every file (ingest)
+    └── day-{dd}/ses-{type}/
+        ├── sub-M{mouse}_day-{dd}_ses-{type}_session.yaml      the session: start, experimenter, task, notes
+        ├── sub-M{mouse}_day-{dd}_ses-{type}_ephys/            Neuropixels: Open Ephys or SpikeGLX, inside untouched
+        ├── sub-M{mouse}_day-{dd}_ses-{type}_ophys/            imaging: ScanImage, Bruker, or Inscopix .isxd + session.json
+        ├── sub-M{mouse}_day-{dd}_ses-{type}_photometry.doric
+        ├── sub-M{mouse}_day-{dd}_ses-{type}_video-{camera}.mp4
+        ├── sub-M{mouse}_day-{dd}_ses-{type}_beh-{source}.{ext}    rig logs, task files
+        ├── sub-M{mouse}_day-{dd}_ses-{type}_sync-{device}.{ext}   TTL files not inside another recording
+        └── sub-M{mouse}_day-{dd}_ses-{type}_manifest.tsv          checksum and original name of every file (ingest)
 ```
 
 | part | means | example |
 |---|---|---|
 | `{cohort}` | the animals run together: `YYYY-MM_{label}` (month it started, short label) | `2026-03_dHPC-place` |
-| `M{mouse}` | the mouse's lab-wide ID | `M10432` |
-| `D{day}` | day of experiment for that mouse: D1 = its first recorded day, in any project | `D4` |
-| `{type}` | task code (`lab/tasks.yaml`) + run number that day | `OF1`, `OF2`, `VR1` |
+| `sub-M{mouse}` | the mouse's lab-wide ID | `sub-M10432` |
+| `day-{dd}` | day of experiment for that mouse, two digits: day-01 = its first recorded day, in any project | `day-04` |
+| `ses-{type}` | task code (`lab/tasks.yaml`) + run number that day | `ses-OF1`, `ses-OF2`, `ses-VR1` |
 | `-{label}` | which one, when a session has several of a kind | `video-top`, `photometry-dHPC`, `ephys-probeA` |
 
 The describing files are written from `lab/templates/`; each template says
@@ -49,7 +50,7 @@ worked example.
 
 ## Naming rules
 
-- Single files get the `sub-…_ses-…_typ-…` name. **Folders written by
+- Single files get the `sub-…_day-…_ses-…` name. **Folders written by
   acquisition software keep their insides as recorded**; only the outer
   folder is renamed.
 - Each `_ephys` / `_ophys` folder and each `.doric` file is **one

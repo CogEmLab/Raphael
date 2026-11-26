@@ -1,0 +1,13 @@
+# EXAMPLE
+mouse: 1
+cohort: 2027-01_2P-Testing
+alias:
+owner: hclark
+sex: F
+date_of_birth: 2026-10-01
+species: Mus musculus
+strain: C57BL/6J
+genotype: wild type
+source: Charles River
+facility_id:
+description:

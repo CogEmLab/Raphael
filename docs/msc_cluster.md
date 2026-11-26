@@ -332,7 +332,7 @@ overrides suite2p settings, merged into its defaults. The full processing
 walkthrough, with the data at each step, is in
 [imaging_walkthrough.md](imaging_walkthrough.md). The job writes to `outputs/`:
 
-- `M{mouse}/D{day}/{type}/..._src-suite2p_ophys.nwb`, `_traces.npz`,
+- `sub-M{mouse}/day-{dd}/ses-{type}/..._src-suite2p_ophys.nwb`, `_traces.npz`,
   `_rois.csv` and `qc/plane1_rois.png`: the processed session, clark2025
   layout
 - `suite2p/plane0/`: suite2p's own files, which open in its GUI for curation
@@ -426,7 +426,7 @@ sessions. The movies are deleted at the end; the CaImAn model (`.hdf5`),
 the arrays and CaImAn's log stay in `work/caiman/` for comparison and
 re-curation.
 
-The job writes `M{mouse}/D{day}/{type}/..._src-cnmfe_ophys.nwb`,
+The job writes `sub-M{mouse}/day-{dd}/ses-{type}/..._src-cnmfe_ophys.nwb`,
 `_traces.npz`, `_rois.csv`, `qc/` and `provenance/` (with
 `cnmfe_summary.json`: components, accepted, run times) to `outputs/`. The processing is
 described in [imaging_1p_pipeline.md](imaging_1p_pipeline.md).

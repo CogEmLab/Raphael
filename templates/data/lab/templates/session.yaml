@@ -1,5 +1,5 @@
-# raw/{cohort}/M{mouse}/D{day}/{type}/sub-M{mouse}_ses-D{day}_typ-{type}_session.yaml:
-# one per session, written on the day it is recorded. Fields marked * are
+# sub-M{mouse}_day-{dd}_ses-{type}_session.yaml: one per session, written on
+# the day it is recorded, inside the session's folder. Fields marked * are
 # required: ingest refuses a session without them.
 #   NWBFile: session_start_time, session_description, experimenter,
 #            pharmacology, stimulus_notes, data_collection, notes

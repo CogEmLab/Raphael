@@ -120,5 +120,6 @@ def test_toy_dataset_notebook_runs(tmp_path, monkeypatch):
     assert (root / 'README.md').exists()
     for day in (1, 2, 3):
         for tree in ('raw', 'processed'):
-            folder = root / tree / 'M1' / f'D{day}' / 'OF1'
-            assert all(p.name.startswith(f'sub-M1_ses-D{day}_typ-OF1_') for p in folder.iterdir())
+            folder = root / tree / 'sub-M1' / f'day-{day:02d}' / 'ses-OF1'
+            assert all(p.name.startswith(f'sub-M1_day-{day:02d}_ses-OF1_')
+                       for p in folder.iterdir())

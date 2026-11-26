@@ -2,7 +2,7 @@
 (if the checks pass) the behaviour on the recording's clock, in the
 processed tree:
 
-    {root}/M{mouse}/D{day}/{type}/
+    {root}/sub-M{mouse}/day-{dd}/ses-{type}/
         sub-..._beh.csv        behaviour rows, `time` on the recording clock
                                (s from its first sample, as spike times);
                                the rig's own time kept as `time_behaviour`

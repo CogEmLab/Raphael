@@ -22,11 +22,11 @@ under [Changes from the helping-behaviour code](#changes-from-the-helping-behavi
 ## Output layout
 
 ```
-{processed}/M{mouse}/D{day}/{type}/
-    sub-M{mouse}_ses-D{day}_typ-{type}_src-cnmfe_ophys.nwb    processed ophys
-    sub-M{mouse}_ses-D{day}_typ-{type}_src-cnmfe_traces.npz   TsdFrame of C (denoised)
-    sub-M{mouse}_ses-D{day}_typ-{type}_src-cnmfe_rois.csv     one row per component
-    sub-M{mouse}_ses-D{day}_typ-{type}_beh.nwb                behaviour, with the DLC pose
+{processed}/sub-M{mouse}/day-{dd}/ses-{type}/
+    sub-M{mouse}_day-{dd}_ses-{type}_src-cnmfe_ophys.nwb    processed ophys
+    sub-M{mouse}_day-{dd}_ses-{type}_src-cnmfe_traces.npz   TsdFrame of C (denoised)
+    sub-M{mouse}_day-{dd}_ses-{type}_src-cnmfe_rois.csv     one row per component
+    sub-M{mouse}_day-{dd}_ses-{type}_beh.nwb                behaviour, with the DLC pose
     qc/plane1_rois.png                                         mean image, components, traces
     provenance/{job_id}.json
 ```
@@ -66,9 +66,9 @@ unless `keep_movies`.
 
 ## Days
 
-`D{day}` counts the mouse's recording dates, from its first recording:
+`day-{dd}` counts the mouse's recording dates, from its first recording:
 habituation and image checks included, two sessions on one date share a
-day (`D12/Toy`, `D12/Pool`). A session keeps its day however a project
+day (`day-12/ses-Toy`, `day-12/ses-Pool`). A session keeps its day however a project
 filters the table later.
 
 ```bash
@@ -156,7 +156,7 @@ behaviour clock (below) are next.
 | z-scored "dF/F" (`npy_data/`) | detrended trace named as such; z-scoring is analysis |
 | uint16 cast truncates | rounded and clipped |
 | `maximum shift` recorded as 0 with `border_nan: copy` | the real maximum shift (`cnmfe_summary.json`) |
-| outputs by cohort / session type / Inscopix file name | `M{mouse}/D{day}/{type}`, one tidy session table |
+| outputs by cohort / session type / Inscopix file name | `sub-M{mouse}/day-{dd}/{type}`, one tidy session table |
 
 ## Known issues in the raw data
 
@@ -194,7 +194,7 @@ raphael-imaging --config configs/imaging_1p.yaml port-helping-behaviour \
     --raw-table raw_*.csv --out OUT          # [--session 8472 HBTD3]
 ```
 
-It writes `OUT/processed/M{mouse}/D{day}/{type}/` with the tag
+It writes `OUT/processed/sub-M{mouse}/day-{dd}/ses-{type}/` with the tag
 `src-cnmfehb` (never `src-cnmfe`, so the two can't be confused), and
 `OUT/metadata/sessions.csv`, `subjects.csv`:
 

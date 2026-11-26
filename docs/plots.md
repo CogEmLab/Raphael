@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from raphael import plots, population, style
 
 style.use()
-units = population.load('.../sub-M25_ses-D18_typ-OF1_srt-kilosort4').accepted()
+units = population.load('.../sub-M25_day-18_ses-OF1_srt-kilosort4').accepted()
 beh = load_behaviour(...)      # the project's: P_x, P_y (cm), H (rad), S (cm/s), moving
 
 fig = plt.figure(figsize=style.figsize('double', height_mm=50))

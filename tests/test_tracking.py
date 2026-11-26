@@ -183,7 +183,7 @@ def test_pose_round_trips_through_the_processed_tree(tmp_path):
     pose = IO.dlc_to_arena(table, fps=30, arena_cm=(120, 80), door=None)
     session = Session('1', '2', 'OF1')
     path = IO.write_pose(pose, session, tmp_path)
-    assert path.name == 'sub-M1_ses-D2_typ-OF1_src-dlc_pose.h5'
+    assert path.name == 'sub-M1_day-02_ses-OF1_src-dlc_pose.h5'
     back = IO.read_pose(path)
     pd.testing.assert_frame_equal(back, pose, check_freq=False)
     assert back.attrs['fps'] == 30 and back.attrs['arena']['units'] == 'cm'
@@ -222,7 +222,7 @@ def test_vame_export_offsets_frames_by_half_the_time_window(tmp_path):
     assert table['community'].tolist() == [0, 0, 1, 1]
     session = Session('1', '2', 'OF1')
     out = vame.write_motifs(written[0]['path'], session, tmp_path / 'processed', 'kmeans-3')
-    assert out.name == 'sub-M1_ses-D2_typ-OF1_src-vame-kmeans-3_motifs.csv'
+    assert out.name == 'sub-M1_day-02_ses-OF1_src-vame-kmeans-3_motifs.csv'
 
 
 @pytest.mark.skipif(not os.environ.get('RAPHAEL_TEST_VAME'),

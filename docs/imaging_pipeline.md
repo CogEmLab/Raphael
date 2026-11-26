@@ -26,11 +26,11 @@ Same tree and naming as clark2025. The spike-sorting outputs
 replaced by their imaging equivalents:
 
 ```
-{root}/M{mouse}/D{day}/{type}/
-    sub-M{mouse}_ses-D{day}_typ-{type}_beh.nwb               behaviour (as clark2025)
-    sub-M{mouse}_ses-D{day}_typ-{type}_src-{pipeline}_ophys.nwb    processed ophys
-    sub-M{mouse}_ses-D{day}_typ-{type}_src-{pipeline}_traces.npz   dF/F, pynapple TsdFrame
-    sub-M{mouse}_ses-D{day}_typ-{type}_src-{pipeline}_rois.csv     one row per ROI
+{root}/sub-M{mouse}/day-{dd}/ses-{type}/
+    sub-M{mouse}_day-{dd}_ses-{type}_beh.nwb               behaviour (as clark2025)
+    sub-M{mouse}_day-{dd}_ses-{type}_src-{pipeline}_ophys.nwb    processed ophys
+    sub-M{mouse}_day-{dd}_ses-{type}_src-{pipeline}_traces.npz   dF/F, pynapple TsdFrame
+    sub-M{mouse}_day-{dd}_ses-{type}_src-{pipeline}_rois.csv     one row per ROI
     qc/plane{i}_rois.png                                            mean image + ROIs + traces
 ```
 

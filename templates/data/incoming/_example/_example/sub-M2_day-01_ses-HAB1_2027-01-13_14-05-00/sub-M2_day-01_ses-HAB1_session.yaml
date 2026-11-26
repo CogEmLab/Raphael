@@ -1,0 +1,15 @@
+# EXAMPLE
+start: 2027-01-13T14:05:00
+task: HAB
+experimenter: [hclark]
+project: 2p-pilot
+rig: 2p-rig-1
+weight_g: 25.8
+description: First habituation to the treadmill under the objective, no imaging.
+recordings:
+  video-top: top camera, 30 fps
+pharmacology:
+stimulus_notes:
+data_collection:
+quality: good
+notes: Ran well after the first 5 min.

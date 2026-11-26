@@ -141,9 +141,9 @@ def test_sync_stage(clean, tmp_path):
                     resources={'gpu': False}, params={'mouse': 1, 'day': 2,
                                                       'session_type': 'OF1'})
     jobs.run(job, data_root)
-    folder = job / 'outputs' / 'M1' / 'D2' / 'OF1'
-    assert (folder / 'sub-M1_ses-D2_typ-OF1_beh.csv').exists()
-    assert (folder / 'qc' / 'sub-M1_ses-D2_typ-OF1_sync.png').exists()
+    folder = job / 'outputs' / 'sub-M1' / 'day-02' / 'ses-OF1'
+    assert (folder / 'sub-M1_day-02_ses-OF1_beh.csv').exists()
+    assert (folder / 'qc' / 'sub-M1_day-02_ses-OF1_sync.png').exists()
     assert (folder / 'provenance' / 'sync-1.json').exists()
 
 
@@ -151,4 +151,4 @@ def test_command_on_a_simulated_session(tmp_path, capsys):
     from raphael.scripts.sync import main
     assert main(['--simulate', str(tmp_path)]) == 0
     assert 'sync PASSED' in capsys.readouterr().out
-    assert (tmp_path / 'processed' / 'M1' / 'D1' / 'OF1' / 'sub-M1_ses-D1_typ-OF1_beh.csv').exists()
+    assert (tmp_path / 'processed' / 'sub-M1' / 'day-01' / 'ses-OF1' / 'sub-M1_day-01_ses-OF1_beh.csv').exists()

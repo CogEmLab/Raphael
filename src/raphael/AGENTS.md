@@ -16,8 +16,10 @@ same way. Before writing processing, loading, analysis or plotting code,
    then read the source of the ones you use. The source is in the project's
    virtual environment, under `site-packages/raphael/`.
 3. **Use Raphael's names and layouts.** Processed files follow
-   `{root}/M{mouse}/D{day}/{type}/sub-M{mouse}_ses-D{day}_typ-{type}_...`,
-   where `{root}` is `processed/{cohort}` on the data server.
+   `{root}/sub-M{mouse}/day-{dd}/ses-{type}/sub-M{mouse}_day-{dd}_ses-{type}_...`,
+   where `{root}` is `processed/{cohort}` on the data server. Data named
+   before 2026-11 (`M{mouse}/D{day}/{type}/sub-M…_ses-D…_typ-…`, e.g.
+   clark2025) is found with `Session.find(root, mouse, day, type)`.
    Build paths with `raphael.ephys.layout.Session`, never by hand.
    Behaviour uses `P_x`, `P_y` (cm), `H` (rad), `S` (cm/s) and a `moving`
    epoch, as pynapple objects.

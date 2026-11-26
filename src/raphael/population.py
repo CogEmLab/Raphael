@@ -9,7 +9,7 @@ Each pipeline ends in a table (one row per neuron) and the activity:
 Each table has an `accepted` column and an id column (`unit` or `roi`)
 that keys the activity. `load` takes the shared prefix of the files:
 
-    pop = population.load('.../sub-M25_ses-D18_typ-OF1_srt-kilosort4')
+    pop = population.load('.../sub-M25_day-18_ses-OF1_srt-kilosort4')
     pop = pop.accepted()
     rates = pop.binned(0.1)       # TsdFrame, time x neuron, either modality
 
@@ -58,7 +58,7 @@ class Population:
 
 def load(prefix):
     """`prefix`: a session's file path up to the pipeline tag, e.g.
-    `.../sub-M25_ses-D18_typ-OF1_srt-kilosort4`."""
+    `.../sub-M25_day-18_ses-OF1_srt-kilosort4`."""
     prefix = str(Path(prefix).expanduser())
     for kind, (table_name, data_name, id_column) in FILES.items():
         data_path = Path(f'{prefix}_{data_name}')

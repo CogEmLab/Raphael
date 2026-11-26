@@ -135,7 +135,7 @@ from raphael.behavioural_tracking import io
 
 pose = io.load_dlc('session…DLC_…_el.h5', fps=30, arena_cm=(100, 100))  # cm, landmarks dropped
 behaviour = io.to_behaviour(pose)          # P_x, P_y, H (heading), S (speed), moving
-io.write_pose(pose, session, processed_root)   # …/sub-M1_ses-D1_typ-OF1_src-dlc_pose.h5
+io.write_pose(pose, session, processed_root)   # …/sub-M1_day-01_ses-OF1_src-dlc_pose.h5
 ```
 
 - **Pixels to cm:** each video gets its own mapping, from the four corner

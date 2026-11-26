@@ -4,8 +4,8 @@ movies, CaImAn CNMF-E): raw movie -> processed, publishable NWB.
 The output tree mirrors clark2025 (see `layout`), with the spike-sorting
 outputs replaced by their imaging equivalents:
 
-    {root}/M{mouse}/D{day}/{type}/
-        sub-M{mouse}_ses-D{day}_typ-{type}_beh.nwb              behaviour
+    {root}/sub-M{mouse}/day-{dd}/ses-{type}/
+        sub-M{mouse}_day-{dd}_ses-{type}_beh.nwb              behaviour
         sub-..._src-{pipeline}_ophys.nwb                        processed ophys
         sub-..._src-{pipeline}_traces.npz                       dF/F, TsdFrame
         sub-..._src-{pipeline}_rois.csv                         one row per ROI
