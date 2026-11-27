@@ -20,6 +20,7 @@ processed/{cohort}/
         ├── sub-M…_day-…_ses-…_src-cnmfe_ophys.nwb          one-photon ROIs and traces (+ _traces.npz, _rois.csv)
         ├── sub-M…_day-…_ses-…_photometry.nwb               photometry dF/F (+ .npz, .csv)
         ├── sub-M…_day-…_ses-…_beh.nwb                      behaviour, on the recording's clock
+        ├── sub-M…_day-…_ses-…_video-top_src-dlc-{model}_capture.npz   DeepLabCut, if the task has a model
         ├── qc/                                              figures to check by eye
         └── provenance/                                      exactly how these files were made (below)
 ```
@@ -29,6 +30,9 @@ processed/{cohort}/
 `raw/`, written once. The NWB files carry what they need from them, and
 `provenance/` records which ones were read. `2027-01_2P-Testing/` mirrors
 the example in `raw/`.
+
+`_dlcmodels/` holds the lab's trained DeepLabCut models, by name (its
+README says how a model is added and used).
 
 `.nwb` files are the record (readable by any NWB tool, ready for DANDI);
 `.npz` and `.csv` files are fast copies for analysis. `srt-…` and `src-…`

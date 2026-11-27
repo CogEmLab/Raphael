@@ -65,12 +65,14 @@ it should look.**
 1. **Add yourself** to `metadata/people.yaml`: username, full name ("Last,
    First"), position, email, ORCID.
 2. **Check the codes you will use exist** in `metadata/`: your task in
-   `sessions.yaml` (e.g. `OF`), your project in `projects.yaml`, your rig in
-   `rigs/`. If one is missing, ask its owner or the data manager to add it.
+   `sessions.yaml` (e.g. `OF`) and your project in `projects.yaml`. If one
+   is missing, ask its owner or the data manager to add it.
 
 ### What a hand-in contains
 
-Every hand-in has **four describing files** and **one folder per session**:
+Every hand-in has **three describing files** (the cohort's, and each
+mouse's subject and procedures files) and **one folder per session**, which
+may also hold an optional session file:
 
 ```
 incoming/jsmith/
@@ -78,7 +80,7 @@ incoming/jsmith/
 ├── sub-M10432_subject.yaml                                the mouse
 ├── sub-M10432_procedures.yaml                             its surgeries ([] until the first)
 └── sub-M10432_day-04_ses-OF1_2026-03-14_10-05-12/         the session
-    ├── sub-M10432_day-04_ses-OF1_session.yaml             its describing file
+    ├── sub-M10432_day-04_ses-OF1_session.yaml             optional: notes, weight
     ├── 2026-03-14_10-05-12/                               what the rig wrote, not renamed
     ├── cam0_2026-03-14.mp4
     └── rig_log_2026-03-14.csv
@@ -89,7 +91,7 @@ incoming/jsmith/
 | `{cohort}_cohort.yaml` | `metadata/templates/cohort.yaml` | rarely: written when the cohort starts |
 | `sub-M{mouse}_subject.yaml` | `metadata/templates/subject.yaml` | rarely: written when the mouse joins (it names the mouse's cohort) |
 | `sub-M{mouse}_procedures.yaml` | `metadata/templates/procedures.yaml` | after each surgery: add an entry. Just `[]` before the first |
-| `sub-M…_day-…_ses-…_session.yaml` | `metadata/templates/session.yaml` | every session: written on the day |
+| `sub-M…_day-…_ses-…_session.yaml` (optional) | `metadata/templates/session.yaml` | per session, when there's something to note: written on the day |
 
 Keep your copies of the cohort, subject and procedures files and hand them
 in again each time. When one changes (a surgery, a correction), ingest
@@ -117,17 +119,21 @@ sub-M10432_day-04_ses-OF1_2026-03-14_10-05-12
   rig names the folder for you.
 
 The name carries everything that says where the session goes, and ingest
-checks it against the recording's own start time, the session file and the
-mouse's earlier days. If something doesn't match, it tells you rather than
+checks it against the recording's own start time and the mouse's earlier
+days. If something doesn't match, it tells you rather than
 filing it in the wrong place.
 
-### The session file
+### The session file (optional)
 
-Copy `metadata/templates/session.yaml` into the session folder, name it like
-the folder without the time (`sub-M10432_day-04_ses-OF1_session.yaml`) and
-fill in what only you know: at least the notes, and the weight. Fields you
-leave blank that can be worked out are filled in for you (start time, task,
-experimenter, and project and rig from the mouse's last session).
+A session needs no file of its own: the folder name gives the task and
+start time, your folder gives the experimenter, and the cohort file the
+project. Add one when there is something worth recording: copy
+`metadata/templates/session.yaml` into the session folder (ideally named
+like the folder without the time, `sub-M10432_day-04_ses-OF1_session.yaml`;
+any one `…_session.yaml` is used) and fill in what only you know, such as
+the notes, the weight or the rig. Fields left blank are filled in for you.
+Either way, the session in `raw/` gets a session file, so notes can be
+added later.
 
 ```yaml
 start:                              # blank: taken from the recording
@@ -182,7 +188,8 @@ imaging recording, the procedures' injection and window or lens entries
 use `label: ophys`; note the depth and laser or LED power in the session
 file.
 
-**Behaviour only:** just the session file and the video and logs.
+**Behaviour only:** just the video and logs (and a session file if there's
+something to note).
 Recorded habituation days count as days like any other.
 
 **A surgery, without a session:** hand in the updated
@@ -195,11 +202,10 @@ be. Describing files can be corrected by handing in a new version.
 
 ### Before you hand it in
 
-- [ ] Your username, task code, project and rig exist in `metadata/`.
+- [ ] Your username, task code and project exist in `metadata/`.
 - [ ] The cohort, subject and procedures files are there, named for their
       cohort and mouse.
-- [ ] Each session folder is named `sub-M…_day-…_ses-…_{date}_{time}` and
-      has its session file, named the same without the time.
+- [ ] Each session folder is named `sub-M…_day-…_ses-…_{date}_{time}`.
 - [ ] The day number is right (the next new date for this mouse), and runs
       of a task that day are numbered `OF1`, `OF2`.
 - [ ] Nothing the rig wrote has been renamed or changed.
@@ -220,19 +226,45 @@ the data manager** what you added.
 
 ### What the data manager does
 
-Runs ingest (`raphael-data ingest`). It checks your whole hand-in first:
+**Once, on the computer that runs ingest:** install Raphael's commands, so
+`raphael-data` works from any folder (it needs
+[uv](https://docs.astral.sh/uv/) and a checkout of
+[Raphael](https://github.com/CogEmLab/Raphael)):
+
+```bash
+uv tool install --editable /path/to/Raphael
+```
+
+If `raphael-data` is then "command not found", uv's tool folder isn't on
+your PATH yet: run `uv tool update-shell` once and open a new terminal.
+
+`--editable` keeps it linked to the checkout, so updating the checkout
+(`git pull`) updates the command. Without installing, run it as
+`uv run --project /path/to/Raphael raphael-data ingest`.
+
+**Then, for one person's hand-in**, from inside their folder:
+
+```bash
+cd /path/to/data/incoming/abraun
+raphael-data ingest                 # --dry-run first to see what it would do
+```
+
+Ingest takes one person's hand-in per run: the folder it is run from (or
+`raphael-data ingest /path/to/data --user abraun`).
+
+Ingest checks a whole hand-in first:
 if anything is missing or can't be worked out, **nothing of it is added**
 and you get one list of what to clarify; fix those and it goes in on the
 next run. When nothing needs clarifying, for each session it:
 
 1. Checks the session folder's name against the recording's own start
-   time, the session file and the mouse's earlier days; that the task,
-   project, rig and people exist in `metadata/`; and that the cohort, subject
+   time, the session file (if there is one) and the mouse's earlier days;
+   that the task, project and people exist in `metadata/`; and that the cohort, subject
    and procedures files are there.
 2. Renames the recordings by what they are (`_ephys`, `_ophys`,
    `_photometry`, `_video`, `_beh`), keeping each original name in the
-   session's manifest with its checksum, and fills in blank fields of the
-   session file.
+   session's manifest with its checksum, and writes the session file in
+   `raw/` (yours, if you gave one, with its blank fields filled in).
 3. Moves the session into `raw/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/`,
    adds or updates the cohort, subject and procedures files (keeping old
    versions), locks the recordings and rebuilds `metadata/catalogue.csv`.
@@ -241,8 +273,9 @@ next run. When nothing needs clarifying, for each session it:
 5. Tells you and the data managers what was added, or exactly what is
    wrong and how to fix it (`PROBLEMS.md` in your folder, and email).
 
-From then on the session is found by processing (`raphael-jobs plan`), and
-its outputs appear at the same path in `processed/`.
+From then on the session is in the plan ingest wrote
+(`metadata/plans/`), and once processed, its outputs appear at the same
+path in `processed/`.
 
 ## Finding data
 

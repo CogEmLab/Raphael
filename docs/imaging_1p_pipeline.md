@@ -95,7 +95,7 @@ raphael-jobs make jobs/cnmfe-M8472-D6 --stage cnmfe --cpu --cpus 16 --mem-gb 64 
     --param 'subject={sex: M, date_of_birth: 2024-01-23, strain: C57BL/6J}'
 ```
 
-For a whole project, `raphael-jobs plan`, `files` and `make-batch` make
+For new data, ingest's plan, `raphael-jobs files` and `make-batch` make
 every session's job and run them in batches that fit the cluster's disk:
 [processing.md](processing.md). `raphael-jobs make` without `--stage`
 fills in all of the above from the `.isxd`.

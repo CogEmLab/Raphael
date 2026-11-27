@@ -307,8 +307,9 @@ def render(job_dir, site=SITE_CONFIG):
         'gpu_check': ('uv run --frozen --no-sync raphael-jobs gpu-check || true\n'
                       if res['gpu'] else ''),
         'setup': '\n'.join(cfg.get('setup') or []),
-        'env': '\n'.join(f'export {k}="{v}"' for k, v in (cfg.get('env') or {}).items()
-                         if not _unfilled(v)),
+        'env': '\n'.join(f'export {k}="{v}"' for k, v in {
+            **({'RAPHAEL_MODELS': paths['models']} if not _unfilled(paths.get('models')) else {}),
+            **(cfg.get('env') or {})}.items() if not _unfilled(v)),
     }
     written = []
     for name, filename in SCHEDULERS.items():
@@ -1111,7 +1112,36 @@ def _tracking_settings(ctx, project_root=None, benchmark_dir=None):
     return settings
 
 
+def registered_model(params, root=None):
+    """The model folder a plan's dlc_capture job names, checked against the
+    plan's checksum. `root`: the models folder (default RAPHAEL_MODELS)."""
+    from raphael.behavioural_tracking import models
+
+    root = root or os.environ.get('RAPHAEL_MODELS')
+    if not root:
+        raise JobError('no models folder: set paths.models in configs/cluster.yaml (then '
+                       '`raphael-jobs render JOB`), or RAPHAEL_MODELS')
+    try:
+        return models.find(Path(root).expanduser(), params['model'], params['model_sha256'])
+    except models.ModelError as e:
+        raise JobError(str(e)) from e
+
+
+def _session_out(ctx, p):
+    """outputs/{sub-M…}/{day-…}/{ses-…}/: a session's folder in the
+    processed tree, for a plan's job."""
+    from raphael.imaging.layout import Session
+
+    return Session(str(p['mouse']), str(p['day']), str(p['session_type'])).folder(ctx.outputs)
+
+
 def _dlc_capture_check(params, inputs=()):
+    if params.get('model'):            # a registered model, by name (a plan's job)
+        if not inputs or not all(str(i).lower().endswith(VIDEO_SUFFIXES) for i in inputs):
+            raise JobError('dlc_capture with param model: the inputs are videos only')
+        if not params.get('model_sha256') or not params.get('snapshot'):
+            raise JobError('dlc_capture with param model needs model_sha256 and snapshot')
+        return
     if len(inputs) < 2:
         raise JobError('dlc_capture inputs: model folder, [skeleton.json], [benchmark .zip], '
                        'videos...')
@@ -1133,6 +1163,14 @@ def dlc_capture_stage(ctx):
     params: snapshot, detector_snapshot, name (label for the outputs),
     max_frames and start_frame (a stretch of each video), capture and
     identity (dicts overriding tracking.yaml).
+
+    From a plan (param `model`): the inputs are a session's videos only.
+    The model is found by name in the models folder (RAPHAEL_MODELS, set
+    from configs/cluster.yaml's paths.models) and must match the plan's
+    model_sha256; its skeleton (param skeleton) is in the model folder.
+    Each capture goes into the session's processed folder as
+    {video}_src-dlc-{model}_capture.npz, so collect files it beside the
+    session's other outputs.
     """
     import time
 
@@ -1146,20 +1184,30 @@ def dlc_capture_stage(ctx):
     settings = _tracking_settings(ctx)
     capture = {**settings['capture'], **p.get('capture', {})}
     ident = {**settings['identity']['correct'], **p.get('identity', {})}
-    model_dir = ctx.inputs[0]
-    rest = ctx.inputs[1:]
-    skeleton = next((i for i in rest if i.suffix == '.json'), None)
-    benchmark = next((i for i in rest if i.suffix == '.zip'), None)
-    videos = [i for i in rest if i.suffix.lower() in VIDEO_SUFFIXES]
-    name = p.get('name', model_dir.name)
-    out = ctx.outputs / name
+    if p.get('model'):
+        model_dir = registered_model(p)
+        skeleton = model_dir / p['skeleton'] if p.get('skeleton') else None
+        benchmark = None
+        videos = list(ctx.inputs)
+        name = p['model']
+        out = _session_out(ctx, p)
+        stem_of = lambda video: f'{video.stem}_src-dlc-{name}_capture'
+    else:
+        model_dir = ctx.inputs[0]
+        rest = ctx.inputs[1:]
+        skeleton = next((i for i in rest if i.suffix == '.json'), None)
+        benchmark = next((i for i in rest if i.suffix == '.zip'), None)
+        videos = [i for i in rest if i.suffix.lower() in VIDEO_SUFFIXES]
+        name = p.get('name', model_dir.name)
+        out = ctx.outputs / name
+        stem_of = lambda video: video.stem
     (out / 'qc').mkdir(parents=True, exist_ok=True)
 
     runners = MP.build_runners(model_dir, p['snapshot'], p.get('detector_snapshot'),
                                capture, device=ctx.device)
     rows, tables = [], []
     for video in videos:
-        npz = out / f'{video.stem}.npz'
+        npz = out / f'{stem_of(video)}.npz'
         start = time.perf_counter()
         if not npz.exists():
             MP.capture_video(video, npz, model_dir, p['snapshot'], p.get('detector_snapshot'),
@@ -1176,7 +1224,7 @@ def dlc_capture_stage(ctx):
                                          settings['bodyparts']) if benchmark else None)
             table = identity.correct_capture(npz, skeleton, ident, bench)
             identity.qc_frames(video, npz.with_suffix('.identity.npz'),
-                               out / 'qc' / f'{video.stem}.png')
+                               out / 'qc' / f'{stem_of(video)}.png')
             tables.append(table)
             row.update(correct_min=round((time.perf_counter() - start) / 60, 2),
                        benchmark=bench is not None)
@@ -1186,8 +1234,8 @@ def dlc_capture_stage(ctx):
         pd.concat(tables).to_csv(out / 'identity_results.csv', index=False)
     peak = (round(torch.cuda.max_memory_reserved() / 1e9, 2)
             if torch.cuda.is_available() else None)
-    _write_json(out / 'capture_summary.json', {
-        'name': name, 'snapshot': p['snapshot'], 'detector_snapshot': p.get('detector_snapshot'),
+    _write_json(ctx.outputs / 'capture_summary.json', {
+        'name': name, 'model_sha256': p.get('model_sha256'), 'snapshot': p['snapshot'], 'detector_snapshot': p.get('detector_snapshot'),
         'capture': capture, 'identity': ident if skeleton else None,
         'peak_gpu_memory_gb': peak, 'videos': rows})
 

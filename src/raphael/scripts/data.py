@@ -1,18 +1,20 @@
 """The data server's data/ tree (incoming/, raw/, processed/, metadata/).
 
 Usage:
-    raphael-data ingest [DATA_ROOT] [--user NAME ...] [--dry-run]
+    raphael-data ingest [--dry-run]          from inside incoming/{user}/
+    raphael-data ingest DATA_ROOT --user NAME [--dry-run]
     raphael-data catalogue [DATA_ROOT]       rebuild metadata/catalogue.csv
 
-`ingest` checks each person's hand-in in incoming/ first. If anything in it
-is missing or can't be worked out, nothing of it is filed and the person is
-told exactly what to clarify (incoming/{user}/PROBLEMS.md, and email when
-metadata/lab.yaml has mail settings); run it again once that's fixed. A
-hand-in with nothing to clarify is filed into raw/ whole, with a processing
-plan (metadata/plans/plan_{date}_{time}_{user}.csv), and the catalogue is
-rebuilt. One person's problems never hold up another's hand-in.
-`--dry-run` reports what would happen and changes nothing. Run ingest on or
-next to the server: it copies whole recordings. See docs/data_server.md.
+`ingest` takes one person's hand-in per run: run it from inside their
+folder (incoming/{user}/), or give --user. It checks the hand-in first. If
+anything in it is missing or can't be worked out, nothing of it is filed
+and the person is told exactly what to clarify (incoming/{user}/PROBLEMS.md,
+and email when metadata/lab.yaml has mail settings); run it again once
+that's fixed. A hand-in with nothing to clarify is filed into raw/ whole,
+with a processing plan (metadata/plans/plan_{date}_{time}_{user}.csv), and
+the catalogue is rebuilt. `--dry-run` reports what would happen and changes
+nothing. Run ingest on or next to the server: it copies whole recordings.
+See docs/data_server.md.
 """
 
 import argparse
@@ -20,6 +22,14 @@ import sys
 from pathlib import Path
 
 from raphael import dataserver
+
+
+def _handin_user(path):
+    """The username whose hand-in `path` is in (incoming/{user}/…), or None."""
+    for p in [Path(path).resolve(), *Path(path).resolve().parents]:
+        if p.parent.name == 'incoming':
+            return p.name
+    return None
 
 
 def _root(path):
@@ -33,11 +43,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
-    p = sub.add_parser('ingest', help='check hand-ins in incoming/ and file them into raw/')
+    p = sub.add_parser('ingest', help='check one person’s hand-in in incoming/ and file it into raw/')
     p.add_argument('root', type=Path, nargs='?', default=Path('.'),
-                   help='the data/ folder (default: here)')
-    p.add_argument('--user', dest='users', action='append', default=None,
-                   help='only this person’s hand-in (repeatable)')
+                   help='a person’s incoming/{user}/ folder, or the data/ folder with --user '
+                        '(default: here)')
+    p.add_argument('--user', help='whose hand-in (their incoming/ folder name)')
     p.add_argument('--dry-run', action='store_true', help='report only; change nothing')
     p = sub.add_parser('catalogue', help='rebuild metadata/catalogue.csv')
     p.add_argument('root', type=Path, nargs='?', default=Path('.'),
@@ -53,10 +63,21 @@ def main():
         return
     from raphael import ingest
 
-    reports = ingest.ingest(_root(args.root), users=args.users, dry_run=args.dry_run)
+    # One person's hand-in per run: the folder it is run from, or --user.
+    here = _handin_user(args.root)
+    if here and args.user and args.user != here:
+        raise SystemExit(f'this is {here}’s hand-in, not {args.user}’s')
+    user = args.user or here
+    root = _root(args.root)
+    if user is None:
+        raise SystemExit('ingest takes one person’s hand-in: run it from inside their folder '
+                         '(cd incoming/{user}), or give --user NAME')
+    if not (root / 'incoming' / user).is_dir():
+        raise SystemExit(f'there is no incoming/{user}/ folder')
+    reports = ingest.ingest(root, users=[user], dry_run=args.dry_run)
     dry = args.dry_run
     if not reports:
-        print('no hand-ins in incoming/')
+        print(f'nothing in incoming/{user}/')
     for report in reports:
         print(report.text(dry_run=dry))
     if any(r.problems for r in reports):

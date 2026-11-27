@@ -16,9 +16,10 @@ Everything site-specific lives in
 [configs/cluster.yaml](../src/raphael/configs/cluster.yaml), which is set up for MSC,
 the MedUni Wien Scientific Cluster. **Step-by-step guide for MSC:
 [msc_cluster.md](msc_cluster.md).** **To process recordings, start from
-[processing.md](processing.md)**: `raphael-jobs detect`, `plan`, `files`,
-`make-batch`, and `make` without `--stage`, work out each recording's
-stage and parameters from its files.
+[processing.md](processing.md)**: data comes in through `raphael-data
+ingest`, which writes the plan; `raphael-jobs files`, `make-batch` and
+`collect` run it, and `make` without `--stage` makes one job, working out
+the stage and parameters from the recording's files.
 
 ## What runs where
 
@@ -40,7 +41,7 @@ internal disk, which macOS also needs for swap.
 ## The environment
 
 ```bash
-uv sync --frozen --extra gpu      # GPU stages: suite2p, Kilosort 4.0.16 + torch
+uv sync --frozen --extra gpu      # suite2p (GPU), Kilosort 4.0.16 (CPU) + torch
 uv sync --frozen --extra dev      # tests and linting
 ```
 

@@ -11,7 +11,7 @@ A project repository uses Raphael in four ways, all from its own checkout:
 | | How | Example |
 |---|---|---|
 | **A. Import** core functions in its analysis code | `from raphael import population` | load spikes, score tuning |
-| **B. Run** Raphael's processing stages on its raw data | `uv run raphael-jobs plan raw/ ...` ([processing.md](processing.md)) | spike-sort every day |
+| **B. Run** Raphael's processing stages on its raw data | `raphael-data ingest`, then the plan it writes ([processing.md](processing.md)) | spike-sort every day |
 | **C. Add** its own stages to the same job runner | `@stage('...')` + an entry point | run its analysis on the cluster |
 | **D. Override** Raphael's settings | `configs/ephys.yaml`, `configs/cluster.yaml` | its lab, people, procedures |
 

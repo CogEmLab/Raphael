@@ -150,7 +150,7 @@ def test_problems_are_reported_and_nothing_is_filed(root):
     [report] = ingest.ingest(root, now=NOW)
     assert report.filed == []
     text = ' '.join(f'{i} {p} {f}' for i, p, f in report.problems)
-    assert 'is day-02, not day-03' in text and 'rename the folder sub-M10432_day-02' in text
+    assert 'is its day-02, not day-03' in text and 'rename the folder sub-M10432_day-02' in text
     assert 'session code XX is not in metadata/sessions.yaml' in text
     assert 'started at 2026-03-18 10:05:00, the folder name says 2026-03-18 12:00:00' in text
     assert 'no sub-M10432_procedures.yaml in the hand-in' in text
@@ -204,7 +204,8 @@ def test_describing_files_update_with_history_and_identity_needs_the_data_manage
 
 def test_photometry_files_are_named_by_their_labels(root):
     user = root / 'incoming' / 'jsmith'
-    labels = [{'label': 'dHPC'}, {'label': 'mPFC'}]
+    labels = [{'label': 'dHPC', 'procedure': 'injection'},       # a label used twice
+              {'label': 'dHPC', 'procedure': 'fibre implant'}, {'label': 'mPFC'}]
     describing(user, procedures=labels)
 
     def two_fibres(folder):
@@ -246,6 +247,7 @@ def test_loose_inscopix_files_go_in_one_ophys_folder(root):
     ophys = root / report.filed[0] / 'sub-M10432_day-01_ses-OF1_ophys'
     assert sorted(p.name for p in ophys.iterdir()) == ['movie_video.gpio', 'movie_video.isxd',
                                                        'session.json']
+    assert not list(ophys.parent.glob('*.gpio'))         # once, with its movie
     with open(root / report.plan) as f:
         assert [r['stage'] for r in csv.DictReader(f)] == ['cnmfe']
 
@@ -317,12 +319,12 @@ def test_the_command_stops_and_says_what_to_clarify(root, capsys, monkeypatch):
     user = root / 'incoming' / 'jsmith'
     describing(user)
     session(user, datetime(2026, 3, 14, 10, 5, 12), day=2)      # wrong: the first day is 1
-    monkeypatch.setattr(sys, 'argv', ['raphael-data', 'ingest', str(root)])
+    monkeypatch.setattr(sys, 'argv', ['raphael-data', 'ingest', str(root), '--user', 'jsmith'])
     with pytest.raises(SystemExit) as stop:
         data.main()
     assert stop.value.code == 1
     out = capsys.readouterr().out
-    assert 'Nothing was added' in out and 'is day-01, not day-02' in out
+    assert 'Nothing was added' in out and 'is its day-01, not day-02' in out
     assert (user / 'PROBLEMS.md').exists() and not any(Path(root / 'raw').iterdir())
 
 
@@ -360,3 +362,142 @@ def test_a_session_folder_that_is_the_open_ephys_folder(root):
         rows = list(csv.DictReader(f))
     assert {r['stage'] for r in rows} == {'kilosort4', 'lfp'}
     assert rows[0]['session_start'] == '2024-11-13T13:32:25'
+
+
+def test_running_from_inside_a_hand_in_takes_only_that_one(root, capsys, monkeypatch):
+    import sys
+
+    from raphael.scripts import data
+    other = root / 'incoming' / 'dm'
+    other.mkdir()
+    describing(other, mouse=30001)
+    session(other, datetime(2026, 3, 14, 9, 0, 0), mouse=30001)
+    user = root / 'incoming' / 'jsmith'
+    describing(user)
+    session(user, datetime(2026, 3, 14, 10, 5, 12))
+    monkeypatch.chdir(user)
+    monkeypatch.setattr(sys, 'argv', ['raphael-data', 'ingest'])
+    data.main()
+    out = capsys.readouterr().out
+    assert 'Hand-in from jsmith' in out and 'dm' not in out.split('Hand-in from')[0]
+    assert (root / 'raw' / COHORT / 'sub-M10432').is_dir()
+    assert not (root / 'raw' / COHORT / 'sub-M30001').exists()      # dm's is untouched
+    assert any(other.iterdir())
+
+
+def test_a_messy_hand_in_is_reported_whole_and_once(root):
+    """Every problem in a describing file at once, each problem once, and
+    days numbered against earlier sessions in the hand-in even when those
+    have problems of their own."""
+    user = root / 'incoming' / 'jsmith'
+    describing(user)
+    (user / f'{COHORT}_cohort.yaml').write_text(yaml.safe_dump({'cohort': 'dHPC'}))
+    (user / 'sub-M10432_subject.yaml').write_text(yaml.safe_dump(
+        {'mouse': 10432, 'cohort': COHORT, 'sex': 'female', 'species': 'Mus musculus'}))
+    first = session(user, datetime(2026, 3, 14, 10, 5, 12))
+    first.rename(user / first.name.replace('day-01', 'day-1'))
+    session(user, datetime(2026, 3, 15, 10, 0, 0), day=3)
+    [report] = ingest.ingest(root, now=NOW, runner='dm', dry_run=True)
+    text = report.text(dry_run=True)
+    assert 'missing date_of_birth' in text and 'sex is female' in text
+    assert text.count('says cohort dHPC') == 1
+    assert 'day-1 is written with two digits: day-01' in text
+    assert 'rename the folder sub-M10432_day-01_ses-OF1_2026-03-14_10-05-12' in text
+    assert 'is its day-02, not day-03' in text            # counted after the day-1 session
+    assert 'no project' not in text                       # explained by the cohort file
+    assert report.filed == []
+
+
+def test_the_session_file_and_the_rig_are_optional(root):
+    """No session file: the folder name, the hand-in's owner and the cohort
+    file give the task, start, experimenter and project, and raw/ gets one.
+    A misnamed one is used as it is; an unknown rig is only a note."""
+    user = root / 'incoming' / 'jsmith'
+    describing(user)
+    bare = session(user, datetime(2026, 3, 14, 10, 5, 12))
+    (bare / 'sub-M10432_day-01_ses-OF1_session.yaml').unlink()
+    other = session(user, datetime(2026, 3, 15, 10, 0, 0), day=2, session_file={
+        'task': 'OF', 'rig': 'rig-nobody-registered', 'notes': 'misnamed file'})
+    (other / 'sub-M10432_day-02_ses-OF1_session.yaml').rename(other / 'my_session.yaml')
+    [report] = ingest.ingest(root, now=NOW, runner='dm')
+    assert report.problems == [] and len(report.filed) == 2
+    first = root / report.filed[0] / 'sub-M10432_day-01_ses-OF1_session.yaml'
+    described = yaml.safe_load(first.read_text())
+    assert described['task'] == 'OF' and described['project'] == 'place-cells'
+    assert described['experimenter'] == ['jsmith']
+    assert described['start'] == '2026-03-14T10:05:12'
+    second = root / report.filed[1]
+    assert yaml.safe_load((second / 'sub-M10432_day-02_ses-OF1_session.yaml').read_text())[
+        'notes'] == 'misnamed file'
+    assert not list(second.glob('*_beh.yaml'))                 # not filed as a recording
+    assert any('rig-nobody-registered' in note for _, note in report.notes)
+
+
+def test_the_command_takes_one_hand_in_per_run(root, monkeypatch):
+    """Ingest is for one person's hand-in: from inside their folder or with
+    --user. On the whole data/ folder alone, or for a folder that isn't
+    there, it stops before doing anything."""
+    import sys
+
+    from raphael.scripts import data
+    user = root / 'incoming' / 'jsmith'
+    describing(user)
+    session(user, datetime(2026, 3, 14, 10, 5, 12))
+    for argv, says in (([str(root)], 'one person’s hand-in'),
+                       ([str(root), '--user', 'nobody'], 'no incoming/nobody/'),
+                       ([str(user), '--user', 'dm'], 'jsmith’s hand-in, not dm’s')):
+        monkeypatch.setattr(sys, 'argv', ['raphael-data', 'ingest', *argv])
+        with pytest.raises(SystemExit) as stop:
+            data.main()
+        assert says in str(stop.value.code)
+    assert not any((root / 'raw').iterdir())
+
+
+def test_a_task_with_a_dlc_model_gets_a_gpu_job_per_video(root, tmp_path):
+    """sessions.yaml names a task's DeepLabCut model; ingest's plan then has
+    a dlc_capture job for each video, which makes a bundle whose submit
+    script points at the cluster's models folder."""
+    from test_dlc_models import model_folder
+
+    from raphael import dataserver
+    from raphael.behavioural_tracking import models
+    from raphael.cluster import batch, jobs
+
+    meta = root / 'metadata'
+    meta.joinpath('sessions.yaml').write_text(yaml.safe_dump({
+        'OF': {'name': 'open field', 'dlc_model': 'of-top-v1'},
+        'VR': {'name': 'VR', 'dlc_model': {'top': 'missing-v1'}},
+        'HAB': {'name': 'habituation'}}))
+    folder = model_folder(models.models_root(root))
+    user = root / 'incoming' / 'jsmith'
+    describing(user)
+    session(user, datetime(2026, 3, 14, 10, 5, 12))                       # ephys + video
+    session(user, datetime(2026, 3, 15, 10, 0, 0), day=2, kind='HAB1', ephys=False)
+    session(user, datetime(2026, 3, 16, 10, 0, 0), day=3, kind='VR1', ephys=False,
+            extra=lambda f: (f / 'cam0.mp4').rename(f / 'top_cam.mp4')
+            or (f / 'side_cam.mp4').write_bytes(b'video'))
+    [report] = ingest.ingest(root, now=NOW, runner='dm')
+    assert report.problems == []
+    plan = batch.read_plan(root / report.plan)
+    dlc = plan[plan['stage'] == 'dlc_capture']
+    assert list(dlc['job_id']) == ['dlc_capture-b02-M10432-D1-OF1']    # after the ephys batch
+    row = dlc.iloc[0]
+    assert row['inputs'] == f'{COHORT}/sub-M10432/day-01/ses-OF1/sub-M10432_day-01_ses-OF1_video.mp4'
+    assert row['gpu'] == 'True' and row['gpu_type'] == 'a16'
+    params = batch.row_params(row)
+    assert params['model'] == 'of-top-v1' and params['skeleton'] == 'skeleton.json'
+    assert params['model_sha256'] == models.digest(folder) and params['session_type'] == 'OF1'
+    assert ('plan', 'model missing-v1 is not in processed/_dlcmodels/') in report.notes
+
+    site = yaml.safe_load(jobs.SITE_CONFIG.read_text())
+    site['paths'].update(repo='/c/repo', data='/c/data', jobs='/c/jobs', models='/c/models')
+    (tmp_path / 'cluster.yaml').write_text(yaml.safe_dump(site))
+    made, _, _ = batch.make_jobs(plan, 2, root / 'raw', tmp_path / 'jobs', hash_inputs=False,
+                                 site=tmp_path / 'cluster.yaml')
+    [job] = made
+    assert (job / 'config' / 'tracking.yaml').exists()
+    assert 'export RAPHAEL_MODELS="/c/models"' in (job / 'submit.slurm').read_text()
+
+    rows = {r['session']: r for r in dataserver.catalogue(root)}
+    assert rows['OF1']['status'] == 'to do'               # kilosort4, lfp and DeepLabCut
+    assert rows['HAB1']['status'] == 'n/a'                # video, but HAB has no model

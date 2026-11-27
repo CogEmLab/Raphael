@@ -144,7 +144,7 @@ only, a task's description in `metadata/sessions.yaml` only.
 | `cohort.yaml` | when the cohort starts | project, owner, start date, animal licence, purpose | NWB `protocol` (licence) |
 | `sub-M…_subject.yaml` | when the mouse joins | **ID, sex, date of birth, species**, strain, genotype, alias, owner, source | NWB `Subject`; BIDS `participants.tsv`; the bold fields are required by DANDI |
 | `sub-M…_procedures.yaml` | after each surgery | per procedure: date, type, `label`, target, coordinates (mm from bregma), angle, what went in (virus and titre, probe or fibre and serial), indicator, anaesthesia, surgeon, histology-verified target | NWB `surgery`, `virus`; electrode, fibre and imaging-plane locations; imaging indicator |
-| `sub-M…_ses-…_session.yaml` | on the day | **start**, **task**, **experimenter**, **project**, rig, weight, what each recording is, pharmacology, stimulus notes, quality, notes | NWB `session_start_time`, `session_description` (with the task's), `experimenter`, `pharmacology`, `stimulus_notes`, `notes`, `Subject.weight`; BIDS `sessions.tsv`. Bold fields are required at ingest |
+| `sub-M…_ses-…_session.yaml` | on the day (optional in a hand-in) | start, task, experimenter, project, rig, weight, what each recording is, pharmacology, stimulus notes, quality, notes | NWB `session_start_time`, `session_description` (with the task's), `experimenter`, `pharmacology`, `stimulus_notes`, `notes`, `Subject.weight`; BIDS `sessions.tsv`. Start and task come from the folder name if blank, experimenter from the hand-in, project from the cohort file; `raw/` always gets one |
 
 **`label` joins recordings to anatomy.** A file named
 `…_photometry-dHPC.doric` takes its brain location and indicator from the
@@ -189,6 +189,7 @@ processed/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/
 ├── sub-…_src-cnmfe_ophys.nwb, _traces.npz, _rois.csv     one-photon (CaImAn CNMF-E)
 ├── sub-…_photometry.nwb                                  raw channels, dF/F, z-score
 ├── sub-…_photometry.npz, _photometry.csv                 the same, pynapple / table
+├── sub-…_video-top_src-dlc-{model}_capture.npz          DeepLabCut capture (task with a model)
 ├── qc/                                                   QC figures; _sync.json, _sync.png
 └── provenance/{job_id}.json                              what each run did (below)
 ```
@@ -201,6 +202,13 @@ processed/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/
 - `srt-{sorter}` and `src-{pipeline}` name what produced a file, so a
   re-run with another sorter or pipeline sits beside the first instead of
   replacing it.
+- **DeepLabCut models** live in `processed/_dlcmodels/{name}/` (the model
+  folder as DeepLabCut wrote it, plus a `model.yaml` naming its snapshot).
+  A task uses one when its entry in `metadata/sessions.yaml` names it
+  (`dlc_model:`), and ingest's plan then has a GPU `dlc_capture` job for
+  each of the session's videos. A model is never changed once used: a
+  retrained one gets a new name. The plan records each model's checksum,
+  and the cluster's copy (`~/models/`) must match it.
 
 ### metadata/
 
@@ -253,8 +261,8 @@ It is where to look for what has been recorded, what is waiting to be
 processed, and what was processed with an older Raphael. Filter it in
 Excel or pandas (`pd.read_csv(path, comment='#')`).
 
-Raphael reads the describing files directly: `raphael-jobs plan` and
-`make` take a session's start time from its session file when the
+Raphael reads the describing files directly: ingest's plan and
+`raphael-jobs make` take a session's start time from its session file when the
 recording's own files don't carry it, and the subject fields from the
 subject file ([processing.md](processing.md)).
 
@@ -297,17 +305,22 @@ How a person hands data in, with worked examples (a new mouse, a normal
 recording day, several sessions a day, several photometry sites, imaging,
 behaviour only, later additions): "Adding data" in [`templates/data/README.md`](../templates/data/README.md).
 
-**A hand-in is flat.** A person drops into `incoming/{person}/` the four
+**A hand-in is flat.** A person drops into `incoming/{person}/` the three
 describing files (`{cohort}_cohort.yaml`, `sub-M{m}_subject.yaml`,
 `sub-M{m}_procedures.yaml`, every time; procedures `[]` until a surgery)
 and one folder per session named
-`sub-M{m}_day-{dd}_ses-{t}_{YYYY-MM-DD}_{HH-MM-SS}`, holding its
-`…_session.yaml` and what the rig wrote, not renamed. No folder tree: the
+`sub-M{m}_day-{dd}_ses-{t}_{YYYY-MM-DD}_{HH-MM-SS}`, holding
+what the rig wrote, not renamed, and optionally a `…_session.yaml` with
+notes. No folder tree: the
 names say where everything goes, and the subject file names the cohort.
 
 **Ingest** turns a hand-in into locked raw data, in one command run by the
-data manager on or next to the server: `raphael-data ingest` (`--dry-run`
-reports and changes nothing; `--user jsmith` takes one person's hand-in).
+data manager on or next to the server, one person's hand-in per run:
+`raphael-data ingest` from inside `incoming/jsmith/` (or
+`raphael-data ingest /path/to/data --user jsmith`; `--dry-run` reports and
+changes nothing). Install the command once on
+that computer, `uv tool install --editable /path/to/Raphael`, so it works
+from any folder (or run `uv run --project /path/to/Raphael raphael-data …`).
 **It checks a whole hand-in before filing any of it**: if anything is
 missing or can't be worked out, nothing of that hand-in is filed, the
 person is told exactly what to clarify, and the next run files it once
@@ -320,15 +333,17 @@ be people's server logins (ingest also notes files another account wrote).
    the recordings' own start time, the session file's start and the
    mouse's earlier days (is `day-04` the right number for that date? is
    `ses-OF1` free?); the cohort named in the subject file against the
-   cohort file; the required fields; and that the task, project, rig and
-   people exist in `metadata/`. Anything that disagrees is reported, not filed.
+   cohort file; the required fields; and that the task, project and people
+   exist in `metadata/` (a rig is optional: one that is registered names
+   the cameras). Anything that disagrees is reported, not filed.
 2. **Rename** the recordings to the BIDS-style names above by what they
    are (several of one kind matched to labels by name), wrapping
    acquisition folders without changing their insides (loose Inscopix files
    go into one `_ophys/` folder with their `.gpio`, `.imu` and
-   `session.json`), and fill blank fields of the session file (start,
-   task, experimenter, project and rig from the mouse's last session, and
-   `ingested`, `ingested_by`). Write the manifest (size, sha256 and
+   `session.json`), and write the session file (the hand-in's, if any, with blank fields
+   filled: start, task, experimenter, project from the cohort file or the
+   mouse's last session, rig from the last session, and `ingested`,
+   `ingested_by`). Write the manifest (size, sha256 and
    original name of every file). Copies are staged in `raw/.ingesting/`,
    every one is checked against its source, and only then is the session
    moved into place and removed from `incoming/`: a failure leaves the

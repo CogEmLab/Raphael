@@ -116,7 +116,7 @@ def test_plan_files_and_jobs(tree, tmp_path):
         'lfp-b03-M1-D3']
     ks = by_id.loc['kilosort4-b01-M1-D1']
     assert ks['session_start'] == '2026-11-01T09:30:00'         # from the session file
-    assert ks['gpu'] and ks['gpu_type'] == 'a16' and ks['ready']
+    assert not ks['gpu'] and ks['cpus'] == 16 and ks['ready']      # Kilosort on the CPU
     assert by_id.loc['kilosort4-b03-M1-D3', 'session_start'] == '2026-11-03T10:00:05'  # file
     s2p = by_id.loc['suite2p-b01-M1-D1-OF1']
     assert s2p['fs'] == 30.0 and s2p['ready']
@@ -147,7 +147,8 @@ def test_plan_files_and_jobs(tree, tmp_path):
                               'subject': {'sex': 'F', 'date_of_birth': '2026-06-01',
                                           'strain': 'C57BL/6J', 'genotype': 'wild type',
                                           'species': 'Mus musculus'}}
-    assert spec['resources']['gpu_type'] == 'a16'
+    assert not spec['resources']['gpu']
+    assert jobs.load(made[2])['resources']['gpu_type'] == 'a16'   # suite2p
     assert (made[0] / 'config' / 'ephys.yaml').exists()
     assert (made[2] / 'config' / 'imaging.yaml').exists()
     assert jobs.load(made[2])['params']['fs'] == 30.0

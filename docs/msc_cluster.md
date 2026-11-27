@@ -433,10 +433,10 @@ described in [imaging_1p_pipeline.md](imaging_1p_pipeline.md).
 
 ## 11. Process every session of a project, in batches
 
-**[processing.md](processing.md) is the walkthrough**: `raphael-jobs
-detect`, `plan`, `files` and `make-batch` work out each recording's
-modality, stage, names, start time and resources, and run a project in
-batches. What matters on MSC:
+**[processing.md](processing.md) is the walkthrough**: `raphael-data
+ingest` files the data and writes the plan (each recording's modality,
+stage, names, start time and resources), and `raphael-jobs files`,
+`make-batch` and `collect` run it in batches. What matters on MSC:
 
 - **Disk.** There is no scratch by default and home sits on the shared
   filesystem, about 97% full (7.9 TB free for everyone, 2026-11-26). A
@@ -494,9 +494,12 @@ required. The processing follows the Methods (see
 `configs/ephys.yaml`. The full walkthrough, with the data at each step, is
 in [ephys_walkthrough.md](ephys_walkthrough.md).
 
-Kilosort sorts one shank at a time, so a small GPU is enough (see the
-walkthrough for measured memory). `1g.5gb` slices allow 8 hours per job;
-use `a16` or `3g.20gb` for longer days.
+Kilosort runs on the CPU by default (16 CPUs, 64 GB, 24 h in the plan;
+the 24 h is a first guess, so check `sacct`'s Elapsed on the first jobs and
+change `hours` in the plan). To sort on a GPU instead, set the row's `gpu`
+to True and `gpu_type` to e.g. `a16` in the plan, or `make --gpu-type a16`:
+it sorts one shank at a time, so a small GPU is enough (see the
+walkthrough for measured memory).
 
 ## Troubleshooting
 

@@ -86,17 +86,28 @@ class Report:
         if self.filed:
             lines += [f'## {len(self.filed)} session(s) {verb}', '']
             lines += [f'- {p}' for p in self.filed] + ['']
-        if self.problems:
-            head = (f'## {len(self.problems)} thing(s) to clarify' if self.filed else
+        problems = list(dict.fromkeys(self.problems))     # each once
+        if problems:
+            head = (f'## {len(problems)} thing(s) to clarify' if self.filed else
                     f'## Nothing {"would be " if dry_run else "was "}added: '
-                    f'{len(self.problems)} thing(s) to clarify')
+                    f'{len(problems)} thing(s) to clarify')
             lines += [head, '']
-            for item, problem, fix in self.problems:
-                lines.append(f'- **{item}**: {problem}' + (f'  \n  Fix: {fix}' if fix else ''))
-            lines.append('')
+            # Grouped by what they're about: a session folder (with what's
+            # inside it), or a file.
+            groups = {}
+            for item, problem, fix in problems:
+                top, _, inside = item.partition('/')
+                groups.setdefault(top, []).append((inside, problem, fix))
+            for top, group in sorted(groups.items()):    # by mouse, then day
+                lines.append(f'**{top}**')
+                lines.append('')
+                for inside, problem, fix in group:
+                    lines.append('- ' + (f'`{inside}`: ' if inside else '') + problem
+                                 + (f'  \n  Fix: {fix}' if fix else ''))
+                lines.append('')
         if self.notes:
             lines += ['## Notes', '']
-            lines += [f'- {item}: {note}' for item, note in self.notes] + ['']
+            lines += [f'- {item}: {note}' for item, note in dict.fromkeys(self.notes)] + ['']
         if self.plan:
             lines += [f'Processing plan: `{self.plan}`', '']
         if not (self.filed or self.problems or self.notes):
@@ -210,11 +221,13 @@ def _clean(text):
 
 def _match_label(name, labels):
     """The one label contained in `name` (case-insensitive), or None."""
-    hits = [label for label in labels if label and label.lower() in name.lower()]
+    # A label shared by several procedures (an injection and the fibre or
+    # lens over it) counts once.
+    hits = [label for label in dict.fromkeys(labels) if label and label.lower() in name.lower()]
     return hits[0] if len(hits) == 1 else None
 
 
-def recordings(folder, session_file, procedures, rig, timezone='Europe/Vienna'):
+def recordings(folder, procedures, rig=None, timezone='Europe/Vienna'):
     """What the rig wrote in a hand-in session folder, and what each becomes:
     ([{'sources', 'name', 'kind', 'start', 'dir'}], problems). `name` is the
     suffix after the session's stem (`_ephys`, `_photometry-dHPC.doric`, …)."""
@@ -225,7 +238,8 @@ def recordings(folder, session_file, procedures, rig, timezone='Europe/Vienna'):
     cameras = [str(c.get('label')) for c in ((rig or {}).get('cameras') or [])
                if isinstance(c, dict) and c.get('label')]
     children = sorted(p for p in folder.iterdir() if p.name not in JUNK
-                      and not p.name.startswith('._') and p.name != session_file)
+                      and not p.name.startswith('._')
+                      and not p.name.endswith('_session.yaml'))
     used = set()
     # The session folder may itself be the acquisition folder: Open Ephys's
     # (Record Node … inside, when it is set to name its own folder) or a
@@ -244,6 +258,9 @@ def recordings(folder, session_file, procedures, rig, timezone='Europe/Vienna'):
     for child in children:
         if child in used:
             continue
+        if child.suffix.lower() in INSCOPIX_SIDECARS and any(
+                p.stem == child.stem and p.suffix.lower() == '.isxd' for p in children):
+            continue                                      # goes with its movie, below
         if child.is_dir():
             rec = raw.detect(child, timezone=timezone)
             if rec is not None and rec.modality == 'neuropixels':
@@ -333,7 +350,8 @@ def recordings(folder, session_file, procedures, rig, timezone='Europe/Vienna'):
             taken.add(name)
             item['name'] = name
     if not items and not problems:
-        problems.append((folder.name, 'no recordings in the session folder', ''))
+        problems.append(('', 'no recordings in the session folder',
+                         'put in what the rig wrote, or take the empty folder out'))
     return [i for i in items if i.get('name')], problems
 
 
@@ -375,19 +393,19 @@ def _check_subject(path, mouse, report):
         report.problems.append((path.name, f'can’t be read: {error or "not key: value lines"}',
                                 'copy metadata/templates/subject.yaml and fill it in'))
         return None
+    problems = []                                     # all of them, not just the first
     missing = [k for k in SUBJECT_REQUIRED if not _text(content.get(k))]
     if missing:
-        report.problems.append((path.name, f'missing {", ".join(missing)}',
-                                'fill them in (they go in every NWB file of this mouse)'))
-        return None
-    if _text(content['mouse']) != str(mouse):
-        report.problems.append((path.name, f'says mouse {content["mouse"]}, its name says {mouse}',
-                                'make them agree'))
-        return None
-    if _text(content['sex']).upper() not in ('M', 'F', 'U', 'O'):
-        report.problems.append((path.name, f'sex is {content["sex"]}', 'use M, F, U or O'))
-        return None
-    return content
+        problems.append((path.name, f'missing {", ".join(missing)}',
+                         'fill them in (they go in every NWB file of this mouse)'))
+    if _text(content.get('mouse')) and _text(content['mouse']) != str(mouse):
+        problems.append((path.name, f'says mouse {content["mouse"]}, its name says {mouse}',
+                         'make them agree'))
+    if _text(content.get('sex')) and _text(content['sex']).upper() not in ('M', 'F', 'U', 'O'):
+        problems.append((path.name, f'sex is {content["sex"]}',
+                         'write M (male), F (female), U (unknown) or O (other)'))
+    report.problems += problems
+    return None if problems else content
 
 
 def _check_cohort(path, cohort, report, new):
@@ -396,16 +414,15 @@ def _check_cohort(path, cohort, report, new):
         report.problems.append((path.name, f'can’t be read: {error or "not key: value lines"}',
                                 'copy metadata/templates/cohort.yaml and fill it in'))
         return None
+    problems = []
     if _text(content.get('cohort')) != cohort:
-        report.problems.append((path.name, (f'says cohort {content.get("cohort")}, its name '
-                                f'says {cohort}'), 'make them agree'))
-        return None
+        problems.append((path.name, (f'says cohort {content.get("cohort")}, its name '
+                         f'says {cohort}'), 'make them agree'))
     if new and not COHORT_NAME.match(cohort):
-        report.problems.append((path.name, f'{cohort} isn’t named YYYY-MM_label',
-                                ('name new cohorts by the month they started, e.g. '
-                                '2026-03_dHPC')))
-        return None
-    return content
+        problems.append((path.name, f'{cohort} isn’t named YYYY-MM_label',
+                         'name new cohorts by the month they started, e.g. 2026-03_dHPC'))
+    report.problems += problems
+    return None if problems else content
 
 
 def _check_procedures(path, report):
@@ -430,13 +447,32 @@ def plan_session(folder, handin, root, lists, report, pending):
     before = len(report.problems)
     problem = lambda what, fix='': report.problems.append((item, what, fix))
 
-    if m['day'] != day_label(day).removeprefix('day-'):
-        problem(f'day-{m["day"]} should be written {day_label(day)}', 'two digits')
+    rest = folder.name.split('_', 3)[3]                   # the date and time
+    rename = lambda d, k=kind: f'rename the folder sub-M{mouse}_{day_label(d)}_ses-{k}_{rest}'
+
+    # The day: worked out from the mouse's days in raw/ and those before it
+    # in this hand-in. Recorded even when this session has problems, so the
+    # sessions after it are numbered against it.
+    cohorts_before, days, history = mouse_history(root / 'raw', mouse)
+    known = {**days, **pending.get(mouse, {})}
+    want, why = expected_day(known, m['date'])
+    if want is None:
+        problem(why, 'ask the data manager')
+    else:
+        pending.setdefault(mouse, {})[want] = m['date']
+    if want is not None and want != day:
+        problem(f'mouse {mouse} on {m["date"]} is its {day_label(want)}, not {day_label(day)}'
+                + (f' ({day_label(day)} is {known[day]})' if known.get(day) else ''),
+                rename(want))
+    elif m['day'] != day_label(day).removeprefix('day-'):
+        problem(f'day-{m["day"]} is written with two digits: {day_label(day)}', rename(day))
     code = SESSION_TYPE.match(kind)
     if not code:
-        problem(f'ses-{kind} isn’t a session code and run number', 'e.g. ses-OF1, ses-OF2')
+        problem(f'ses-{kind} has no run number',
+                f'the first {kind} of a day is ses-{kind}1, the second ses-{kind}2: '
+                + rename(want or day, f'{kind}1'))
         return None
-    session = Session(str(mouse), str(day), kind)
+    session = Session(str(mouse), str(want or day), kind)     # as it will be named
     session_file = f'{session.stem}_session.yaml'
 
     # Describing files.
@@ -450,32 +486,38 @@ def plan_session(folder, handin, root, lists, report, pending):
                 'hand it in with every session; before any surgery it is just []')
     subject = _check_subject(subject_path, mouse, report) if subject_path else None
     procedures = _check_procedures(procedures_path, report) if procedures_path else None
-    cohorts_before, days, history = mouse_history(root / 'raw', mouse)
-    cohort = _text((subject or {}).get('cohort'))
+    # The cohort the subject file names, even if that file has other
+    # problems: the cohort file is checked too, so all of it is reported now.
+    named_cohort = _yaml_file(subject_path)[0] if subject_path else None
+    cohort = _text(named_cohort.get('cohort')) if isinstance(named_cohort, dict) else ''
     cohort_doc = None
-    if subject:
-        if cohort not in handin.cohorts:
-            problem(f'no {cohort}_cohort.yaml in the hand-in',
-                    'hand in the cohort’s file with every session')
-        else:
-            cohort_doc = _check_cohort(handin.cohorts[cohort], cohort, report,
-                                       new=not (root / 'raw' / cohort).is_dir())
-        if cohorts_before and cohort not in cohorts_before:
-            problem(f'the subject file says cohort {cohort}, but mouse {mouse} is already in '
-                    f'{", ".join(sorted(cohorts_before))}',
-                    'a mouse’s cohort can’t change: ask the data manager if it is wrong')
+    if cohort and cohort in handin.cohorts:
+        cohort_doc = _check_cohort(handin.cohorts[cohort], cohort, report,
+                                   new=not (root / 'raw' / cohort).is_dir())
+    if cohort and cohort not in handin.cohorts:
+        problem(f'no {cohort}_cohort.yaml in the hand-in',
+                'hand in the cohort’s file with every session')
+    if subject and cohorts_before and cohort not in cohorts_before:
+        problem(f'the subject file says cohort {cohort}, but mouse {mouse} is already in '
+                f'{", ".join(sorted(cohorts_before))}',
+                'a mouse’s cohort can’t change: ask the data manager if it is wrong')
 
-    # The session file, filled in where it can be.
-    content, error = (None, None)
-    if (folder / session_file).exists():
-        content, error = _yaml_file(folder / session_file)
-    else:
-        named = [p.name for p in folder.glob('*_session.yaml')]
-        problem(f'no {session_file}' + (f' (found {", ".join(named)})' if named else ''),
-                'copy metadata/templates/session.yaml into the folder, named like the folder '
-                'without the time')
-    if error:
-        problem(f'{session_file} can’t be read: {error}', '')
+    # The session file is optional: the folder name, the hand-in's owner and
+    # the cohort file give what it must. One is used whatever it's named;
+    # raw/ always gets one, written at filing.
+    content, error, given_file = {}, None, None
+    found = sorted(p.name for p in folder.glob('*_session.yaml')
+                   if not p.name.startswith('._'))
+    if len(found) > 1:
+        problem(f'{len(found)} session files ({", ".join(found)})', 'keep one')
+    elif found:
+        given_file = found[0]
+        content, error = _yaml_file(folder / given_file)
+        if error or not isinstance(content, (dict, type(None))):
+            problem(f'{given_file} can’t be read: {error or "not key: value lines"}',
+                    'copy metadata/templates/session.yaml and fill it in, or take it out')
+            content = None
+        content = {} if content is None and not error else content
     described = dict(content) if isinstance(content, dict) else {}
     last = history[-1][2] if history else {}
     filled = {
@@ -495,12 +537,16 @@ def plan_session(folder, handin, root, lists, report, pending):
         problem(f'session code {code["code"]} is not in metadata/sessions.yaml',
                 'ask its owner or the data manager to add it')
     if not filled['project']:
-        problem('no project', 'give project in the session file (or the cohort file)')
+        # Only when nothing reported above explains it: a missing or broken
+        # session, subject or cohort file is where the project would be.
+        if isinstance(content, dict) and cohort_doc is not None:
+            problem('no project', 'give project in the session file (or the cohort file)')
     elif filled['project'] not in lists['projects']:
         problem(f'project {filled["project"]} is not in metadata/projects.yaml',
                 'add it, or correct the session file')
-    if filled['rig'] and filled['rig'] not in lists['rigs']:
-        problem(f'rig {filled["rig"]} is not in metadata/rigs/', 'add it, or correct the session file')
+    if filled['rig'] and filled['rig'] not in lists['rigs']:      # rigs are optional
+        report.notes.append((item, (f'rig {filled["rig"]} is not in metadata/rigs/, so its '
+                                    'cameras are named from their file names')))
     experimenters = filled['experimenter'] if isinstance(filled['experimenter'], list) \
         else [filled['experimenter']]
     for person in experimenters:
@@ -511,15 +557,7 @@ def plan_session(folder, handin, root, lists, report, pending):
         report.notes.append((item, (f'handed in by {handin.user}, recorded by '
                                    f'{", ".join(map(str, experimenters))}')))
 
-    # The day and the session.
-    known = {**days, **pending.get(mouse, {})}
-    want, why = expected_day(known, m['date'])
-    if want is None:
-        problem(why, 'ask the data manager')
-    elif want != day:
-        problem(f'mouse {mouse} on {m["date"]} is {day_label(want)}, not {day_label(day)}'
-                + (f' ({day_label(day)} is {known[day]})' if known.get(day) else ''),
-                f'rename the folder sub-M{mouse}_{day_label(want)}_ses-{kind}_…')
+    # Already there?
     if cohort:
         target = session.folder(root / 'raw' / cohort)
         if target.exists():
@@ -531,9 +569,10 @@ def plan_session(folder, handin, root, lists, report, pending):
     rig_doc = None
     if filled['rig']:
         rig_doc, _ = _yaml_file(root / 'metadata' / 'rigs' / f'{filled["rig"]}.yaml')
-    items, rec_problems = recordings(folder, session_file, procedures, rig_doc
+    items, rec_problems = recordings(folder, procedures, rig_doc
                                      if isinstance(rig_doc, dict) else None, timezone)
-    report.problems += [(f'{item}/{name}', what, fix) for name, what, fix in rec_problems]
+    report.problems += [(f'{item}/{name}' if name else item, what, fix)
+                        for name, what, fix in rec_problems]
     for rec in items:
         t = _local(rec['start'], timezone)
         if t and abs((t - start).total_seconds()) > TOLERANCE_S:
@@ -747,8 +786,12 @@ def update_describing(handin, root, report, stamp, dry_run):
 # --------------------------------------------------------------- the run
 
 def _plan_file(root, user, stamp, folders):
-    """Write metadata/plans/plan_{stamp}_{user}.csv for the sessions filed."""
+    """Write metadata/plans/plan_{stamp}_{user}.csv for the sessions filed:
+    their recordings' jobs, and a DeepLabCut job for each video whose task
+    names a model. Returns (the plan's path under root, or '', notes)."""
     from dataclasses import replace
+
+    import pandas as pd
 
     from raphael.cluster import batch
 
@@ -758,12 +801,17 @@ def _plan_file(root, user, stamp, folders):
         prefix = folder.relative_to(raw_root).as_posix()
         recs += [replace(r, path=f'{prefix}/{r.path}') for r in raw.scan(folder)]
     table, _ = batch.plan(recs, raw_root)
+    start = int(table['batch'].max()) + 1 if not table.empty else 1
+    dlc, notes = batch.dlc_rows(folders, root, start_batch=start)
+    if dlc:
+        table = pd.concat([table, pd.DataFrame(dlc, columns=batch.PLAN_COLUMNS)],
+                          ignore_index=True)
     if table.empty:
-        return ''
+        return '', notes
     out = Path(root) / 'metadata' / 'plans' / f'plan_{stamp}_{user}.csv'
     out.parent.mkdir(parents=True, exist_ok=True)
     table.to_csv(out, index=False)
-    return out.relative_to(root).as_posix()
+    return out.relative_to(root).as_posix(), notes
 
 
 def _email(report, lists, dry_run, body):
@@ -829,8 +877,7 @@ def ingest(root, users=None, dry_run=False, now=None, runner=None):
         plans = []
         for session_folder in order:
             plan = plan_session(session_folder, handin, root, lists, report, mine)
-            if plan is not None:
-                mine.setdefault(plan['mouse'], {})[plan['day']] = plan['date']
+            if plan is not None:                          # its day is in `mine` already
                 plans.append(plan)
         checked = Report(handin.user)
         update_describing(handin, root, checked, stamp, dry_run=True)
@@ -853,7 +900,8 @@ def ingest(root, users=None, dry_run=False, now=None, runner=None):
             if not report.problems:
                 update_describing(handin, root, report, stamp, dry_run)
         if filed_folders:
-            report.plan = _plan_file(root, handin.user, stamp, filed_folders)
+            report.plan, plan_notes = _plan_file(root, handin.user, stamp, filed_folders)
+            report.notes += [('plan', n) for n in plan_notes]
         reports.append(report)
         body = report.text(dry_run)
         problems_md = folder / 'PROBLEMS.md'

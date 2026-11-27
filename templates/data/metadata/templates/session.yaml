@@ -1,16 +1,17 @@
-# sub-M{mouse}_day-{dd}_ses-{type}_session.yaml: one per session, written on
-# the day it is recorded, inside the session's folder. Fields marked * are
-# required: ingest refuses a session without them.
+# sub-M{mouse}_day-{dd}_ses-{type}_session.yaml: optional, written on the day
+# it is recorded, inside the session's folder. Every field may be left blank:
+# start and task come from the folder name, experimenter from whose hand-in
+# it is, project from the cohort file. The session in raw/ always gets one.
 #   NWBFile: session_start_time, session_description, experimenter,
 #            pharmacology, stimulus_notes, data_collection, notes
 #   NWB Subject.weight
 #   BIDS sub-*_sessions.tsv (listed in metadata/catalogue.csv)
 
-start:                  # * local start time, e.g. 2026-03-14T10:05:00 (NWB session_start_time)
-task:                   # * task code (metadata/sessions.yaml), e.g. OF for session type OF1
-experimenter: []        # * usernames, e.g. [hclark]
-project:                # * project code (metadata/projects.yaml)
-rig:                    # rig (metadata/rigs/), e.g. ephys-rig-1
+start:                  # local start time, e.g. 2026-03-14T10:05:00 (NWB session_start_time)
+task:                   # task code (metadata/sessions.yaml), e.g. OF for session type OF1
+experimenter: []        # usernames, e.g. [hclark]
+project:                # project code (metadata/projects.yaml)
+rig:                    # rig, e.g. ephys-rig-1; if it is in metadata/rigs/, its cameras name the videos
 weight_g:               # body weight that day (NWB Subject.weight)
 description:            # what was different about this session; added to the task's
                         # description in NWB session_description
