@@ -306,7 +306,12 @@ and one folder per session named
 names say where everything goes, and the subject file names the cohort.
 
 **Ingest** turns a hand-in into locked raw data, in one command run by the
-data manager (`raphael-data ingest`, to be written; `--dry-run` first):
+data manager on or next to the server: `raphael-data ingest` (`--dry-run`
+reports and changes nothing; `--user jsmith` takes one person's hand-in).
+Anyone can run `raphael-data check incoming/{username}` on their own
+hand-in first: the same checks, nothing changed. The person is the folder:
+`incoming/jsmith/` is jsmith's hand-in, so usernames in `people.yaml` must
+be people's server logins (ingest also notes files another account wrote).
 
 1. **Check, without changing anything:** the session folder's name against
    the recordings' own start time, the session file's start and the
@@ -316,17 +321,30 @@ data manager (`raphael-data ingest`, to be written; `--dry-run` first):
    people exist in `metadata/`. Anything that disagrees is reported, not filed.
 2. **Rename** the recordings to the BIDS-style names above by what they
    are (several of one kind matched to labels by name), wrapping
-   acquisition folders without changing their insides, and fill blank
-   fields of the session file. Write the manifest (size, sha256 and
-   original name of every file).
+   acquisition folders without changing their insides (loose Inscopix files
+   go into one `_ophys/` folder with their `.gpio`, `.imu` and
+   `session.json`), and fill blank fields of the session file (start,
+   task, experimenter, project and rig from the mouse's last session, and
+   `ingested`, `ingested_by`). Write the manifest (size, sha256 and
+   original name of every file). Copies are staged in `raw/.ingesting/`,
+   every one is checked against its source, and only then is the session
+   moved into place and removed from `incoming/`: a failure leaves the
+   hand-in and `raw/` as they were, and running ingest again carries on.
 3. **Move** the session into `raw/{cohort}/sub-M{m}/day-{dd}/ses-{t}/`, make
    its recordings owned by the data account and read-only to everyone else,
    and add or update the cohort, subject and procedures files (keeping the
    old version; changes to identity fields are left for the data manager).
-4. **Rebuild** `metadata/catalogue.csv`, empty the hand-in from `incoming/{person}/`, and
-   **tell** the person and the data managers what was added or what is
-   wrong: by email when `lab.yaml` has mail settings, otherwise in
-   `PROBLEMS.md` in the person's folder.
+4. **Plan** the processing: one plan per person who had something filed,
+   `metadata/plans/plan_{YYYY-MM-DD}_{HH-MM-SS}_{username}.csv` (the time
+   of the ingest run), ready for `raphael-jobs files` and `make-batch`
+   ([processing.md](processing.md)). A plan can be edited (memory, a
+   missing value) until jobs are made from it; each job's provenance then
+   records what ran.
+5. **Rebuild** `metadata/catalogue.csv` (its `plan` column names the plan
+   holding each session), and **tell** the person and the data managers
+   what was added or what is wrong: `PROBLEMS.md` in the person's folder
+   while anything is wrong, and email when `lab.yaml` has `data_managers`
+   and `mail` (`host`, `port`, `from`, `starttls`).
 
 From then on, nobody without admin rights can modify or delete it. If a
 recording really must be corrected (wrong session name, say), an admin does
@@ -452,11 +470,10 @@ on the server would double the largest files (Neuropixels runs at about
   registration; and how existing datasets (M20–M29, M5592, M8472, …) map
   onto them.
 - **Task codes:** who keeps `metadata/sessions.yaml`, and the first list of codes.
-- **Ingest:** writing `raphael-data ingest`, which also rebuilds the catalogue.
+- **Usernames:** the usernames in `people.yaml` (and so the `incoming/`
+  folder names) must be people's server logins, once the accounts exist.
 - **Cohort names:** renaming existing cohorts (`May_2024` →
   `2024-05_…`) when they are ingested.
 - **Video:** how long raw video is kept once pose estimation has run.
-- **Ingest:** writing the ingest script (renaming, manifest, locking),
-  perhaps as a `raphael-data` command.
 - **Sync:** each rig's TTL scheme (which device sends pulses, their rate
   and width, expected counts per protocol) and the thresholds above.

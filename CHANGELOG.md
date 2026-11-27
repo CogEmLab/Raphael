@@ -10,6 +10,19 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
 ### Added
+- Ingest (`raphael.ingest`; `raphael-data check`, `raphael-data ingest
+  [--dry-run] [--user]`): files flat hand-ins from `data/incoming/{user}/`
+  into `data/raw/`. It checks the describing files, the registered codes and
+  people, the folder's start time against the recordings' own, and the day
+  and run numbers against the mouse's history; renames recordings by what
+  they are (labels for several of a kind; loose Inscopix files into one
+  `_ophys/`); writes a manifest, verifies every copy (staged in
+  `raw/.ingesting/`) and locks the recordings; adds or updates the cohort,
+  subject and procedures files (old versions in `.history/`, identity
+  changes left to the data manager); writes a plan per person,
+  `metadata/plans/plan_{date}_{time}_{user}.csv`; rebuilds the catalogue
+  (new `plan` column); and reports through `incoming/{user}/PROBLEMS.md`
+  and, when `lab.yaml` has mail settings, email.
 - `data/` holds four folders: `incoming/`, `raw/`, `processed/` and
   `metadata/` (the lab's lists, templates and the catalogue; `lab/` and
   `index/` are gone; `tasks.yaml` is now `sessions.yaml`, describing each

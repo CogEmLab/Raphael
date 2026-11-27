@@ -33,7 +33,8 @@ VIDEO = ('.mp4', '.avi', '.mov', '.mkv')
 SOFTWARE = {'kilosort4': 'kilosort', 'lfp': 'spikeinterface', 'suite2p': 'suite2p',
             'cnmfe': 'CaImAn', 'photometry': 'raphael'}
 COLUMNS = ['cohort', 'mouse', 'day', 'session', 'start', 'task', 'project', 'experimenter',
-           'modalities', 'raw_gb', 'ingested', 'status', 'processed_on', 'software', 'raphael',
+           'modalities', 'raw_gb', 'ingested', 'status', 'plan', 'processed_on', 'software',
+           'raphael',
            'outdated', 'quality', 'notes', 'raw_path', 'processed_path']
 
 
@@ -137,7 +138,25 @@ def _unique(values):
     return '; '.join(dict.fromkeys(v for v in values if v))
 
 
-def _row(root, cohort, session, folder):
+def plans_by_session(root):
+    """{raw/ session folder: plan name} from metadata/plans/plan_*.csv (the
+    newest plan naming a session wins)."""
+    out = {}
+    for plan in sorted((Path(root) / 'metadata' / 'plans').glob('plan_*.csv')):
+        try:
+            with open(plan, newline='') as f:
+                rows = list(csv.DictReader(f))
+        except (OSError, csv.Error):
+            continue
+        for row in rows:
+            for path in (row.get('inputs') or '').split(';'):
+                m = re.match(r'^(.*?/(?:ses-[^/]+|M[^/]+/D\d+/[^/]+))(?:/|$)', path)
+                if m:
+                    out[f'raw/{m[1]}'] = plan.stem
+    return out
+
+
+def _row(root, cohort, session, folder, plans=None):
     root = Path(root)
     info = raw.describing(folder / '_', raw.Recording(           # any path inside the session
         '', 'unknown', '', cohort, session.mouse, int(session.day), session.session_type))
@@ -167,7 +186,9 @@ def _row(root, cohort, session, folder):
         'task': _text(described.get('task')), 'project': _text(described.get('project')),
         'experimenter': _text(described.get('experimenter')),
         'modalities': ' '.join(modalities), 'raw_gb': round(_size(folder) / 1e9, 2),
-        'ingested': ingested, 'status': status, 'processed_on': last[:10],
+        'ingested': ingested, 'status': status,
+        'plan': (plans or {}).get(folder.relative_to(root).as_posix(), ''),
+        'processed_on': last[:10],
         'software': _unique(done[s]['software'] for s in ran),
         'raphael': _unique(done[s]['raphael'] for s in ran),
         'quality': _text(described.get('quality')),
@@ -189,7 +210,8 @@ def catalogue(root, out=None):
     """Write `{root}/metadata/catalogue.csv` (or `out`): one row per session
     in `{root}/raw/`. `root` is the `data/` folder. Returns the rows."""
     root = Path(root)
-    rows = [_row(root, cohort, session, folder)
+    plans = plans_by_session(root)
+    rows = [_row(root, cohort, session, folder, plans)
             for cohort, session, folder in sessions(root / 'raw')]
     rows.sort(key=lambda r: (r['cohort'], r['mouse'].zfill(12), r['day'], r['session']))
     out = Path(out) if out else root / 'metadata' / CATALOGUE

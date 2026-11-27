@@ -7,6 +7,7 @@ session's own folder under `raw/` (see `raw/README.md`).
 | file | what | edited by |
 |---|---|---|
 | `catalogue.csv` | **every session in `raw/`, one row each**: what it is, what it recorded, when it was added, its processing status, when it was processed, with which software and Raphael release, and whether it is outdated | **generated**: rebuilt by ingest and `raphael-jobs collect` (or `raphael-data catalogue`); never edit |
+| `plans/` | processing plans, one per person per ingest run: `plan_{date}_{time}_{username}.csv`; the catalogue’s `plan` column names each session’s | **written by ingest**; may be edited (memory, a missing value) until jobs are made from it |
 | `lab.yaml` | lab name, institution, PI, timezone, default licence | data managers |
 | `people.yaml` | everyone named in the tree: full name, email, ORCID, roles | each person adds themselves |
 | `projects.yaml` | projects: description, members, animal licence, funding, publications | project owners |

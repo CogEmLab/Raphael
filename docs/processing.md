@@ -83,6 +83,12 @@ and path, and a `!` line for anything that needs attention (unreadable, no
 frame rate, a recovered copy used instead of the original). `--out
 recordings.csv` writes the same as a table.
 
+**On the data server, ingest writes the plan.** Each ingest run leaves one
+plan per person whose sessions it filed in
+`data/metadata/plans/plan_{date}_{time}_{username}.csv`, and the
+catalogue's `plan` column names it for every session. Point the steps below
+at that file (`PLAN=data/metadata/plans/plan_…csv`) and skip section 3.
+
 ## 3. Plan the jobs *(laptop)*
 
 `plan` finds every recording under `$RAW` (as `detect` does) and plans its

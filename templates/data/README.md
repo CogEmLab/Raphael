@@ -221,7 +221,8 @@ the data manager** what you added.
 ### What the data manager does
 
 Runs ingest (`raphael-data ingest`; `--dry-run` shows what it would do).
-For each session it:
+You can run the same checks on your own hand-in first, changing nothing:
+`raphael-data check incoming/{your username}`. For each session ingest:
 
 1. Checks the session folder's name against the recording's own start
    time, the session file and the mouse's earlier days; that the task,
@@ -234,8 +235,10 @@ For each session it:
 3. Moves the session into `raw/{cohort}/sub-M{mouse}/day-{dd}/ses-{type}/`,
    adds or updates the cohort, subject and procedures files (keeping old
    versions), locks the recordings and rebuilds `metadata/catalogue.csv`.
-4. Tells you and the data managers what was added, or exactly what is
-   wrong and how to fix it.
+4. Writes a processing plan for what it filed,
+   `metadata/plans/plan_{date}_{time}_{your username}.csv`.
+5. Tells you and the data managers what was added, or exactly what is
+   wrong and how to fix it (`PROBLEMS.md` in your folder, and email).
 
 From then on the session is found by processing (`raphael-jobs plan`), and
 its outputs appear at the same path in `processed/`.
