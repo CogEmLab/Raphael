@@ -155,7 +155,7 @@ def test_problems_are_reported_and_nothing_is_filed(root):
     assert 'started at 2026-03-18 10:05:00, the folder name says 2026-03-18 12:00:00' in text
     assert 'no sub-M10432_procedures.yaml in the hand-in' in text
     problems_md = user / 'PROBLEMS.md'
-    assert problems_md.exists() and 'not added' in problems_md.read_text()
+    assert problems_md.exists() and 'Nothing was added' in problems_md.read_text()
     assert files(root / 'incoming') == sorted([*before, 'jsmith/PROBLEMS.md'])
 
 
@@ -169,11 +169,17 @@ def test_days_and_runs(root):
     describing(user)
     session(user, datetime(2026, 3, 14, 14, 0, 0), kind='OF2')   # a second OF that day
     session(user, datetime(2026, 3, 15, 10, 0, 0), day=2)        # the next day
-    session(user, datetime(2026, 3, 14, 15, 0, 0), kind='VR1')   # VR1 is taken
+    taken = session(user, datetime(2026, 3, 14, 15, 0, 0), kind='VR1')   # VR1 is taken
     [report] = ingest.ingest(root, now=NOW)
+    assert report.filed == []                                    # nothing until it's clarified
+    assert any('already in raw/' in p and 'ses-VR2' in f for _, p, f in report.problems)
+    import shutil
+    shutil.rmtree(taken)                                         # clarified: it was a duplicate
+    [report] = ingest.ingest(root, now=NOW)
+    assert report.problems == []
     assert report.filed == [f'raw/{COHORT}/sub-M10432/day-01/ses-OF2',
                             f'raw/{COHORT}/sub-M10432/day-02/ses-OF1']
-    assert any('already in raw/' in p and 'ses-VR2' in f for _, p, f in report.problems)
+    assert not (user / 'PROBLEMS.md').exists()
 
 
 def test_describing_files_update_with_history_and_identity_needs_the_data_manager(root):
@@ -192,7 +198,7 @@ def test_describing_files_update_with_history_and_identity_needs_the_data_manage
     describing(user, procedures=surgery, sex='M')                # an identity change
     [report] = ingest.ingest(root, now=datetime(2026, 3, 22, 9, 0, 0))
     assert yaml.safe_load((mouse_dir / 'sub-M10432_subject.yaml').read_text())['sex'] == 'F'
-    assert any('sex differ' in note for _, note in report.notes)
+    assert any('sex differ' in p for _, p, _ in report.problems)
     assert (user / 'sub-M10432_subject.yaml').exists()            # kept for the data manager
 
 
@@ -291,20 +297,33 @@ def test_email_goes_to_the_person_and_the_data_managers(root, monkeypatch):
     assert ('email', 'emailed jo@example.org, dm@example.org') in report.notes
 
 
-def test_check_command_reads_one_hand_in(root, capsys, monkeypatch):
+def test_one_problem_holds_back_the_whole_hand_in(root):
+    user = root / 'incoming' / 'jsmith'
+    describing(user)
+    session(user, datetime(2026, 3, 14, 10, 0, 0))                    # fine on its own
+    session(user, datetime(2026, 3, 15, 10, 0, 0), day=2, kind='XX1')   # unregistered code
+    before = files(root / 'incoming')
+    [report] = ingest.ingest(root, now=NOW)
+    assert report.filed == [] and len(report.problems) == 1
+    assert 'Nothing was added: 1 thing(s) to clarify' in report.text()
+    assert files(root / 'raw') == [] and not (root / 'metadata' / 'plans').exists()
+    assert files(root / 'incoming') == sorted([*before, 'jsmith/PROBLEMS.md'])
+
+
+def test_the_command_stops_and_says_what_to_clarify(root, capsys, monkeypatch):
     import sys
 
     from raphael.scripts import data
     user = root / 'incoming' / 'jsmith'
     describing(user)
     session(user, datetime(2026, 3, 14, 10, 5, 12), day=2)      # wrong: the first day is 1
-    monkeypatch.setattr(sys, 'argv', ['raphael-data', 'check', str(user)])
+    monkeypatch.setattr(sys, 'argv', ['raphael-data', 'ingest', str(root)])
     with pytest.raises(SystemExit) as stop:
         data.main()
     assert stop.value.code == 1
     out = capsys.readouterr().out
-    assert 'is day-01, not day-02' in out
-    assert not (user / 'PROBLEMS.md').exists() and not any(Path(root / 'raw').iterdir())
+    assert 'Nothing was added' in out and 'is day-01, not day-02' in out
+    assert (user / 'PROBLEMS.md').exists() and not any(Path(root / 'raw').iterdir())
 
 
 def test_a_session_folder_that_is_the_open_ephys_folder(root):

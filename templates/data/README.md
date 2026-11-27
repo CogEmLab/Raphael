@@ -220,9 +220,10 @@ the data manager** what you added.
 
 ### What the data manager does
 
-Runs ingest (`raphael-data ingest`; `--dry-run` shows what it would do).
-You can run the same checks on your own hand-in first, changing nothing:
-`raphael-data check incoming/{your username}`. For each session ingest:
+Runs ingest (`raphael-data ingest`). It checks your whole hand-in first:
+if anything is missing or can't be worked out, **nothing of it is added**
+and you get one list of what to clarify; fix those and it goes in on the
+next run. When nothing needs clarifying, for each session it:
 
 1. Checks the session folder's name against the recording's own start
    time, the session file and the mouse's earlier days; that the task,

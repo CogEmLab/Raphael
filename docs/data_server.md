@@ -308,12 +308,15 @@ names say where everything goes, and the subject file names the cohort.
 **Ingest** turns a hand-in into locked raw data, in one command run by the
 data manager on or next to the server: `raphael-data ingest` (`--dry-run`
 reports and changes nothing; `--user jsmith` takes one person's hand-in).
-Anyone can run `raphael-data check incoming/{username}` on their own
-hand-in first: the same checks, nothing changed. The person is the folder:
+**It checks a whole hand-in before filing any of it**: if anything is
+missing or can't be worked out, nothing of that hand-in is filed, the
+person is told exactly what to clarify, and the next run files it once
+it's fixed. One person's problems never hold up another's. The person is
+the folder:
 `incoming/jsmith/` is jsmith's hand-in, so usernames in `people.yaml` must
 be people's server logins (ingest also notes files another account wrote).
 
-1. **Check, without changing anything:** the session folder's name against
+1. **Check everything in the hand-in, without changing anything:** the session folder's name against
    the recordings' own start time, the session file's start and the
    mouse's earlier days (is `day-04` the right number for that date? is
    `ses-OF1` free?); the cohort named in the subject file against the

@@ -29,8 +29,13 @@ For each session, ingest
 then writes one processing plan per person who had something filed
 (`metadata/plans/plan_{date}_{time}_{user}.csv`), rebuilds the catalogue,
 and reports to each person: `incoming/{user}/PROBLEMS.md`, and email when
-`metadata/lab.yaml` has mail settings. `dry_run=True` (and `check`) report
-what would happen and change nothing.
+`metadata/lab.yaml` has mail settings.
+
+A person's hand-in is checked whole before anything of it is filed: if any
+part is missing or can't be worked out, none of it is filed and the report
+lists everything to clarify; the next run files it once that's fixed. One
+person's problems never hold up another's. `dry_run=True` reports what
+would happen and changes nothing.
 """
 
 import getpass
@@ -82,7 +87,10 @@ class Report:
             lines += [f'## {len(self.filed)} session(s) {verb}', '']
             lines += [f'- {p}' for p in self.filed] + ['']
         if self.problems:
-            lines += [f'## {len(self.problems)} problem(s): not added', '']
+            head = (f'## {len(self.problems)} thing(s) to clarify' if self.filed else
+                    f'## Nothing {"would be " if dry_run else "was "}added: '
+                    f'{len(self.problems)} thing(s) to clarify')
+            lines += [head, '']
             for item, problem, fix in self.problems:
                 lines.append(f'- **{item}**: {problem}' + (f'  \n  Fix: {fix}' if fix else ''))
             lines.append('')
@@ -666,8 +674,9 @@ def _update(src, target, identity, report, stamp, dry_run):
     if isinstance(old, dict) and isinstance(new, dict):
         changed = [k for k in identity if _text(old.get(k)) != _text(new.get(k))]
         if changed:
-            report.notes.append((src.name, (f'not applied: {", ".join(changed)} differ from '
-                                 f'raw/{rel}; the data manager must confirm identity changes')))
+            report.problems.append((src.name, f'{", ".join(changed)} differ from raw/{rel}',
+                                    ('identity changes need the data manager: correct the file, '
+                                    'or ask them to change raw/')))
             return False
     if not dry_run:
         history = target.parent / '.history'
@@ -811,27 +820,38 @@ def ingest(root, users=None, dry_run=False, now=None, runner=None):
         for p in handin.other:
             report.problems.append((p.name, 'not a session folder or describing file',
                                     ('session folders are named '
-                                    'sub-M{mouse}_day-{dd}_ses-{type}_{date}_{time}')))
-        # Sessions in time order, so two on one day are numbered against each other.
+                                     'sub-M{mouse}_day-{dd}_ses-{type}_{date}_{time}')))
+        # 1. Check everything in the hand-in, changing nothing. Sessions in
+        # time order, so two on one day are numbered against each other.
         order = sorted(handin.sessions, key=lambda p: SESSION_FOLDER.match(p.name)['date']
                        + SESSION_FOLDER.match(p.name)['time'])
-        filed_folders = []
+        mine = {m: dict(d) for m, d in pending.items()}
+        plans = []
         for session_folder in order:
-            plan = plan_session(session_folder, handin, root, lists, report, pending)
-            if plan is None:
-                continue
-            pending.setdefault(plan['mouse'], {})[plan['day']] = plan['date']
-            target = plan['session'].folder(root / 'raw' / plan['cohort'])
-            if not dry_run:
-                try:
-                    target = file_session(plan, root, runner, now)
-                except (OSError, FileExistsError) as e:
-                    report.problems.append((session_folder.name, f'filing failed: {e}',
-                                            'nothing was changed; run ingest again'))
-                    continue
-                filed_folders.append(target)
-            report.filed.append(target.relative_to(root).as_posix())
-        update_describing(handin, root, report, stamp, dry_run)
+            plan = plan_session(session_folder, handin, root, lists, report, mine)
+            if plan is not None:
+                mine.setdefault(plan['mouse'], {})[plan['day']] = plan['date']
+                plans.append(plan)
+        checked = Report(handin.user)
+        update_describing(handin, root, checked, stamp, dry_run=True)
+        report.problems += checked.problems
+        # 2. Only a hand-in with nothing to clarify is filed, all of it.
+        filed_folders = []
+        if not report.problems:
+            pending = mine
+            for plan in plans:
+                target = plan['session'].folder(root / 'raw' / plan['cohort'])
+                if not dry_run:
+                    try:
+                        target = file_session(plan, root, runner, now)
+                    except (OSError, FileExistsError) as e:
+                        report.problems.append((plan['folder'].name, f'filing failed: {e}',
+                                                'that session is unchanged; run ingest again'))
+                        break
+                    filed_folders.append(target)
+                report.filed.append(target.relative_to(root).as_posix())
+            if not report.problems:
+                update_describing(handin, root, report, stamp, dry_run)
         if filed_folders:
             report.plan = _plan_file(root, handin.user, stamp, filed_folders)
         reports.append(report)

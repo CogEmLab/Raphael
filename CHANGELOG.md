@@ -10,9 +10,10 @@ Release (and, once Zenodo is connected, gets a DOI); see docs/releases.md.
 
 ## [Unreleased]
 ### Added
-- Ingest (`raphael.ingest`; `raphael-data check`, `raphael-data ingest
-  [--dry-run] [--user]`): files flat hand-ins from `data/incoming/{user}/`
-  into `data/raw/`. It checks the describing files, the registered codes and
+- Ingest (`raphael.ingest`; `raphael-data ingest [--dry-run] [--user]`):
+  files flat hand-ins from `data/incoming/{user}/` into `data/raw/`. It
+  checks a whole hand-in before filing any of it (anything missing or
+  ambiguous: nothing filed, and one list of what to clarify). It checks the describing files, the registered codes and
   people, the folder's start time against the recordings' own, and the day
   and run numbers against the mouse's history; renames recordings by what
   they are (labels for several of a kind; loose Inscopix files into one
