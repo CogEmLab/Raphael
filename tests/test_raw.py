@@ -98,6 +98,11 @@ def test_openephys_start_from_sync_messages(tmp_path):
         'Software Time (milliseconds since midnight Jan 1st 1970 UTC): 1762162205000\n')
     rec = raw.detect(tmp_path / 'rec', tmp_path)
     assert rec.format == 'openephys' and rec.start == '2025-11-03T10:30:05+01:00'
+    # With settings.xml, its local DATE wins: on the clark2025 rig the software
+    # time is the local clock written as UTC, an hour late if read as UTC.
+    (node / 'settings.xml').write_text('<SETTINGS><INFO><DATE>3 Nov 2025 09:30:05</DATE>'
+                                       '</INFO></SETTINGS>')
+    assert raw.detect(tmp_path / 'rec', tmp_path).start == '2025-11-03T09:30:05'
 
 
 def test_plan_files_and_jobs(tree, tmp_path):

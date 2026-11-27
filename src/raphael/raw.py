@@ -93,13 +93,11 @@ class Recording:
 # ------------------------------------------------------------ start times
 
 def _openephys_start(folder, timezone):
-    """Open Ephys: sync_messages.txt's software time (UTC, version >= 0.6),
-    else settings.xml's DATE (local)."""
-    for sync in sorted(Path(folder).rglob('sync_messages.txt')):
-        m = re.search(r'Software Time[^:]*:\s*(\d+)', sync.read_text(errors='replace'))
-        if m:
-            utc = datetime.fromtimestamp(int(m.group(1)) / 1000, UTC)
-            return utc.astimezone(ZoneInfo(timezone)).isoformat()
+    """Open Ephys: settings.xml's DATE (the acquisition computer's local
+    time), else sync_messages.txt's software time. The DATE comes first
+    because the software time is not always true UTC: on the clark2025 rig
+    it is the local clock written as UTC (13 Nov 2024: DATE 13:32:25,
+    software time 13:32:25 UTC), so read as UTC it is an hour late."""
     for settings in sorted(Path(folder).rglob('settings.xml')):
         m = re.search(r'<DATE>([^<]+)</DATE>', settings.read_text(errors='replace'))
         if m:
@@ -107,6 +105,11 @@ def _openephys_start(folder, timezone):
                 return datetime.strptime(m.group(1).strip(), '%d %b %Y %H:%M:%S').isoformat()
             except ValueError:
                 pass
+    for sync in sorted(Path(folder).rglob('sync_messages.txt')):
+        m = re.search(r'Software Time[^:]*:\s*(\d+)', sync.read_text(errors='replace'))
+        if m:
+            utc = datetime.fromtimestamp(int(m.group(1)) / 1000, UTC)
+            return utc.astimezone(ZoneInfo(timezone)).isoformat()
     return None
 
 

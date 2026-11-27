@@ -305,3 +305,39 @@ def test_check_command_reads_one_hand_in(root, capsys, monkeypatch):
     out = capsys.readouterr().out
     assert 'is day-01, not day-02' in out
     assert not (user / 'PROBLEMS.md').exists() and not any(Path(root / 'raw').iterdir())
+
+
+def test_a_session_folder_that_is_the_open_ephys_folder(root):
+    """Open Ephys set to name its own folder: Record Node is directly inside
+    the session folder, with the camera file beside it. Its software time is
+    the local clock written as UTC (as on the clark2025 rig): an hour off if
+    read as UTC, so the start comes from settings.xml's local DATE."""
+    user = root / 'incoming' / 'jsmith'
+    describing(user)
+    when = datetime(2024, 11, 13, 13, 32, 25)
+
+    def oe_is_the_folder(folder):
+        node = folder / 'Record Node 109'
+        (node / 'experiment1' / 'recording1').mkdir(parents=True)
+        (node / 'settings.xml').write_text(
+            '<SETTINGS><INFO><DATE>13 Nov 2024 13:32:25</DATE></INFO></SETTINGS>')
+        ms = int(when.replace(tzinfo=ZoneInfo('UTC')).timestamp() * 1000)
+        (node / 'experiment1' / 'recording1' / 'sync_messages.txt').write_text(
+            f'Software Time (milliseconds since midnight Jan 1st 1970 UTC): {ms}\n')
+        (node / 'experiment1' / 'recording1' / 'continuous.dat').write_bytes(b'\0' * 64)
+        (folder / 'cam0.mp4').unlink()
+        (folder / 'rig_log.csv').unlink()
+        (folder / 'sub-25_day-25_ses-OF1_video.avi').write_bytes(b'video')
+    session(user, when, ephys=False, extra=oe_is_the_folder)
+    [report] = ingest.ingest(root, now=NOW)
+    assert report.problems == [], report.problems
+    target = root / report.filed[0]
+    stem = 'sub-M10432_day-01_ses-OF1'
+    assert (target / f'{stem}_ephys' / 'Record Node 109' / 'settings.xml').exists()
+    assert (target / f'{stem}_ephys' / 'Record Node 109' / 'experiment1' / 'recording1'
+            / 'continuous.dat').exists()
+    assert (target / f'{stem}_video.avi').exists()
+    with open(root / report.plan) as f:
+        rows = list(csv.DictReader(f))
+    assert {r['stage'] for r in rows} == {'kilosort4', 'lfp'}
+    assert rows[0]['session_start'] == '2024-11-13T13:32:25'

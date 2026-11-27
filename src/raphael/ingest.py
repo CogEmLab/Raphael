@@ -219,6 +219,19 @@ def recordings(folder, session_file, procedures, rig, timezone='Europe/Vienna'):
     children = sorted(p for p in folder.iterdir() if p.name not in JUNK
                       and not p.name.startswith('._') and p.name != session_file)
     used = set()
+    # The session folder may itself be the acquisition folder: Open Ephys's
+    # (Record Node … inside, when it is set to name its own folder) or a
+    # SpikeGLX run's (probe folders and .bin/.meta files inside). Those parts
+    # are the session's one ephys recording, kept as recorded inside it.
+    nodes = [p for p in children if p.is_dir() and p.name.startswith('Record Node')]
+    glx = [p for p in children if (p.is_dir() and re.search(r'_imec\d+$', p.name))
+           or re.search(r'\.(ap|lf|nidq)\.(bin|meta)$', p.name)]
+    for parts, start in ((nodes, raw._openephys_start(folder, timezone) if nodes else None),
+                         (glx, raw._spikeglx_start(folder) if glx else None)):
+        if parts:
+            used.update(parts)
+            items.append({'sources': parts, 'kind': 'ephys', 'start': start, 'dir': True,
+                          'label_from': folder.name, 'keep_names': True})
     loose_ophys = {'inscopix': [], 'scanimage': []}
     for child in children:
         if child in used:
@@ -588,7 +601,11 @@ def file_session(plan, root, runner, now):
         for item in plan['items']:
             name = f'{session.stem}{item["name"]}'
             for src in item['sources']:
-                if src.is_dir():
+                if item.get('keep_names'):                 # parts of an acquisition folder
+                    files = sorted(f for f in src.rglob('*') if f.is_file()) if src.is_dir() \
+                        else [src]
+                    pairs = [(f, staging / name / f.relative_to(src.parent)) for f in files]
+                elif src.is_dir():
                     files = sorted(f for f in src.rglob('*') if f.is_file())
                     pairs = [(f, staging / name / f.relative_to(src)) for f in files]
                 elif item.get('loose'):                    # loose movie files: into a folder
