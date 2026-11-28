@@ -25,14 +25,12 @@ Each step says whether it **works now** or is **planned**. Related pages:
 ## The whole picture
 
 ```
-  laptop / lab storage                       MSC cluster
-  ────────────────────                       ───────────
-  0  raw recordings of a day ── rsync ─────▶ ~/data/raw/M../D../{OF1,VR,OF2}/
-     + session metadata
-           │
-  1  raphael-jobs make ─────── rsync ───────▶ ~/jobs/<job>/
-     (job bundle)                                 │
-                                             2  sbatch submit.slurm
+  data server                                MSC cluster
+  ───────────                                ───────────
+  0  raw/…/day-{dd}/ses-*/…_ephys     ─────▶ ~/data/  (the batch's copy)
+     ingest's plan: one kilosort4
+     job per day, one lfp job
+                                             1  make-batch ▶ sbatch
                                                   │
                                              3  raphael-jobs run
                                                 checks ▶ join the day
@@ -40,22 +38,24 @@ Each step says whether it **works now** or is **planned**. Related pages:
                                                 ▶ Kilosort 4.0.16
                                                 ▶ analysers per session ▶ bombcell
                                                 ▶ ISI rule ▶ _clusters.npz, QC
-                                             3b optional, a CPU job: raphael-jobs run
-                                                (stage lfp) ▶ _lfp.nwb
+                                             3b the lfp job ▶ _lfp.nwb
                                                   │
-  4  results ◀────────────── rsync ─────────── outputs/
+  4  processed/…/ses-*/  ◀── collect ──────── outputs/
            │
   5  check QC  ▶  6  manual curation (optional, planned)  ▶  7  analyse / publish
 ```
 
+Getting the data in and running the jobs is [processing.md](processing.md):
+ingest, the plan, then batches on the cluster. This page is what happens
+inside the jobs and what comes out.
+
 | step | where | status |
 |---|---|---|
-| 0 raw recordings and metadata | laptop / lab storage | readers for SpikeGLX and Open Ephys **work, but are untested on our files** |
-| 1 make a job bundle | laptop | works |
-| 2 copy and submit | laptop to MSC | works |
-| 3 run: sorting, analysers, curation, writing `_clusters.npz` | MSC GPU node | works (simulated data) |
-| 3b LFP and theta phase into `_lfp.nwb` (optional) | MSC CPU node | works (simulated data, locally) |
-| 4 copy results back | MSC to laptop | works |
+| 0 raw recordings and metadata | data server | readers for SpikeGLX and Open Ephys **work, but are untested on our files** |
+| 1–2 the jobs, from the plan | cluster | works ([processing.md](processing.md)) |
+| 3 run: sorting, analysers, curation, writing `_clusters.npz` | MSC (CPU by default) | works (simulated data, on a GPU) |
+| 3b LFP and theta phase into `_lfp.nwb` | MSC CPU node | works (simulated data, locally) |
+| 4 outputs into `processed/` | collect | works |
 | 5 quality check | laptop | works |
 | 6 manual curation in phy or the spikeinterface GUI | laptop | **planned** |
 | 7 analysis and publishing | laptop | loading works; histology and behaviour sync **planned** |
@@ -103,86 +103,22 @@ files, and the job refuses to be made without the first two:
 Times without a UTC offset are read as Vienna time (`nwb.timezone` in
 [configs/ephys.yaml](../src/raphael/configs/ephys.yaml)).
 
-## 1. Make a job bundle (laptop)
+## 1–2. The jobs
 
-One job per day. List the recordings in the order they were made: they are
-joined in that order and sorted together, so a unit keeps its id across
-the day.
+Ingest's plan has one `kilosort4` job per mouse and day, with that day's
+sessions in recording order: they are joined in that order and sorted
+together, so a unit keeps its id across the day. The plan fills in the
+start times, session types, mouse, day and subject; making the jobs
+records every file of every recording folder with its size and checksum.
+Running them is [processing.md](processing.md), section 4.
 
-```bash
-uv run raphael-jobs make ~/jobs/M25-D18 --stage kilosort4 \
-    --data-root /Volumes/ephys \
-    --input raw/M25/D18/OF1 --input raw/M25/D18/VR --input raw/M25/D18/OF2 \
-    --config configs/ephys.yaml --gpu-type 1g.5gb --cpus 8 --mem-gb 64 --hours 8 \
-    --param 'session_start=[2026-11-03T10:00, 2026-11-03T10:40, 2026-11-03T11:30]' \
-    --param 'session_type=[OF1, VR, OF2]' --param mouse=25 --param day=18 \
-    --param 'subject={age: P90D, sex: F}' --param location=CA1
-```
+**CPU or GPU.** Kilosort runs on the CPU by default (16 CPUs, 64 GB,
+24 h). On a GPU it sorts one shank at a time and needed **1.24 GB** of GPU
+memory on the simulated day, so the smallest MSC slice (`1g.5gb`, 5 GB)
+is enough; it took 6 minutes for 6 minutes of recording there. To use a
+GPU, set the row's `gpu` and `gpu_type` in the plan.
 
-`make` checks the metadata before writing anything. It records every file
-of every recording folder with its size and checksum, the code commit and
-the `uv.lock` hash. Checksumming takes about a minute per 10 GB; `--no-hash`
-records sizes only.
-
-**What it creates** (a few kB; the recordings are not copied):
-
-```
-~/jobs/M25-D18/
-├── job.yaml           what to run (below)
-├── config/
-│   └── ephys.yaml     snapshot of the processing and NWB settings
-├── submit.slurm       SLURM script for the MSC
-├── submit.sge
-├── status.json        {"state": "PENDING"}
-├── logs/
-└── outputs/
-```
-
-`job.yaml`, abridged, from the simulated day:
-
-```yaml
-job_id: ks4016-sim
-stage: kilosort4
-git: {commit: d5705365..., dirty: false}
-uv_lock_sha256: 5d91933b...
-inputs:
-- path: sim-np2/session0
-  bytes: 4147457469
-  files:
-  - {path: traces_cached_seg0.raw, bytes: 4147200000, sha256: 40838d1b...}
-  - {path: probegroup.json, bytes: 194233, sha256: 750d0215...}
-  - ...
-- path: sim-np2/session1
-  ...
-params: {session_start: [2026-11-10 09:00:00, 2026-11-10 09:30:00],
-         session_type: [OF1, OF2], mouse: sim, day: 1, location: CA1, ...}
-resources: {gpu: true, gpu_type: 1g.5gb, cpus: 8, mem_gb: 32, hours: 2, ...}
-```
-
-## 2. Copy to the MSC and submit
-
-```bash
-# once per day of recordings, keeping paths relative to the data root
-rsync -a --relative /Volumes/ephys/./raw/M25/D18 msc:data/
-# every job: the bundle
-rsync -a ~/jobs/M25-D18 msc:jobs/
-# on the MSC
-ssh msc 'cd ~/jobs/M25-D18 && sbatch submit.slurm'
-```
-
-Once per checkout on the MSC, install the environment (Kilosort included):
-
-```bash
-cd ~/social-manifolds && uv sync --frozen --extra gpu
-```
-
-**Which GPU.** Kilosort sorts one shank at a time and needed **1.24 GB** of
-GPU memory on the simulated day, so the smallest slice (`1g.5gb`, 5 GB) is
-enough, and it is usually free. Its jobs may run 8 hours. Use `a16` or
-`3g.20gb` (3 days) for days that might take longer: Kilosort took 6 minutes
-for 6 minutes of recording on a `1g.5gb` slice, so budget roughly real time.
-
-## 3. The run (MSC GPU node)
+## 3. The run
 
 `raphael-jobs run` works through these steps in order. Any failure stops the
 job with `FAILED` and the reason in `status.json`, and the full traceback in
@@ -323,20 +259,12 @@ Kilosort and bombcell often disagree (unit 0: Kilosort `good`, bombcell
 
 ## 4b. The LFP (optional)
 
-The LFP is a separate CPU job on the same recording folders, so it can be
-run, skipped, or rerun at another size without sorting again:
-
-```bash
-uv run raphael-jobs make ~/jobs/M25-D18-lfp --stage lfp --cpu \
-    --data-root /Volumes/ephys \
-    --input raw/M25/D18/OF1 --input raw/M25/D18/VR --input raw/M25/D18/OF2 \
-    --config configs/ephys.yaml --cpus 8 --mem-gb 32 --hours 4 \
-    --param 'session_start=[2026-11-03T10:00, 2026-11-03T10:40, 2026-11-03T11:30]' \
-    --param 'session_type=[OF1, VR, OF2]' --param mouse=25 --param day=18 \
-    --param location=CA1
-# lighter: --param 'lfp={rate_hz: 500, band_hz: [1, 200], dtype: float16}'
-# richer:  --param 'lfp={channels: {block_size: 1}}'          (every contact)
-```
+The LFP is a separate CPU job on the same recording folders (the plan's
+`lfp` row for the day), so it can be run, skipped, or rerun at another
+size without sorting again. Its size is set by `lfp` in the row's
+`params`: lighter, `{"lfp": {"rate_hz": 500, "band_hz": [1, 200], "dtype":
+"float16"}}`; richer, `{"lfp": {"channels": {"block_size": 1}}}` (every
+contact).
 
 Per recording it writes `sub-M25/day-18/ses-{type}/sub-M25_day-18_ses-{type}_lfp.nwb`
 and a row in `lfp_summary.json` (channels, rate, file size, time). With
@@ -358,13 +286,12 @@ size are in [ephys_pipeline.md](ephys_pipeline.md#the-lfp-file). The
 `lfp` stage has been tested on simulated recordings only; MSC has no
 Neuropixels recording of ours yet.
 
-## 5. Copy back and check
+## 5. Check
+
+Once `collect` has brought the outputs into `processed/`:
 
 ```bash
-rsync -a msc:jobs/M25-D18 ~/jobs/
-cat ~/jobs/M25-D18/status.json                         # DONE / FAILED + error
-cat ~/jobs/M25-D18/outputs/kilosort4_summary.json
-uv run raphael-imaging validate ~/jobs/M25-D18-lfp/outputs   # NWB Inspector, on _lfp.nwb
+uv run raphael-imaging validate processed/{cohort}/sub-M…/day-…/   # NWB Inspector, on _lfp.nwb
 ```
 
 Open `qc/units.png` for each session. It has three panels:

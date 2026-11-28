@@ -301,61 +301,31 @@ A successful smoke job reports `"device": "cuda"` and a matrix multiply
 with a relative error around 1e-6. Copy finished jobs back with
 `rsync -a <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:jobs/smoke-001 ~/jobs/`.
 
-## 9. Process a movie with suite2p
+## 9. suite2p on MSC
 
-For processing data, follow [processing.md](processing.md); this section
-is the by-hand detail for this stage on MSC.
+Jobs come from the plan ([processing.md](processing.md)); this is what
+matters for this stage on MSC. It is a GPU job (`a16`, 8 CPUs, 32 GB,
+2 h by default). Besides the processed session, the job keeps
+`suite2p/plane0/` in its `outputs/` (suite2p's own files, which open in
+its GUI for curation) and `suite2p_summary.json` (ROI counts, run time,
+peak GPU memory). The registered movie in `work/`, about the size of the
+raw one, is deleted after the run; set `keep_binary: true` in the row's
+`params` to keep it. The method: [imaging_pipeline.md](imaging_pipeline.md).
 
-Copy the movie to the cluster's data folder, keeping its path relative to
-your local data root. The `./` marks where the relative part starts:
+## 10. CNMF-E on MSC
 
-```bash
-rsync -a --relative /local/data/root/./test2000/movie/movie.h5 \
-    <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:data/
-```
+Jobs come from the plan ([processing.md](processing.md)); this is what
+matters for this stage on MSC. The `cnmfe` stage runs on the CPU
+partition.
 
-Make the job on your laptop, copy it across and submit it as in step 8:
-
-```bash
-uv run raphael-jobs make ~/jobs/s2p-001 --stage suite2p \
-    --data-root /local/data/root --input test2000/movie/movie.h5 \
-    --config configs/imaging.yaml --gpu-type a16 --cpus 8 --mem-gb 32 --hours 2 \
-    --param fs=6.3 --param session_start=2019-10-30T10:45 \
-    --param mouse=17797 --param day=7 --param session_type=scan4 \
-    --param 'suite2p={diameter: [6, 6]}'
-```
-
-`fs` (frame rate) and `session_start` (recording start, local time or with
-a UTC offset) are required. Add `um_per_pixel`, `depth_um` and
-`subject={age: P84D, sex: M, ...}` for publishable files. `suite2p={...}`
-overrides suite2p settings, merged into its defaults. The full processing
-walkthrough, with the data at each step, is in
-[imaging_walkthrough.md](imaging_walkthrough.md). The job writes to `outputs/`:
-
-- `sub-M{mouse}/day-{dd}/ses-{type}/..._src-suite2p_ophys.nwb`, `_traces.npz`,
-  `_rois.csv` and `qc/plane1_rois.png`: the processed session, clark2025
-  layout
-- `suite2p/plane0/`: suite2p's own files, which open in its GUI for curation
-- `suite2p_summary.json`: ROI counts, run time, peak GPU memory
-
-The job's `work/` folder, which holds the registered movie (about the
-size of the raw one), is deleted after the run to save space; pass
-`--param keep_binary=true` to keep it.
-
-## 10. Process an Inscopix recording with CNMF-E
-
-For processing data, follow [processing.md](processing.md); this section
-is the by-hand detail for this stage on MSC.
-
-The `cnmfe` stage runs on the CPU partition. CaImAn is not in the main
-environment: it has its own, locked in Raphael
-(`imaging/caiman_env/uv.lock`), which must be built once **on the login
-node** (compute nodes may have no internet). Building CaImAn compiles C
-code, so check for a compiler first:
+**Build CaImAn's environment once, on the login node.** CaImAn is not in
+the main environment: it has its own, locked in Raphael
+(`imaging/caiman_env/uv.lock`). Compute nodes may have no internet, and
+building CaImAn compiles C code, so check for a compiler first:
 
 ```bash
 gcc --version          # needed to build CaImAn
-cd ~/social-manifolds && uv run python -c \
+cd ~/Raphael && uv run python -c \
     "from raphael.imaging import cnmfe; print(cnmfe.ensure_env(quiet=False))"
 ```
 
@@ -369,43 +339,12 @@ srun --partition=cpu --qos=cpu --account=neurop -c 1 --mem=4G -t 0:10:00 \
     ~/.cache/raphael/caiman-env/bin/python -c "import cv2, caiman; print(caiman.__version__)"
 ```
 
-Copy the raw `.isxd` (the movie only; the `.gpio`, `.imu` and
-`session.json` beside it are small and worth keeping too), keeping its
-path relative to the raw root:
+**Memory.** The plan sizes each job from its movie: about 4x the binned
+movie's float32 size plus a few GB. If a job asks for less, the stage
+stops at once and names the `mem_gb` to use. The binned movie is frames x
+400 x 640 x 2 bytes (2x2 binning, 30 Hz):
 
-```bash
-rsync -a --relative \
-    /Volumes/share/raw/dHPC_miniscope/./May_2024/.../dHPC-SSCW-May2024-06HBT03_20240605-170959 \
-    <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:data/
-```
-
-Get the mouse's day from the session table
-(`raphael-imaging inscopix-sessions RAW_ROOT --out sessions.csv`, on the
-laptop: it reads only each file's end), then make the job:
-
-```bash
-uv run raphael-jobs make ~/jobs/cnmfe-M8472-D6 --stage cnmfe --cpu \
-    --cpus 16 --mem-gb 32 --hours 4 \
-    --data-root /Volumes/share/raw/dHPC_miniscope --config configs/imaging_1p.yaml \
-    --input May_2024/.../Moises_B6J_8472_M_06HBT03_2024-06-05-17-13-10_video.isxd \
-    --param mouse=8472 --param day=6 --param session_type=HBTD3 \
-    --param 'subject={sex: M, date_of_birth: 2024-01-23, strain: C57BL/6J}'
-```
-
-Copy it across and submit it as in step 8. `--cpu` sends it to the `cpu`
-partition. Making the job reads the whole movie once for its checksum (a
-26 GB file over the share takes several minutes); `--no-hash` records sizes
-only. Once the movie is on the cluster, the job can instead be made there,
-with `--data-root ~/data` (and `RAPHAEL_CLUSTER_USER` set), where the
-checksum takes seconds; the code to make it from is the cluster's
-checkout of the project.
-
-**Memory.** Ask for about 4x the binned movie's float32 size plus a few
-GB: the stage estimates it and stops at once, naming the `--mem-gb` to use,
-if the job asks for less. The binned movie is frames x 400 x 640 x 2 bytes
-(2x2 binning, 30 Hz):
-
-| session | binned movie | `--mem-gb` |
+| session | binned movie | `mem_gb` |
 |---|---|---|
 | 4 min (7,000 frames) | 3.6 GB | 32 |
 | 10 min (18,000 frames) | 9 GB | 80 |
@@ -424,19 +363,14 @@ temporary files go there too, not to `~/caiman_data`). With
 shared filesystem: ask for scratch (section 4) before running many
 sessions. The movies are deleted at the end; the CaImAn model (`.hdf5`),
 the arrays and CaImAn's log stay in `work/caiman/` for comparison and
-re-curation.
-
-The job writes `sub-M{mouse}/day-{dd}/ses-{type}/..._src-cnmfe_ophys.nwb`,
-`_traces.npz`, `_rois.csv`, `qc/` and `provenance/` (with
-`cnmfe_summary.json`: components, accepted, run times) to `outputs/`. The processing is
-described in [imaging_1p_pipeline.md](imaging_1p_pipeline.md).
+re-curation. The method: [imaging_1p_pipeline.md](imaging_1p_pipeline.md).
 
 ## 11. Process every session of a project, in batches
 
-**[processing.md](processing.md) is the walkthrough**: `raphael-jobs
-detect`, `plan`, `files` and `make-batch` work out each recording's
-modality, stage, names, start time and resources, and run a project in
-batches. What matters on MSC:
+**[processing.md](processing.md) is the walkthrough**: `raphael-data
+ingest` files the data and writes the plan (each recording's modality,
+stage, names, start time and resources), and `raphael-jobs files`,
+`make-batch` and `collect` run it in batches. What matters on MSC:
 
 - **Disk.** There is no scratch by default and home sits on the shared
   filesystem, about 97% full (7.9 TB free for everyone, 2026-11-26). A
@@ -453,50 +387,24 @@ batches. What matters on MSC:
 - **Copying** goes through the laptop (the share is not reachable from
   MSC): time the first batch.
 
-The sections above and below show each stage's job made by hand, with every
-option; `raphael-jobs make` now fills most of them in from the inputs.
+## 12. Kilosort 4 on MSC
 
-## 12. Spike-sort Neuropixels recordings with Kilosort 4
+Jobs come from the plan ([processing.md](processing.md)); this is what
+matters for this stage on MSC. One job sorts a mouse's whole day, its
+sessions in recording order, so a unit keeps its id across the day.
+Kilosort 4.0.16 (the version in the Methods) is in the environment
+installed in section 6.
 
-For processing data, follow [processing.md](processing.md); this section
-is the by-hand detail for this stage on MSC.
+- **CPU by default** (16 CPUs, 64 GB, 24 h). The 24 h is a first guess:
+  check `sacct`'s Elapsed on the first jobs and change `hours` in the plan.
+  To sort on a GPU instead, set the row's `gpu` to True and `gpu_type` to
+  e.g. `a16`: Kilosort sorts one shank at a time, so a small GPU is enough
+  ([ephys_walkthrough.md](ephys_walkthrough.md) has the measured memory).
+- **Disk.** A Neuropixels 2.0 recording is about 80 GB per hour: ask for
+  scratch (section 4) before sorting many days.
 
-Kilosort 4.0.16 (the version in the Methods) is part of the environment
-installed in section 6 (`uv sync --frozen --extra gpu`).
-
-Copy each recording folder (SpikeGLX `*_g0` run folder or Open Ephys
-record node) to the cluster's data folder, keeping its relative path. A
-Neuropixels 2.0 recording is about 80 GB per hour, so ask for scratch
-space first (section 4):
-
-```bash
-rsync -a --relative /local/data/root/./raw/M25/D18/OF1 \
-    <MUW-ID>@s0-l02.hpc.meduniwien.ac.at:data/
-```
-
-Make one job per day, with one `--input` per recording, in the order they
-were recorded. They are sorted together, so a unit keeps its id across the
-day:
-
-```bash
-uv run raphael-jobs make ~/jobs/ks4-M25-D18 --stage kilosort4 \
-    --data-root /local/data/root \
-    --input raw/M25/D18/OF1 --input raw/M25/D18/VR --input raw/M25/D18/OF2 \
-    --config configs/ephys.yaml --gpu-type 1g.5gb --cpus 8 --mem-gb 64 --hours 8 \
-    --param 'session_start=[2026-11-03T10:00, 2026-11-03T10:40, 2026-11-03T11:30]' \
-    --param 'session_type=[OF1, VR, OF2]' --param mouse=25 --param day=18 \
-    --param 'subject={age: P90D, sex: F}' --param location=CA1
-```
-
-`session_start` and `session_type` take one value per recording and are
-required. The processing follows the Methods (see
-[ephys_pipeline.md](ephys_pipeline.md)); every setting is in
-`configs/ephys.yaml`. The full walkthrough, with the data at each step, is
-in [ephys_walkthrough.md](ephys_walkthrough.md).
-
-Kilosort sorts one shank at a time, so a small GPU is enough (see the
-walkthrough for measured memory). `1g.5gb` slices allow 8 hours per job;
-use `a16` or `3g.20gb` for longer days.
+The method and every setting: [ephys_pipeline.md](ephys_pipeline.md) and
+`configs/ephys.yaml`.
 
 ## Troubleshooting
 

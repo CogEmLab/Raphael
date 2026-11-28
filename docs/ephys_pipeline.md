@@ -17,7 +17,7 @@ and Harry's scripts in
 [chrishalcrow/nolanlab-ephys](https://github.com/chrishalcrow/nolanlab-ephys/tree/main/scripts/harry).
 
 - Settings and publication metadata: [configs/ephys.yaml](../src/raphael/configs/ephys.yaml)
-- Job stage: `kilosort4` (runs on a GPU; see [cluster.md](cluster.md))
+- Job stage: `kilosort4` (runs on the CPU by default; see [cluster.md](cluster.md))
 - Code: `src/raphael/ephys/`
 - Loading either modality: `raphael.population`
 
@@ -79,7 +79,7 @@ as you need: behaviour, spikes, and (optionally, the heavy one) the LFP.
 | file | written by | size, 30-min session |
 |---|---|---|
 | `_beh.nwb` | behaviour/sync step (planned) | tens of MB |
-| `_clusters.npz` | `kilosort4` stage (GPU) | tens of MB |
+| `_clusters.npz` | `kilosort4` stage (CPU) | tens of MB |
 | `_bombcell_curation.json` | `kilosort4` stage | tens of kB |
 | `_lfp.nwb` | `lfp` stage (CPU), optional | ~0.2–0.7 GB at the defaults; set by `lfp` settings |
 

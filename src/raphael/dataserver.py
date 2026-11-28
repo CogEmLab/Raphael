@@ -14,12 +14,15 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
+import yaml
+
 from raphael import raw
 from raphael.imaging.layout import Session
 
 CATALOGUE = 'catalogue.csv'
-#: Every default stage, in the catalogue's column order.
-STAGES = ('kilosort4', 'lfp', 'suite2p', 'cnmfe', 'photometry')
+#: Every stage the catalogue reports, in its column order: the recordings'
+#: default stages, then DeepLabCut on videos whose task names a model.
+STAGES = ('kilosort4', 'lfp', 'suite2p', 'cnmfe', 'photometry', 'dlc_capture')
 #: A session folder under raw/ (or processed/), current or legacy names,
 #: with or without a cohort level above the mouse.
 SESSION_DIRS = (
@@ -31,9 +34,10 @@ SESSION_DIRS = (
 VIDEO = ('.mp4', '.avi', '.mov', '.mkv')
 #: Each stage's main software: the package whose version the catalogue shows.
 SOFTWARE = {'kilosort4': 'kilosort', 'lfp': 'spikeinterface', 'suite2p': 'suite2p',
-            'cnmfe': 'CaImAn', 'photometry': 'raphael'}
+            'cnmfe': 'CaImAn', 'photometry': 'raphael', 'dlc_capture': 'deeplabcut'}
 COLUMNS = ['cohort', 'mouse', 'day', 'session', 'start', 'task', 'project', 'experimenter',
-           'modalities', 'raw_gb', 'ingested', 'status', 'processed_on', 'software', 'raphael',
+           'modalities', 'raw_gb', 'ingested', 'status', 'plan', 'processed_on', 'software',
+           'raphael',
            'outdated', 'quality', 'notes', 'raw_path', 'processed_path']
 
 
@@ -108,6 +112,9 @@ def _software(stage, record, folder):
     else:
         version = ((record.get('environment') or {}).get('packages') or {}).get(name)
     label = f'{name} {version}' if version else f'{name} (version not recorded)'
+    if stage == 'dlc_capture':                      # which model, too
+        model = (record.get('params') or {}).get('model')
+        return f'{label} ({model})' if model else label
     return f'{label} ({stage})' if stage == 'lfp' else label
 
 
@@ -137,13 +144,34 @@ def _unique(values):
     return '; '.join(dict.fromkeys(v for v in values if v))
 
 
-def _row(root, cohort, session, folder):
+def plans_by_session(root):
+    """{raw/ session folder: plan name} from metadata/plans/plan_*.csv (the
+    newest plan naming a session wins)."""
+    out = {}
+    for plan in sorted((Path(root) / 'metadata' / 'plans').glob('plan_*.csv')):
+        try:
+            with open(plan, newline='') as f:
+                rows = list(csv.DictReader(f))
+        except (OSError, csv.Error):
+            continue
+        for row in rows:
+            for path in (row.get('inputs') or '').split(';'):
+                m = re.match(r'^(.*?/(?:ses-[^/]+|M[^/]+/D\d+/[^/]+))(?:/|$)', path)
+                if m:
+                    out[f'raw/{m[1]}'] = plan.stem
+    return out
+
+
+def _row(root, cohort, session, folder, plans=None, tasks=None):
     root = Path(root)
     info = raw.describing(folder / '_', raw.Recording(           # any path inside the session
         '', 'unknown', '', cohort, session.mouse, int(session.day), session.session_type))
     described = info.get('session') or {}
     modalities = _modalities(folder)
     expected = {s for m in modalities if m in raw.MODALITIES for s in raw.MODALITIES[m][0]}
+    code = re.sub(r'\d+$', '', str(session.session_type))
+    if 'video' in modalities and ((tasks or {}).get(code) or {}).get('dlc_model'):
+        expected.add('dlc_capture')                  # its task has a DeepLabCut model
     processed_root = root / 'processed' / cohort if cohort else root / 'processed'
     processed = Session.find(processed_root, session.mouse, session.day,
                              session.session_type).folder(processed_root)
@@ -167,7 +195,9 @@ def _row(root, cohort, session, folder):
         'task': _text(described.get('task')), 'project': _text(described.get('project')),
         'experimenter': _text(described.get('experimenter')),
         'modalities': ' '.join(modalities), 'raw_gb': round(_size(folder) / 1e9, 2),
-        'ingested': ingested, 'status': status, 'processed_on': last[:10],
+        'ingested': ingested, 'status': status,
+        'plan': (plans or {}).get(folder.relative_to(root).as_posix(), ''),
+        'processed_on': last[:10],
         'software': _unique(done[s]['software'] for s in ran),
         'raphael': _unique(done[s]['raphael'] for s in ran),
         'quality': _text(described.get('quality')),
@@ -189,7 +219,14 @@ def catalogue(root, out=None):
     """Write `{root}/metadata/catalogue.csv` (or `out`): one row per session
     in `{root}/raw/`. `root` is the `data/` folder. Returns the rows."""
     root = Path(root)
-    rows = [_row(root, cohort, session, folder)
+    plans = plans_by_session(root)
+    try:
+        tasks = yaml.safe_load((root / 'metadata' / 'sessions.yaml').read_text()) or {}
+    except (OSError, yaml.YAMLError):
+        tasks = {}
+    tasks = {k: v for k, v in tasks.items() if isinstance(v, dict)} if isinstance(
+        tasks, dict) else {}
+    rows = [_row(root, cohort, session, folder, plans, tasks)
             for cohort, session, folder in sessions(root / 'raw')]
     rows.sort(key=lambda r: (r['cohort'], r['mouse'].zfill(12), r['day'], r['session']))
     out = Path(out) if out else root / 'metadata' / CATALOGUE

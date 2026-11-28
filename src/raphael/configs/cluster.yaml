@@ -38,6 +38,7 @@ paths:
   repo: /msc/home/{user}/{project}
   data: /msc/home/{user}/data       # TODO move to scratch once allocated
   jobs: /msc/home/{user}/jobs
+  models: /msc/home/{user}/models   # trained DeepLabCut models, copied once from data/processed/_dlcmodels/
   # Node-local scratch for work files (suite2p binaries are ~2x the movie).
   # Leave null to use {job}/work on the shared filesystem.
   scratch: null

@@ -16,9 +16,10 @@ Everything site-specific lives in
 [configs/cluster.yaml](../src/raphael/configs/cluster.yaml), which is set up for MSC,
 the MedUni Wien Scientific Cluster. **Step-by-step guide for MSC:
 [msc_cluster.md](msc_cluster.md).** **To process recordings, start from
-[processing.md](processing.md)**: `raphael-jobs detect`, `plan`, `files`,
-`make-batch`, and `make` without `--stage`, work out each recording's
-stage and parameters from its files.
+[processing.md](processing.md)**: data comes in through `raphael-data
+ingest`, which writes the plan; `raphael-jobs files`, `make-batch` and
+`collect` run it, and `make` without `--stage` makes one job, working out
+the stage and parameters from the recording's files.
 
 ## What runs where
 
@@ -40,7 +41,7 @@ internal disk, which macOS also needs for swap.
 ## The environment
 
 ```bash
-uv sync --frozen --extra gpu      # GPU stages: suite2p, Kilosort 4.0.16 + torch
+uv sync --frozen --extra gpu      # suite2p (GPU), Kilosort 4.0.16 (CPU) + torch
 uv sync --frozen --extra dev      # tests and linting
 ```
 
@@ -111,39 +112,20 @@ The data root should mirror the laptop's, e.g.:
     dandi000402/...                    test bed
 ```
 
-### Workflow
+### Running a bundle
 
-```bash
-# 1. laptop: make a bundle (commit first, so it is traceable)
-uv run raphael-jobs make ~/jobs/smoke-001 --stage smoke \
-    --data-root /Volumes/TEMP/InVivoImaging \
-    --input sub-17797_ses-7-scan-4_behavior+image+ophys.nwb --no-hash
-
-# 2. copy the bundle (and, once, the data) to the cluster
-rsync -a ~/jobs/smoke-001 cluster:/path/to/jobs/
-
-# 3. cluster: install the environment once per checkout, then submit
-uv sync --frozen --extra gpu
-cd /path/to/jobs/smoke-001 && sbatch submit.slurm      # or: qsub submit.sge
-
-# 4. check progress, and copy results back
-uv run raphael-jobs status /path/to/jobs
-rsync -a cluster:/path/to/jobs/smoke-001 ~/jobs/
-```
-
-Any machine can also run a bundle directly, without a scheduler:
+Bundles are made from a plan (`raphael-jobs make-batch`, in
+[processing.md](processing.md)) and submitted with `sbatch
+JOB/submit.slurm`; [msc_cluster.md](msc_cluster.md) section 8 runs a test
+bundle end to end. Any machine can also run a bundle directly, without a
+scheduler:
 
 ```bash
 uv run raphael-jobs run JOB --data-root DATA [--work /local/scratch/JOB]
 ```
 
-Flags:
-- `make --no-hash` records sizes only; hashing a 66 GB movie takes minutes.
-- `make --cpu` is for stages that need no GPU.
-- `make --gpu-backend any` lets a job accept a Mac GPU, for local testing.
-  The default is `cuda`.
-- `run --allow-env-mismatch` is an escape hatch. It is recorded in
-  `env.json`, so do not use it for results you keep.
+`run --allow-env-mismatch` is an escape hatch. It is recorded in
+`env.json`, so do not use it for results you keep.
 
 ### First steps on a new cluster
 
@@ -206,36 +188,21 @@ laptop) get the NWB stamp but no record: run a job for anything you keep.
 |---|---|---|
 | `smoke` | reads inputs, GPU matmul; tests a machine | `size` |
 | `kilosort4` | a day's Neuropixels recordings (one input folder each) -> bad channels, phase shift, Kilosort 4.0.16 per shank, analysers per session, bombcell and the ISI rule; writes `_clusters.npz` (spikes, curation, metrics, waveforms) and QC per session in the processed tree, plus Kilosort's files for phy | `session_start` (one per recording, required), `session_type` (one per recording), `subject`, `mouse`, `day`, `location`, `format`, `stream`, `kilosort4`, `preprocessing`, `postprocessing`, `curation` (overrides).
-| `lfp` (CPU) | each Neuropixels recording -> LFP and theta phase, `_lfp.nwb` per session; size and detail set by `lfp` in configs/ephys.yaml | as `kilosort4` for the metadata; `lfp` (overrides). Make with `--cpu` Step by step: [ephys_walkthrough.md](ephys_walkthrough.md) |
+| `lfp` (CPU) | each Neuropixels recording -> LFP and theta phase, `_lfp.nwb` per session; size and detail set by `lfp` in configs/ephys.yaml | as `kilosort4` for the metadata; `lfp` (overrides). Step by step: [ephys_walkthrough.md](ephys_walkthrough.md) |
 | `suite2p` | one movie -> registration, ROIs, traces, deconvolution; writes processed NWB, traces, ROI table and QC in the processed tree, plus suite2p's own files for its GUI | `fs` and `session_start` (required), `subject`, `um_per_pixel`, `depth_um`, `mouse`, `day`, `session_type`, `suite2p` (setting overrides), `blank_fraction`, `keep_binary`. Step by step: [imaging_walkthrough.md](imaging_walkthrough.md) |
 | `photometry` (CPU) | Doric files -> `_photometry.nwb`, `.npz`, `.csv` and QC per session | `session_type` (one per input), `mouse`, `day`, `channels`, `processing`. See [photometry_pipeline.md](photometry_pipeline.md) |
-| `cnmfe` (CPU) | one Inscopix `.isxd` (or a binned TIFF) -> binning, NoRMCorre, CaImAn CNMF-E, component evaluation; writes `_src-cnmfe_ophys.nwb`, `_traces.npz` (C), `_rois.csv` and QC; the CaImAn model stays in `work/`. CaImAn runs in its own environment, built on first use | `mouse`, `day`, `session_type`, `subject`; `session_start` and `fs` for a TIFF; `cnmfe` (overrides of imaging_1p.yaml), `max_frames`, `keep_movies`, `skip_memory_check`. See [imaging_1p_pipeline.md](imaging_1p_pipeline.md) and [msc_cluster.md](msc_cluster.md#10-process-an-inscopix-recording-with-cnmf-e) |
+| `cnmfe` (CPU) | one Inscopix `.isxd` (or a binned TIFF) -> binning, NoRMCorre, CaImAn CNMF-E, component evaluation; writes `_src-cnmfe_ophys.nwb`, `_traces.npz` (C), `_rois.csv` and QC; the CaImAn model stays in `work/`. CaImAn runs in its own environment, built on first use | `mouse`, `day`, `session_type`, `subject`; `session_start` and `fs` for a TIFF; `cnmfe` (overrides of imaging_1p.yaml), `max_frames`, `keep_movies`, `skip_memory_check`. See [imaging_1p_pipeline.md](imaging_1p_pipeline.md) and [msc_cluster.md](msc_cluster.md#10-cnmf-e-on-msc) |
 | `sync` (CPU) | behaviour CSV + Open Ephys recording -> behaviour on the recording clock (`_beh.csv`) and sync QC; fails if a sync check fails | `mouse`, `day`, `session_type`; `time_column`, `ttl_column`, `ttl_line`, `stream`; `sync` (limits); `waive`. See [sync.md](sync.md) |
+| `dlc_capture` (GPU) | a session's video -> DeepLabCut multi-peak capture with a registered model (and identity correction with its skeleton); `…_src-dlc-{model}_capture.npz` per video | `model`, `model_sha256`, `snapshot` (from the plan), `skeleton`, `capture`, `identity`. See [behavioural_tracking.md](behavioural_tracking.md#models-on-the-data-server) |
 
-```bash
-uv run raphael-jobs make ~/jobs/s2p-001 --stage suite2p --data-root DATA \
-    --input raw/movie.h5 --config configs/imaging.yaml --gpu-type a100 \
-    --param fs=6.3 --param session_start=2019-10-30T10:45 \
-    --param mouse=17797 --param day=7 --param session_type=scan4 \
-    --param 'suite2p={diameter: [6, 6]}'
-```
-
-`outputs/suite2p_summary.json` records ROI counts, run time and peak GPU
-memory.
-
-```bash
-uv run raphael-jobs make ~/jobs/ks4-M25-D18 --stage kilosort4 --data-root DATA \
-    --input raw/M25/D18/OF1 --input raw/M25/D18/VR --input raw/M25/D18/OF2 \
-    --config configs/ephys.yaml --gpu-type 1g.5gb --cpus 8 --mem-gb 64 --hours 8 \
-    --param 'session_start=[2026-11-03T10:00, 2026-11-03T10:40, 2026-11-03T11:30]' \
-    --param 'session_type=[OF1, VR, OF2]' --param mouse=25 --param day=18
-```
-
-An input can be a folder (an ephys recording is one). Every file in it is
-recorded with its size and checksum, and the run fails if any differ or if
-files were added since.
-`outputs/kilosort4_summary.json` records unit counts and labels per session,
-bad channels, run times and peak GPU memory.
+Every stage's job is made from a plan ([processing.md](processing.md));
+the plan's `params` column gives any of the params above as JSON. An input
+can be a folder (an ephys recording is one): every file in it is recorded
+with its size and checksum, and the run fails if any differ or if files
+were added since. Each stage writes a summary to `outputs/`
+(`suite2p_summary.json`: ROI counts, run time, peak GPU memory;
+`kilosort4_summary.json`: unit counts and labels per session, bad
+channels, run times, peak GPU memory).
 
 ## Adding a stage
 

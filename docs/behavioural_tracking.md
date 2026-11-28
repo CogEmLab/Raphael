@@ -212,11 +212,61 @@ own (`--steps segment community export`).
 | Stage | Inputs | What |
 |---|---|---|
 | `dlc_train` | the DLC project folder, [the benchmark model folder] | trains one model (`--param model=…`). With `--param fold=k`, one fold of a k-fold day-level cross-validation, scored before and after identity correction |
-| `dlc_capture` | a model folder, [skeleton.json], [a zip of benchmark `_el.csv`], videos… | multi-peak capture of each video (resumable). With a skeleton model, also identity correction and QC frames |
+| `dlc_capture` | a model folder, [skeleton.json], [a zip of benchmark `_el.csv`], videos… | multi-peak capture of each video (resumable). With a skeleton model, also identity correction and QC frames. From a plan: the videos only, the model named by `--param model=…` (below) |
 | `vame` | pose files, one per session | VAME end to end in its own environment; motif CSVs and the summary |
 
 Give every stage your settings with `--config configs/tracking.yaml`.
 Each run writes a provenance record, like every Raphael job.
+
+## Models on the data server
+
+A lab's trained models live in `data/processed/_dlcmodels/{name}/`: the
+model folder as DeepLabCut wrote it (`train/pytorch_config.yaml` and its
+snapshots) plus a `model.yaml` with the `snapshot` to use and, optionally,
+`detector_snapshot`, `skeleton` (a `skeleton.json` in the folder, for
+two-animal identity fixes), `bodyparts`, `trained_by`, `trained_on` and
+`description`. The folder's README on the server shows one.
+
+**A task names its model** in `metadata/sessions.yaml`:
+
+```yaml
+OF:
+  name: open field
+  dlc_model: openfield-top-v2          # every video of an OF session
+HBT:
+  dlc_model: {top: hbt-top-v1}         # by camera label (_video-top); other cameras none
+```
+
+An unlabelled `_video` (the session's only camera) takes the string, or a
+mapping's only entry. A task without `dlc_model` has no DeepLabCut job.
+
+**Ingest plans the jobs.** For each video of a filed session whose task
+names a model, its plan gets one GPU `dlc_capture` row, after the
+recordings' batches. The row's params name the model, its snapshot and
+skeleton, and the **checksum of the model folder**. A task naming a model
+that isn't in `_dlcmodels/` (or whose `model.yaml` is incomplete) is a
+note in the report, and has no job.
+
+**On the cluster** the models sit in `paths.models` of
+`configs/cluster.yaml` (`~/models/`), copied with `rsync -a
+data/processed/_dlcmodels/ CLUSTER:models/` (processing.md, step 4.1).
+The submit script exports it as `RAPHAEL_MODELS`; the job finds its model
+there by name and stops if the folder's checksum differs from the plan's.
+
+**Outputs** go into the session's processed folder, named for the video
+and the model, so a re-run with another model sits beside the first:
+`sub-M…_day-…_ses-OF1_video-top_src-dlc-openfield-top-v2_capture.npz`,
+with, for a model with a skeleton, `…_capture.identity.npz` and a QC
+figure in `qc/`. The catalogue's software column names the model
+(`deeplabcut 3.0.2 (openfield-top-v2)`), and a session whose task has a
+model isn't `processed` until its DeepLabCut jobs have run.
+
+**A model is never changed once used.** A retrained model gets a new name
+(`openfield-top-v3`); change the task's `dlc_model` to it. The old folder
+stays, so every capture can be traced to the model that made it.
+
+Not yet automatic: choosing tracking thresholds from the capture (the
+sweep), pose in cm and the behaviour variables, which follow as above.
 
 ## Moving social-manifolds onto this
 

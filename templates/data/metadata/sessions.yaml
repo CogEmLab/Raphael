@@ -5,6 +5,10 @@
 # kind of session: how it changed, what to watch out for, open questions.
 #   NWBFile.session_description starts from `description`
 #   NWBFile.stimulus_notes from `stimulus_notes`
+# A task whose videos are tracked with DeepLabCut names its model
+# (processed/_dlcmodels/{name}/): `dlc_model: openfield-top-v2` for every
+# video of its sessions, or by camera, `dlc_model: {top: openfield-top-v2}`.
+# Ingest's plan then has a DeepLabCut job for each video; no dlc_model, no job.
 #
 # Example:
 #
@@ -15,6 +19,7 @@
 #   protocol: protocols/open_field_v2.pdf
 #   stimulus_notes: No stimuli; distal cues on two walls.
 #   records: [ephys, video-top, beh-rig]   # what a session of this kind records
+#   dlc_model: openfield-top-v2     # DeepLabCut model for its videos (processed/_dlcmodels/)
 #   owner: hclark
 #   discussion: >
 #     From 2026-04 the arena floor is cleaned with 70 % ethanol between mice

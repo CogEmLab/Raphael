@@ -26,12 +26,18 @@ from raphael.cluster import provenance
 #: What each stage's job asks for unless the plan says otherwise. cnmfe's
 #: memory and time follow from the movie (see _cnmfe_resources).
 STAGE_RESOURCES = {
-    'kilosort4': {'gpu': True, 'gpu_type': 'a16', 'cpus': 8, 'mem_gb': 64, 'hours': 8},
+    # Kilosort on the CPU (torch's CPU device): slower than on a GPU, so more
+    # cores and hours; check sacct's Elapsed on the first jobs and adjust.
+    'kilosort4': {'gpu': False, 'gpu_type': '', 'cpus': 16, 'mem_gb': 64, 'hours': 24},
     'lfp': {'gpu': False, 'gpu_type': '', 'cpus': 8, 'mem_gb': 32, 'hours': 4},
     'suite2p': {'gpu': True, 'gpu_type': 'a16', 'cpus': 8, 'mem_gb': 32, 'hours': 2},
     'cnmfe': {'gpu': False, 'gpu_type': '', 'cpus': 16, 'mem_gb': 32, 'hours': 2},
     'photometry': {'gpu': False, 'gpu_type': '', 'cpus': 2, 'mem_gb': 8, 'hours': 1},
+    # DeepLabCut capture of one video with a registered model (see dlc_rows).
+    'dlc_capture': {'gpu': True, 'gpu_type': 'a16', 'cpus': 8, 'mem_gb': 32, 'hours': 8},
 }
+#: modality -> its stage config: the recordings' (raw.CONFIGS), and video's.
+CONFIGS = {**raw.CONFIGS, 'video': 'tracking.yaml'}
 #: Stages that take all of a mouse's recordings of one day in one job
 #: (Kilosort sorts them together, so a unit keeps its id across the day).
 PER_DAY = ('kilosort4', 'lfp')
@@ -182,7 +188,7 @@ def _settings(modality, configs=None):
 def config_path(modality, configs=None):
     """The stage config a job of this modality gets: the project's copy in
     `configs` if it has one, else Raphael's default."""
-    name = raw.CONFIGS[modality]
+    name = CONFIGS[modality]
     if configs is not None and (Path(configs) / name).exists():
         return Path(configs) / name
     return provenance.PACKAGE_ROOT / 'configs' / name
@@ -293,6 +299,86 @@ def plan(recordings, data_root, sessions=None, subjects=None, batch_size=12, bat
                 rows.append(row)
     table = pd.DataFrame(rows, columns=PLAN_COLUMNS)
     return table, skipped
+
+
+def dlc_rows(session_folders, data_root, start_batch=1, batch_size=12):
+    """DeepLabCut jobs for the videos of raw session folders whose task names
+    a model in metadata/sessions.yaml (`dlc_model`), one GPU job per video,
+    in batches after the recordings' (from `start_batch`). Returns (rows,
+    notes): a note for each task that names a model not in
+    processed/_dlcmodels/ or not usable."""
+    import re
+
+    import yaml
+
+    from raphael.behavioural_tracking import models
+
+    data_root = Path(data_root)
+    raw_root = data_root / 'raw'
+    try:
+        tasks = yaml.safe_load((data_root / 'metadata' / 'sessions.yaml').read_text()) or {}
+    except (OSError, yaml.YAMLError):
+        tasks = {}
+    tasks = tasks if isinstance(tasks, dict) else {}
+    found, rows, notes = {}, [], []
+
+    def model(name):                       # each model read and checksummed once
+        if name not in found:
+            try:
+                folder = models.models_root(data_root) / name
+                if not folder.is_dir():
+                    raise models.ModelError(f'model {name} is not in processed/'
+                                            f'{models.MODELS_DIR}/')
+                found[name] = (models.read(folder), models.digest(folder))
+            except models.ModelError as e:
+                found[name] = None
+                notes.append(str(e))
+        return found[name]
+
+    for folder in session_folders:
+        folder = Path(folder)
+        parts = folder.relative_to(raw_root).parts
+        cohort = parts[0] if len(parts) == 4 else ''
+        mouse = parts[-3].removeprefix('sub-M')
+        day = int(parts[-2].removeprefix('day-'))
+        kind = parts[-1].removeprefix('ses-')
+        code = re.sub(r'\d+$', '', kind)
+        stem = f'sub-M{mouse}_day-{day:02d}_ses-{kind}'
+        video = re.compile(rf'^{re.escape(stem)}_video(?:-(?P<label>[^.]+))?\.[A-Za-z0-9]+$')
+        videos = sorted(f for f in folder.iterdir() if f.is_file() and video.match(f.name)
+                        and f.suffix.lower() in VIDEO_SUFFIXES)
+        for f in videos:
+            camera = video.match(f.name)['label'] or ''
+            name = models.for_video(tasks.get(code), camera, only_camera=len(videos) == 1)
+            if not name:
+                continue
+            got = model(name)
+            if got is None:
+                continue
+            spec, sha = got
+            params = {'model': name, 'model_sha256': sha, 'snapshot': str(spec['snapshot']),
+                      'camera': camera}
+            for key in ('detector_snapshot', 'skeleton'):
+                if spec.get(key):
+                    params[key] = str(spec[key])
+            rows.append({
+                'stage': 'dlc_capture', 'modality': 'video',
+                'inputs': f.relative_to(raw_root).as_posix(),
+                'cohort': cohort, 'mouse': mouse, 'day': day, 'session_type': kind,
+                'session_start': '', 'fs': '', **{k: '' for k in SUBJECT_KEYS},
+                'raw_gb': round(f.stat().st_size / 1e9, 1),
+                **STAGE_RESOURCES['dlc_capture'], 'params': json.dumps(params),
+                'ready': True, 'note': '',
+                'job_id': f'dlc_capture-M{mouse}-D{day}-{kind}' + (f'-{camera}' if camera else ''),
+            })
+    for i, row in enumerate(rows):
+        row['batch'] = start_batch + i // batch_size
+        row['job_id'] = row['job_id'].replace('dlc_capture-', f'dlc_capture-b{row["batch"]:02d}-')
+    return rows, list(dict.fromkeys(notes))
+
+
+#: Video files DeepLabCut can read.
+VIDEO_SUFFIXES = ('.mp4', '.avi', '.mov')
 
 
 def read_plan(path):

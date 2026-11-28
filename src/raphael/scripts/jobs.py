@@ -334,6 +334,8 @@ def _make(args):
         print('NOT MADE: the inputs are not recordings Raphael recognises; '
               'name the stage with --stage (see raphael-jobs detect)', file=sys.stderr)
         sys.exit(1)
+    if args.gpu_type:                       # naming a GPU asks for one (e.g. Kilosort,
+        resources['gpu'] = True             # a CPU stage by default, on an a16)
     if args.cpu:
         resources['gpu'] = False
     for key in ('cpus', 'mem_gb', 'hours', 'gpu_type'):

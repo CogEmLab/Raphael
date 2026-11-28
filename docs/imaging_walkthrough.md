@@ -18,31 +18,31 @@ Each step says whether it **works now** or is **planned**. Related pages:
 ## The whole picture
 
 ```
-  laptop / lab storage                       MSC cluster
-  ────────────────────                       ───────────
-  0  raw recording ──────── rsync (once) ──▶ ~/data/...
-     + session metadata
-           │
-  1  raphael-jobs make ─────── rsync ───────▶ ~/jobs/<job>/
-     (job bundle)                                 │
-                                             2  sbatch submit.slurm
+  data server                                MSC cluster
+  ───────────                                ───────────
+  0  raw/…/ses-*/…_ophys/ ──────────────────▶ ~/data/  (the batch's copy)
+     ingest's plan: one suite2p job
+                                             1  make-batch ▶ sbatch
                                                   │
                                              3  raphael-jobs run
                                                 checks ▶ blank frames ▶ suite2p
                                                 ▶ dF/F ▶ NWB, traces, ROIs, QC
                                                   │
-  4  results ◀────────────── rsync ─────────── outputs/
+  4  processed/…/ses-*/  ◀── collect ──────── outputs/
            │
   5  check QC  ▶  6  curate (planned)  ▶  7  analyse / publish
 ```
 
+Getting the data in and running the jobs is [processing.md](processing.md):
+ingest, the plan, then batches on the cluster. This page is what happens
+inside the job and what comes out.
+
 | step | where | status |
 |---|---|---|
-| 0 raw recording and metadata | laptop / lab storage | works for single-plane HDF5; **reader for our microscope planned** |
-| 1 make a job bundle | laptop | works |
-| 2 copy and submit | laptop to MSC | works |
+| 0 raw recording and metadata | data server | works for single-plane HDF5; **reader for our microscope planned** |
+| 1–2 the job, from the plan | cluster | works ([processing.md](processing.md)) |
 | 3 run: checks, blank frames, suite2p, dF/F, writing | MSC GPU node | works |
-| 4 copy results back | MSC to laptop | works |
+| 4 outputs into `processed/` | collect | works |
 | 5 quality check | laptop | works |
 | 6 curation (accept/reject cells by hand) | laptop | **planned** |
 | 7 analysis and publishing | laptop | loading works; behaviour sync **planned** |
@@ -86,81 +86,13 @@ it. The same relative path must exist on every machine that runs the job:
     └── movie.h5
 ```
 
-## 1. Make a job bundle (laptop)
+## 1–2. The job
 
-Commit your code first, so the job is traceable to a commit. Then:
-
-```bash
-uv run raphael-jobs make ~/jobs/M17797-D7-scan4 --stage suite2p \
-    --data-root /Volumes/TEMP/InVivoImaging/work \
-    --input raw/M17797/D7/scan4/movie.h5 \
-    --config configs/imaging.yaml --gpu-type a16 --cpus 8 --mem-gb 32 --hours 2 \
-    --param fs=6.3 --param session_start=2019-10-30T10:45 \
-    --param mouse=17797 --param day=7 --param session_type=scan4 \
-    --param um_per_pixel=2.5 --param depth_um=200 \
-    --param 'subject={age: P84D, sex: M}' \
-    --param 'suite2p={diameter: [5, 5]}'
-```
-
-`make` checks the metadata before writing anything. A missing start time or
-a malformed age fails here, not after a wait in the cluster queue. It
-records each input's size and checksum, the code commit and the lockfile.
-
-**What it creates** (a few kB; the movie is not copied):
-
-```
-~/jobs/M17797-D7-scan4/
-├── job.yaml           what to run (below)
-├── config/
-│   └── imaging.yaml   snapshot of the processing and NWB settings
-├── submit.slurm       SLURM script for the MSC (GPU type, account, paths)
-├── submit.sge         the same for Grid Engine clusters
-├── status.json        {"state": "PENDING"}
-├── logs/              empty until it runs
-└── outputs/           empty until it runs
-```
-
-`job.yaml`, abridged:
-
-```yaml
-job_id: M17797-D7-scan4
-stage: suite2p
-git: {commit: b8dc5722..., dirty: false}
-uv_lock_sha256: 1b2909d4...
-inputs:
-- path: raw/M17797/D7/scan4/movie.h5
-  bytes: 436484536
-  sha256: 707da502...
-params: {fs: 6.3, session_start: 2019-10-30 10:45:00, mouse: 17797, ...}
-resources: {gpu: true, gpu_type: a16, cpus: 8, mem_gb: 32, hours: 2, ...}
-```
-
-## 2. Copy to the MSC and submit
-
-```bash
-# once per recording: the movie, keeping its path relative to the data root
-rsync -a --relative /Volumes/TEMP/InVivoImaging/work/./raw/M17797/D7/scan4/movie.h5 msc:data/
-# every job: the bundle
-rsync -a ~/jobs/M17797-D7-scan4 msc:jobs/
-# on the MSC
-ssh msc 'cd ~/jobs/M17797-D7-scan4 && sbatch submit.slurm'
-```
-
-(`msc` is the SSH shortcut described in [msc_cluster.md](msc_cluster.md); use
-`<MUW-ID>@s0-l02.hpc.meduniwien.ac.at` without it.) If the code or `uv.lock`
-changed, sync the repo and re-run `uv sync --frozen --extra gpu` there first.
-
-**On the MSC:**
-
-```
-/msc/home/<MUW-ID>/
-├── social-manifolds/        the code, with its .venv from uv.lock
-├── data/raw/M17797/D7/scan4/movie.h5
-└── jobs/M17797-D7-scan4/    the bundle, waiting in the queue
-```
-
-The job waits in the queue (`squeue --me` shows `PD`) until an A16 is free,
-then runs on a GPU node.
+Ingest's plan has one `suite2p` job per recording, with its frame rate
+and start time read from the movie (a row missing either is marked not
+ready, to fill in). Making the job records the movie's size and checksum;
+it runs on an A16 GPU. Running it is [processing.md](processing.md),
+section 4.
 
 ## 3. The run (MSC GPU node)
 
@@ -275,13 +207,12 @@ whose last 1187 frames were blank:
  "peak_gpu_memory_gb": 0.91}
 ```
 
-## 5. Copy back and check
+## 5. Check
+
+Once `collect` has brought the outputs into `processed/`:
 
 ```bash
-rsync -a msc:jobs/M17797-D7-scan4 ~/jobs/
-cat ~/jobs/M17797-D7-scan4/status.json                # DONE / FAILED + error
-cat ~/jobs/M17797-D7-scan4/outputs/suite2p_summary.json
-uv run raphael-imaging validate ~/jobs/M17797-D7-scan4/outputs   # NWB Inspector
+uv run raphael-imaging validate processed/{cohort}/sub-M…/day-…/   # NWB Inspector
 ```
 
 Open `qc/plane1_rois.png`. It shows every ROI on the mean image (green
