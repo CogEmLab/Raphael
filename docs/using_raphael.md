@@ -118,21 +118,12 @@ between projects. Each key is a variable (or `('P_x', 'P_y')`) mapping to
 
 ### B. Process raw data with Raphael's stages
 
-From the project checkout, so the job records the project's commit and
-`uv.lock`, and with the project's settings:
-
-```bash
-cd my-project
-uv run raphael-jobs make ~/jobs/sort-M25-D18 --stage kilosort4 \
-    --data-root /data --input raw/M25_D18_OF1 --input raw/M25_D18_OF2 \
-    --param mouse=25 --param day=18 --param "session_type=[OF1, OF2]" \
-    --param "session_start=[2026-11-03T14:05, 2026-11-03T14:50]" \
-    --config configs/ephys.yaml
-uv run raphael-jobs run ~/jobs/sort-M25-D18 --data-root /data    # or on the cluster
-```
-
-The outputs land in the processed tree that part A reads. The stages and
-the tree are described under [Processing raw data](#processing-raw-data).
+New data is processed through the data server: ingest files it and
+writes the plan, and the plan's jobs run on the cluster
+([processing.md](processing.md)). Make the jobs from the **project**
+checkout (`raphael-jobs make-batch … --configs configs/`), so they record
+the project's commit and `uv.lock` and use the project's settings. The
+outputs land in the processed tree that part A reads.
 
 ### C. Add the project's own stages
 
@@ -191,42 +182,13 @@ project from another.
 
 ## Processing raw data
 
-Heavy stages run as self-contained job bundles: made on a laptop, run on a
-cluster node, a GPU workstation or Colab, with inputs checksummed and the
-environment recorded. Run these from the **project** checkout, so the
-project's `uv.lock` and commit are what gets recorded.
-
-```bash
-uv run raphael-jobs gpu-check
-uv run raphael-jobs make JOB --stage kilosort4 --data-root DATA \
-    --input raw/M25_D18_OF1 --param session_start=2026-11-03T14:05 \
-    --config configs/ephys.yaml
-uv run raphael-jobs run JOB --data-root DATA      # or sbatch JOB/submit.slurm
-uv run raphael-jobs status JOBS
-```
-
-| Stage | What it does | Docs |
-|---|---|---|
-| `smoke` | proves a machine reads inputs, computes on its GPU and writes back | [cluster.md](cluster.md) |
-| `kilosort4` | a day's Neuropixels 2.0 recordings → Kilosort 4.0.16 per shank → bombcell curation → `_clusters.npz`, optional `_ecephys.nwb`, QC | [ephys_pipeline.md](ephys_pipeline.md), [ephys_walkthrough.md](ephys_walkthrough.md) |
-| `lfp` | LFP (1 kHz, depth-averaged blocks) and theta phase → `_lfp.nwb` (CPU job) | [ephys_pipeline.md](ephys_pipeline.md) |
-| `photometry` | Doric fibre photometry → `_photometry.nwb`, `.npz`, `.csv`, QC (CPU job) | [photometry_pipeline.md](photometry_pipeline.md) |
-| `suite2p` | two-photon movie → motion correction, ROIs, dF/F → `_ophys.nwb`, traces, ROI table, QC | [imaging_pipeline.md](imaging_pipeline.md), [imaging_walkthrough.md](imaging_walkthrough.md) |
-
-`raphael-imaging from-dandi` re-exports a public DANDI 000402 (MICrONS) file
-into the processed tree, as an end-to-end test of the imaging output, and
-`raphael-imaging validate` runs NWB Inspector over a tree.
-
-Every output lands in one tree, the same for every modality and project:
-
-```
-{root}/sub-M{mouse}/day-{dd}/ses-{session_type}/
-    sub-M{mouse}_day-{dd}_ses-{type}_beh.nwb            behaviour (project-written)
-    sub-..._srt-kilosort4_clusters.npz                    spikes, TsGroup + unit table
-    sub-..._lfp.nwb                                       LFP and theta phase
-    sub-..._src-suite2p_ophys.nwb / _traces.npz / _rois.csv
-    qc/
-```
+How raw data becomes processed, step by step, is
+[processing.md](processing.md): ingest, the plan, then batches on the
+cluster. Each stage's method is on its pipeline page
+([ephys](ephys_pipeline.md), [two-photon](imaging_pipeline.md),
+[one-photon](imaging_1p_pipeline.md), [photometry](photometry_pipeline.md),
+[DeepLabCut](behavioural_tracking.md#models-on-the-data-server)), and the
+bundles and their provenance are in [cluster.md](cluster.md).
 
 ### Cluster logins and provenance
 

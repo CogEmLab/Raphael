@@ -178,7 +178,7 @@ shared disk never holds much more at once.
 | `kilosort4` | CPU | 16 CPUs, 64 GB, 24 h (a first guess: check the first jobs' run time) |
 | `lfp` | CPU | 8 CPUs, 32 GB, 4 h |
 | `suite2p` | GPU (`a16`) | 8 CPUs, 32 GB, 2 h |
-| `cnmfe` | CPU | 16 CPUs; memory and hours from the movie ([msc_cluster.md](msc_cluster.md#10-process-an-inscopix-recording-with-cnmf-e)) |
+| `cnmfe` | CPU | 16 CPUs; memory and hours from the movie ([msc_cluster.md](msc_cluster.md#10-cnmf-e-on-msc)) |
 | `photometry` | CPU | 2 CPUs, 8 GB, 1 h |
 | `dlc_capture` | GPU (`a16`) | 8 CPUs, 32 GB, 8 h, one video per job |
 
@@ -285,25 +285,6 @@ uv run --frozen --no-sync raphael-jobs files $PLAN --batch 1 --data-root ~/data 
 
 Then the next batch, from 4.1. Copying batch 2 while batch 1 runs is fine
 as long as both fit on the disk (2 × 400 GB at most).
-
-## 5. One recording, by hand *(laptop, or cluster once the data is there)*
-
-For a single session (or one Neuropixels day), skip the plan:
-
-```bash
-uv run raphael-jobs make ~/jobs/one-job --data-root $RAW \
-    --input 2027-02_dHPC-test/sub-M20001/day-02/ses-OF1/sub-M20001_day-02_ses-OF1_ephys \
-    --input 2027-02_dHPC-test/sub-M20001/day-02/ses-OF2/sub-M20001_day-02_ses-OF2_ephys
-```
-
-`make` reads the inputs and fills in the stage (here `kilosort4`), the
-names, the start times (from the recording files or the session files), the
-subject, the resources and the stage config. Anything given on the command
-line wins: `--stage lfp`, `--param session_start=...`, `--mem-gb 96`.
-Then copy the bundle and its raw data to the cluster and submit it
-([msc_cluster.md](msc_cluster.md) section 8). Making a job reads every
-input for its checksum; for large recordings, copy the data first and make
-the job on the cluster.
 
 ## What you get
 
